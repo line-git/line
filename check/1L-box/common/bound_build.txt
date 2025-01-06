@@ -1,0 +1,3 @@
+MI0: [[[[loop, 1], [id, 1], [sym, s], [point, ini]]]]
+MI1: [[[[loop, 1], [id, 1], [sym, t], [point, ini]]]]
+MI2: []

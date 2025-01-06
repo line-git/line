@@ -1,0 +1,5 @@
+tot-branch: 1
+massless-branch: 0
+branches: [
+  s-(m1+m2+m3)^2,
+]

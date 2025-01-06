@@ -1,0 +1,15 @@
+# lines starting with '#' are comments
+work-dir: 1L-triangle-full # everything after a '#' is an in-line comment
+loops: 1
+order: 5
+precision: 16
+point: [
+       p12 = 1,
+       p22 = 2,
+       s = 3,
+       m12 = 100,
+       m22 = 100,
+       m32 = 100
+]
+exit-sing: 1
+gen-bound: 1

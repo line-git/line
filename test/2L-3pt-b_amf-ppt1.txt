@@ -1,0 +1,10 @@
+work-dir: 2L-QEDFFb
+loops: 2
+order: 6
+precision: 16
+point: [
+  s = 10,
+  m2 = 1
+]
+exit-sing: -1
+gen-bound: 1

@@ -1,0 +1,10 @@
+work-dir: 2L-sun-m
+loops: 2
+order: 5
+precision: 16
+point: [
+  s = -1,
+  m12 = 100
+]
+exit-sing: -1
+gen-bound: 1

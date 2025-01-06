@@ -1,0 +1,10 @@
+work-dir: 2L-box-u0
+loops: 2
+order: 5
+precision: 16
+point: [
+       s = 2,
+       t = -1,
+]
+exit-sing: 1
+gen-bound: 1

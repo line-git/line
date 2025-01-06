@@ -1,0 +1,15 @@
+external-momenta: [p1, p2]
+momentum-conservation: [p2, -p1]
+masses: []
+loop-momenta: [k1,k2]
+propagators: [
+ [k1, m12],
+ [k2-p1, m22],
+ [k1+k2, m32],
+ [k2, 0],
+ [k1+p1, 0]
+]
+kinematic-invariants: [s, m12, m22, m32]
+squared-momenta: [
+  [p1, s]
+]

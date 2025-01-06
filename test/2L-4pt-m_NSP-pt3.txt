@@ -1,0 +1,15 @@
+work-dir: 2L-box-ml-m
+loops: 2
+order: 5
+precision: 16
+exit-sing: 0
+point: [
+  s = 1885546007/2441441, 
+  t = -1885103397/2479562,
+  m2 = 331232931/6680570
+]
+starting-point: [
+  s = 1,
+  t = 2,
+  m2 = 100
+]

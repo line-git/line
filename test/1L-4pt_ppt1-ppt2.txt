@@ -1,0 +1,14 @@
+work-dir: 1L-box
+loops: 1
+order: 6
+precision: 16
+point: [
+  s = -11,
+  t = 5
+]
+starting-point: [
+  s = 1,
+  t = -3
+]
+exit-sing: 0
+gen-bound: 0

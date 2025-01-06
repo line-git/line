@@ -1,0 +1,22 @@
+work-dir: 1L-triangle-full
+loops: 1
+order: 6
+precision: 16
+point: [
+  s = 1,
+  p12 = 2,
+  p22 = -1/3,
+  m12 = 10,
+  m22 = 10,
+  m32 = 10
+]
+starting-point: [
+  s = 50,
+  p12 = 2,
+  p22 = -1/3,
+  m12 = 5,
+  m22 = 7,
+  m32 = 10
+]
+exit-sing: 0
+gen-bound: 0

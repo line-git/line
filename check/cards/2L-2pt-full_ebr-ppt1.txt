@@ -1,0 +1,18 @@
+work-dir: 2L-sun-full
+loops: 2
+order: 6
+precision: 16
+point: [
+  s = -1,
+  m12 = 2,
+  m22 = 3,
+  m32 = 5
+]
+starting-point: [
+  s = 0,
+  m12 = 10,
+  m22 = 10,
+  m32 = 10
+]
+exit-sing: 1
+gen-bound: 1

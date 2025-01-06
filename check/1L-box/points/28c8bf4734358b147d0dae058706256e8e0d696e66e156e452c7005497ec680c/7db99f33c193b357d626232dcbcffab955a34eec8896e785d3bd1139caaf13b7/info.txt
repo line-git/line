@@ -1,0 +1,6 @@
+point: [
+	s = 1,
+	t = -1
+]
+num-propag: 5
+num-sing-propag: 1

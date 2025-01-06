@@ -1,0 +1,16 @@
+work-dir: 2L-box-ml-m
+loops: 2
+order: 5
+precision: 16
+exit-sing: 0
+lin-mass: 0
+point: [
+  s = 1,
+  t = 2,
+  m2 = 0
+]
+starting-point: [
+  s = 1,
+  t = 2,
+  m2 = 100
+]

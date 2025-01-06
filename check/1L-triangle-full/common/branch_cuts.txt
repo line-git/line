@@ -1,0 +1,8 @@
+tot-branch: 3
+massless-branch: 0
+branches: [
+  s-(m1+m3)^2,
+  p12-(m1+m2)^2,
+  p22-(m2+m3)^2
+]
+

@@ -1,0 +1,16 @@
+work-dir: 2L-box-np-1m-2
+loops: 2
+order: 6
+precision: 16
+point: [
+  s = 2,
+  t = 10,
+  mt2 = 1
+]
+starting-point: [
+  s = 2,
+  t = 8,
+  mt2 = 1
+]
+exit-sing: 0
+gen-bound: 0

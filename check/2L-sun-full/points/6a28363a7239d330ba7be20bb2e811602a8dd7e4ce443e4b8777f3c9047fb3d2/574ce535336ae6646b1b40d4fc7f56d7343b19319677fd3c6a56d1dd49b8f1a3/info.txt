@@ -1,0 +1,8 @@
+point: [
+	s = 0,
+	m12 = 10,
+	m22 = 10,
+	m32 = 10
+]
+num-propag: 2
+num-sing-propag: 1

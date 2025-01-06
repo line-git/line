@@ -1,0 +1,9 @@
+MI0: [[[[loop, 1], [id, 0], [sym, m12], [point, ini]], [[loop, 1], [id, 0], [sym, m22], [point, ini]]]]
+MI1: [[[[loop, 1], [id, 0], [sym, m12], [point, ini]], [[loop, 1], [id, 0], [sym, m32], [point, ini]]]]
+MI2: [[[[loop, 1], [id, 0], [sym, m22], [point, ini]], [[loop, 1], [id, 0], [sym, m32], [point, ini]]]]
+# MI3: [[[[loop, 2], [id, 7], [sym, m12], [point, ini], [intargs, [1, 1, 1, 0, -2, 0]]]]]
+MI3: []
+MI4: []
+MI5: []
+MI6: [[[[loop, 2], [id, 7], [sym, m12], [point, ini], [intargs, [1, 1, 1, 0, 0, 0]]]]]
+

@@ -1,0 +1,4 @@
+num-eig: 1
+MI0: [[[eig, 0], [pow, 0]]]
+MI1: [[[eig, 0], [pow, 0]]]
+MI2: [[[eig, 0], [pow, 0]]]
