@@ -294,6 +294,19 @@ determine the list of required epsilon values (which depend on the
 inputs `order` and `precision`), you can use the `--eps-list` option to
 make `line` stop immediately after printing the epsilon list.
 
+For some of the provided examples, automated boundaries can be generated
+through **Expansion By Regions** (EBR) using `exit-sing: 1` in the input
+card. When doing so, if no `starting-point` is provided in the input
+card, the one specified in the file `work-dir/common/initial_point.txt`
+is used. The other relevant files in the `common/` directory to generate
+boundaries with EBR are:
+
+-   `bound_behav.txt`: specify power behaviors of the MIs around the
+    expansion point
+-   `bound_build.txt`: instruction to build leading coefficients of MIs
+    from simpler subtopologies (leading coefficients for the others are
+    automatically obtained when solving the DE)
+
 Please refer to the provided examples for the format of the input files
 located in the `work-dir/common/` directory.
 
