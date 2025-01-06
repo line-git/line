@@ -1,12 +1,12 @@
 # LINE: Loop Integrals Numerical Evaluation
 
 **LINE** (which stands for Loop Integrals Numerical Evaluation), is a
-tool to compute *Feynman integrals* by numerically solving differential
-equations via series expansion. **LINE** is written in `C` / `C++` and
-leverages the well-known **GMP** family of libraries for **arbitrary
-precision arithmetic**, aiming to achieve efficiency and accessibility
-in order to go beyond proof of concept and make large-scale cluster
-computations more feasible.
+tool to compute **Feynman integrals** by numerically solving
+differential equations via series expansion. **LINE** is written in `C`
+/ `C++` and leverages the well-known **GMP** family of libraries for
+**arbitrary precision arithmetic**, aiming to achieve efficiency and
+accessibility in order to go beyond proof of concept and make
+large-scale cluster computations more feasible.
 
 ## Dependencies
 
@@ -86,13 +86,13 @@ sudo make install
 The required libraries are `libcrypto` and `libssl`, which are part of
 OpenSSL.
 
-On **Linux**, you can install OpenSSL with:
+On **Linux**, OpenSSL can be installed with:
 
 ``` bash
 sudo apt-get install libssl-dev
 ```
 
-On **MacOs**, OpenSSL can be installed with **Homebrew**:
+On **MacOs**, you can install OpenSSL with **Homebrew**:
 
 ``` bash
 brew install openssl
@@ -101,9 +101,9 @@ brew install openssl
 ### Install Kira
 
 Kira can be installed following the instructions on the [project
-official git repository](https://gitlab.com/kira-pyred/kira).
-[Fermat](http://home.bway.net/lewis/) is required to run Kira. Make sure
-to set the environment variable `FERMATPATH` to indicate the path to the
+official git repository](https://gitlab.com/kira-pyred/kira). To run
+Kira, [Fermat](http://home.bway.net/lewis/) is required. Make sure to
+set the environment variable `FERMATPATH` to indicate the path to the
 Fermat executable, for instance adding:
 
 ``` bash
@@ -142,19 +142,20 @@ standard tests), run with the `--kira` option (or `-k` for short):
 ### More tests
 
 Further tests will be made available soon. At present, these files have
-not been included in this repository because the validation files used
-to verify the correctness of intermediate calculation results require
-significant storage space. To address this, a separate Git repository
-will be created to host these files. Users will be able to download the
-repository and integrate it as a Git submodule into their local setup.
-Stay tuned for updates on this resource.
+not been included in this repository because the DE matrices and the
+validation files used to verify the correctness of intermediate
+calculation results require significant storage space. To address this,
+a separate Git repository will be created to host these files. Users
+will be able to download the repository and integrate it as a Git
+submodule into their local setup. Stay tuned for updates on this
+resource.
 
 ## Usage
 
 **LINE** requires the following input files:
 
 -   The Differential Equation (DE) matrices.
--   The boundary value for the Master Integrals (MIs) to be propagated.
+-   The boundary values for the Master Integrals (MIs) to be propagated.
 -   Info about the branch cuts for the considered topology.
 -   An input card indicating the target point, the starting point, the
     required number of digits for the result as well as the number of
@@ -168,7 +169,7 @@ must also provide:
 -   Information about the topology.
 
 Note that if you do not have the DEs with respect to the kinematic
-invariants, the AMFlow method can still be used by providing only the
+invariants, the AMFlow method can still be used by providing the
 integrals you want to calculate in the list of MIs.
 
 ### Structure
@@ -262,8 +263,8 @@ You can run with:
 ./line -i path/to/input/card -r path/to/result/file > out.log
 ```
 
-To write the computed results to the cache folders (so that it can be
-later as a boundary for later propagations) use `--write 1` (`-w 1` for
+To write the computed results to the cache folders (so that they can be
+used as a boundary for later propagations) use `--write 1` (`-w 1` for
 short). If instead, for a given target point, you want to check that the
 result is in agreement with a previous run that used the same target but
 a different starting point, use `--write 0`.
