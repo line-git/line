@@ -115,10 +115,10 @@ etc.).
 
 ## Compile and check
 
-The source code can be compiled with `make`. A suit of light tests is
-provided in the `check/` folder to check that everything has been
-properly installed. The tests can be run through the script
-`check_run.sh`:
+The source code can be compiled with `make`, that produces the
+executable `line`. A suit of light tests is provided in the `check/`
+folder to check that everything has been properly installed. The tests
+can be run through the script `check_run.sh`:
 
 ``` bash
 make
@@ -138,6 +138,10 @@ standard tests), run with the `--kira` option (or `-k` for short):
 ``` bash
 ./chek_run.sh -k
 ```
+
+The script runs `line` using the input cards in the folder
+`check/test/`. Log files are generated and stored in the
+`check/test/log/` folder.
 
 ### More tests
 
@@ -278,15 +282,19 @@ containing files with the values of the MIs in several epsilon values:
 -   ...
 
 Each boundary file must be in the MPC format
-`(real-part imaginary-part)`. For instance, for a problem with 7 MIs:
+`(real-part imaginary-part)`. For instance, for the `1L-triangle-full`
+example listed above there are 7 MIs, whose boundary values in the point
+`s = 50`, `p12 = 2`, `p22 = -1/3`, `m12 = 5`, `m22 = 7`, `m32 = 10,` for
+the 1st epsilon value `101/61000`, are:
 
 ``` bash
-(3.01388546321267...521e3 0)  # boundary value for the 1st MI computed in 1st epsilon
-(4.21708961212546...355e3 0)  # boundary value for the 2nd MI computed in 1st epsilon
-(6.01659689683808...329e2 0)  # boundary value for the 3rd MI computed in 1st epsilon
-(6.02395241231279...583e2 2.00628403154449...309e0)  # ...
-(6.01249274999828...526e2 0)
-(-7.55253164143286...510e-2 -1.02172397265745...499e-1)
+(3.01388546321267...e3 0)  # boundary value for the 1st MI computed in 1st epsilon
+(4.21708961212546...e3 0)  # boundary value for the 2nd MI computed in 1st epsilon
+(6.02085700324664...e3 0)  # boundary value for the 3rd MI computed in 1st epsilon
+(6.01659689683808...e2 0)
+(6.02395241231279...e2 2.00628403154449...e0)
+(6.01249274999828...e2 0)
+(-7.55253164143286...e-2 -1.02172397265745...e-1)
 ```
 
 (digits are truncated with `...` just for ease of visualization). To
