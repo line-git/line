@@ -23,7 +23,8 @@ only with the versions listed above. Using different versions may lead
 to unexpected behavior or compatibility issues.
 
 Kira is only needed if the user wants to generate boundaries using the
-**LINE** implementation of the AMFlow method.
+**LINE** implementation of the
+[AMFlow](https://gitlab.com/multiloop-pku/amflow) method.
 
 ### Install GMP
 
@@ -257,20 +258,44 @@ short). If instead, for a given target point, you want to check that the
 result is in agreement with a previous run that used the same target but
 a different starting point, use `--write 0`.
 
+To use input boundary values for the MIs, use
+`--bound-dir path/to/bound/dir`, where `path/to/bound/dir` is a folder
+containing files with the values of the MIs in several epsilon values:
+
+-   `bound0.txt`: values of the MIs computed in the 1st epsilon values;
+-   `bound1.txt`: values of the MIs computed in the 2nd epsilon values;
+-   ...
+
+Each boundary file must be in the MPC format
+`(real-part imaginary-part)`. For instance, for a problem with 7 MIs:
+
+``` bash
+(3.01388546321267...521e3 0)  # boundary value for the 1st MI computed in 1st epsilon
+(4.21708961212546...355e3 0)  # boundary value for the 2nd MI computed in 1st epsilon
+(6.01659689683808...329e2 0)  # boundary value for the 3rd MI computed in 1st epsilon
+(6.02395241231279...583e2 2.00628403154449...309e0)  # ...
+(6.01249274999828...526e2 0)
+(-7.55253164143286...510e-2 -1.02172397265745...499e-1)
+```
+
+(digits are truncated with `...` just for ease of visualization). To
+determine the list of required epsilon values (which depend on the
+inputs `order` and `precision`), you can use the `--eps-list` option to
+make `line` stop immediately after printing the epsilon list.
+
 Please refer to the provided examples for the format of the input files
 located in the `work-dir/common/` directory.
 
-## Alpha Version and Future Improvements
+## Alpha version and future improvements
 
-This code is an alpha version of the tool, which focuses on providing a
-working implementation for the given examples. While functional, there
-is still significant room for improvement, particularly in terms of
+This code is an alpha version of the tool. While functional, there is
+still significant room for improvement, particularly in terms of
 efficiency, code compactness, and modularity. Many enhancements have
 already been conceptualized and a beta version including these
 improvements is expected to be released in the near future. Stay tuned
 for updates!
 
-## Reporting Issues
+## Reporting issues
 
 Please note that as this is an alpha version, the code may be prone to
 bugs. If you encounter any issues, we encourage you to [contact
@@ -286,7 +311,7 @@ If you use **LINE** in your work, please cite our paper:
 ------------------------------------------------------------------------
 
 R. M. Prisco, J. Ronca, F. Tramontano, *LINE: Loop Integrals Numerical
-Evaluation*
+Evaluation* - [arXiv:2501.01943](https://arxiv.org/abs/2501.01943)
 
 ------------------------------------------------------------------------
 

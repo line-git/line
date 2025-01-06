@@ -57,10 +57,12 @@ int main(int argc, char *argv[])
 	// variables for options
 	char *filepath_card = NULL;
 	char *dir_parent = strdup("app");
+	char *dir_bound = NULL;
 	char *dir_run = NULL;
 	char *filepath_result = NULL;
 	int opt_bar = 0;
 	int opt_one_eps = 0;
+	int opt_eps_list = 0;
 	int opt_checkpoint = 0;
 	int opt_write = -3;
 	int opt_kira_parallel = 1;
@@ -73,10 +75,12 @@ int main(int argc, char *argv[])
 	struct option long_options[] = {
 		{"input", required_argument, NULL, 'i'},
 		{"parent-dir", required_argument, NULL, 'p'},
+		{"bound-dir", required_argument, NULL, 0},
 		{"run-dir", required_argument, NULL, 0},
   	{"result-file", required_argument, NULL, 'r'},
   	{"bar", required_argument, NULL, 'b'},
 		{"one-eps", no_argument, NULL, 0},
+		{"eps-list", no_argument, NULL, 0},
 		{"write", required_argument, NULL, 'w'},
 		{"checkpoint", required_argument, NULL, 'c'},
 		{"kira-parallel", required_argument, NULL, 0},
@@ -123,12 +127,18 @@ int main(int argc, char *argv[])
         }
 				break;
 			case 0: // long options without a short version
-				if (strcmp("run-dir", long_options[long_index].name) == 0) {
+				if (strcmp("bound-dir", long_options[long_index].name) == 0) {
+					printf("Option --bound-dir has arg: %s\n", optarg);
+					dir_bound = strdup(optarg);
+				} else if (strcmp("run-dir", long_options[long_index].name) == 0) {
 					printf("Option --run-dir has arg: %s\n", optarg);
 					dir_run = strdup(optarg);
 				} else if (strcmp("one-eps", long_options[long_index].name) == 0) {
 					printf("Option --one-eps activated.\n");
 					opt_one_eps = 1;
+				} else if (strcmp("eps-list", long_options[long_index].name) == 0) {
+					printf("Option --eps-list activated.\n");
+					opt_eps_list = 1;
 				} else if (strcmp("kira-parallel", long_options[long_index].name) == 0) {
 					char *endptr;
 					long value = strtol(optarg, &endptr, 10);
@@ -439,6 +449,10 @@ int main(int argc, char *argv[])
     cout << eps_str[ep] << endl;
   }
 
+  if (opt_eps_list) {
+    exit(0);
+  }
+
   if (opt_all_eps == 0) {
     eps_num = 1;
   }
@@ -628,7 +642,10 @@ int main(int argc, char *argv[])
   join_path(&filepath_run_info, dir_run, (char*)"info.txt");
   join_path(&filepath_param, dir_input, (char*)"parameters.txt");
   join_path(&filepath_PS, dir_input, (char*)"PS_points.txt");
-  if (input_bound) {
+  if (dir_bound) {
+    if (dir_bound[strlen(dir_bound) -1] != '/') join_path(&dir_bound, dir_bound, (char*)"/");
+    join_path(&filepath_bound, dir_bound, (char*)"bound");
+  } else if (input_bound) {
     join_path(&filepath_bound, dir_common, (char*)"boundary/bound");
     // copy boundary into cache folder
     join_path(&tmp_filepath, dir_input, (char*)"boundary/");
