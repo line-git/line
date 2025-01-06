@@ -24,7 +24,7 @@ to unexpected behavior or compatibility issues.
 
 Kira is only needed if the user wants to generate boundaries using the
 **LINE** implementation of the
-[AMFlow](https://gitlab.com/multiloop-pku/amflow) method.
+[AMFlow](https://inspirehep.net/literature/1639025) method.
 
 ### Install GMP
 
