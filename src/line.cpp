@@ -217,7 +217,7 @@ int main(int argc, char *argv[])
   //////
   // PARENT FILE PATHS
   //////
-  cout << "open file card: " << filepath_card << endl;
+  cout << endl; cout << "open file card: " << filepath_card << endl;
   FILE *card_fptr = fopen(filepath_card, "r");
   if (card_fptr == NULL) {
     perror("error while opening file");
@@ -240,7 +240,7 @@ int main(int argc, char *argv[])
   char *tmp_filepath2 = (char*) malloc(MAX_PATH_LEN*sizeof(char));
 	char *dir_common = NULL;
 	join_path(&dir_common, dir_parent, (char*)"common/");
-	cout << endl; cout << "parent folder: " << dir_parent << endl;
+	cout << "parent folder: " << dir_parent << endl;
 	cout << "common dir: " << dir_common << endl;
 
   char *filepath_vars = NULL, *filepath_mats = NULL;
@@ -256,7 +256,7 @@ int main(int argc, char *argv[])
   int ninvs;
 	char **symbols;
 	load_symbols(&ninvs, &symbols, filepath_vars);
-	cout << endl; cout << "symbols: ";
+	cout << "symbols: ";
 	for (int s=0; s<=ninvs; s++) {
 		printf("%s, ", symbols[s]);
 	}
@@ -307,9 +307,9 @@ int main(int argc, char *argv[])
   // read branch cuts from file
   int nbranches;
   char **branch_cut_str;
-  cout << "reading " << filepath_branchcuts << endl;
+  cout << endl; cout << "reading " << filepath_branchcuts << endl;
   load_branch_expr_str(&nbranches, &branch_cut_str, linearize_mass, filepath_branchcuts);
-  cout << endl; cout << "BRANCH CUTS:" << endl;
+  cout << "BRANCH CUTS:" << endl;
   for (int b=0; b<nbranches; b++) {
     cout << branch_cut_str[b] << endl;
   }
@@ -319,6 +319,7 @@ int main(int argc, char *argv[])
   //////
 
   // EPSILON ABSOLUTE PRUNE
+  cout << endl;
   if (opt_prune_eps_abs_from_terminal == 0) {
     fseek(card_fptr, 0, SEEK_SET);
     if (!read_param_int(&opt_prune_eps_abs, (char*)"prune-eps-abs", card_fptr)) {
@@ -329,7 +330,6 @@ int main(int argc, char *argv[])
     }
   }
   int prune_eps_exp2 = opt_prune_eps_abs * log2(10);
-  cout << "prune_eps_exp2 = " << prune_eps_exp2 << endl;
 
   // EPSILON RELATIVE PRUNE
   if (opt_prune_eps_mode_from_terminal == 0) {
@@ -464,6 +464,7 @@ int main(int argc, char *argv[])
   // card_fptr = fopen(filepath_card, "r");
 
   // look for exit-sing option
+  cout << endl;
   int exit_sing;
   fseek(card_fptr, 0, SEEK_SET);
   if (!read_param_int(&exit_sing, (char*)"exit-sing", card_fptr)) {
@@ -731,19 +732,19 @@ int main(int argc, char *argv[])
   int *skip_inv = new int[ninvs];
   detect_active_invs(skip_inv, ninvs, PS_ini, PS_fin);
 
-  cout << endl; cout << "PHASE-SPACE LINE:" << endl;
-  cout << "initial point:" << endl;
-  for (int s=0; s<ninvs; s++) {
-    print_mpc(&PS_ini[s]); cout << endl;
-  }
-  cout << "final point:" << endl;
-  for (int s=0; s<ninvs; s++) {
-    print_mpc(&PS_fin[s]); cout << endl;
-  }
-  cout << endl; cout << "active invariants:" << endl;
-  for (int s=0; s<ninvs; s++) {
-    cout << "s: " << s << ", skip: " << skip_inv[s] << endl;
-  }
+  // cout << endl; cout << "PHASE-SPACE LINE:" << endl;
+  // cout << "initial point:" << endl;
+  // for (int s=0; s<ninvs; s++) {
+  //   print_mpc(&PS_ini[s]); cout << endl;
+  // }
+  // cout << "final point:" << endl;
+  // for (int s=0; s<ninvs; s++) {
+  //   print_mpc(&PS_fin[s]); cout << endl;
+  // }
+  // cout << endl; cout << "active invariants:" << endl;
+  // for (int s=0; s<ninvs; s++) {
+  //   cout << "s: " << s << ", skip: " << skip_inv[s] << endl;
+  // }
 
   // LINEARIZE MASSES
   linearize_masses_mpc(
@@ -773,13 +774,13 @@ int main(int argc, char *argv[])
 	}
 
 	struct poly_frac *pspf = new struct poly_frac[ninvs+1];
-	cout <<endl; cout << "PS pf:" << endl;
+	// cout <<endl; cout << "PS pf:" << endl;
 	for (int s=1; s<=ninvs; s++) {
-		cout << "s = " << s << endl;
-		cout << "skip_inv, is_mass = " << skip_inv[s-1] << ", " << is_mass[s-1] << endl;
+		// cout << "s = " << s << endl;
+		// cout << "skip_inv, is_mass = " << skip_inv[s-1] << ", " << is_mass[s-1] << endl;
 		poly_frac_build(&pspf[s]);
 		generate_PS_pf(&pspf[s], ep_kin, skip_inv[s-1], is_mass[s-1], s, 1, wp2);
-		poly_frac_print(&pspf[s]);
+		// poly_frac_print(&pspf[s]);
 	}
 
   //////
@@ -902,17 +903,16 @@ int main(int argc, char *argv[])
     ninvs, symbols, is_mass,
     skip_inv, ep_kin, pspf
   );
-  cout << endl; cout << num_branch_roots_tmp << " branch roots:" << endl;
-  print_poly(branch_roots_tmp, num_branch_roots_tmp-1);
-  cout << "branch sing labels:" << endl;
-  for (int b=0; b<nbranches; b++) {
-    for (int k=1; k<=branch_deg[b]; k++) {
-      cout << branch_sing_lab[b][k] << endl;
-    }
-  }
-
-  cout << endl; cout << nbranch_roots << " roots:" << endl;
-  print_poly(branch_roots, nbranch_roots-1);
+  // cout << endl; cout << num_branch_roots_tmp << " branch roots:" << endl;
+  // print_poly(branch_roots_tmp, num_branch_roots_tmp-1);
+  // cout << "branch sing labels:" << endl;
+  // for (int b=0; b<nbranches; b++) {
+  //   for (int k=1; k<=branch_deg[b]; k++) {
+  //     cout << branch_sing_lab[b][k] << endl;
+  //   }
+  // }
+  // cout << endl; cout << nbranch_roots << " roots:" << endl;
+  // print_poly(branch_roots, nbranch_roots-1);
 
   //////
   // LOAD BOUNDARY
@@ -1170,10 +1170,10 @@ int main(int argc, char *argv[])
     //////
     cout << endl; cout << "SELECT ETA-LESS MIs FROM SOLUTION" << endl;
     for (int m=0; m<dim_eta_less; m++) {
-      cout << "m, MI_idx = " << m << ", " << MI_idx[m] << endl;
+      // cout << "m, MI_idx = " << m << ", " << MI_idx[m] << endl;
       for (int ep=0; ep<eps_num; ep++) {
         mpc_set(sol_at_eps_wrt_cmp[m][ep], sol_at_eps[MI_idx[m]][ep], MPFR_RNDN);
-        print_mpc(&sol_at_eps_wrt_cmp[m][ep]); cout << endl;
+        // print_mpc(&sol_at_eps_wrt_cmp[m][ep]); cout << endl;
       }
     }
     dim_wrt_cmp = dim_eta_less;
@@ -1213,17 +1213,17 @@ int main(int argc, char *argv[])
     mpfr_init2(mpfr_tol_orig, wp2);
     mpfr_set(mpfr_tol_orig, mpfr_tol, MPFR_RNDN);
     mpfr_tol_set_wp(precision*2);
-    cout << endl; cout << "check with enlarged mpfr tol:" << endl;
-    mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
+    // cout << endl; cout << "check with enlarged mpfr tol:" << endl;
+    // mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
     
-    cout << endl; cout << "CHECK result..." << endl;
     join_path(&tmp_filepath, filepath_outer_sol, file_ext);
-    cout << "reading from " << tmp_filepath << endl;
+    cout << endl; cout << "reading from " << tmp_filepath << endl;
     int bench_eps_num = count_lines(tmp_filepath)/dim_wrt_cmp;
     mpc_t **bench_sol_at_eps;
     malloc_rk2_tens(bench_sol_at_eps, dim_wrt_cmp, bench_eps_num);
     init_rk2_mpc(bench_sol_at_eps, dim_wrt_cmp, bench_eps_num);
     mpc_rk2_from_file(tmp_filepath, bench_sol_at_eps, dim_wrt_cmp, bench_eps_num);
+    cout << "CHECK result..." << endl;
     mpc_t **bench_sol_at_eps_sliced;
     malloc_rk2_tens(bench_sol_at_eps_sliced, dim_wrt_cmp, eps_num);
     init_rk2_mpc(bench_sol_at_eps_sliced, dim_wrt_cmp, eps_num);
@@ -1378,20 +1378,20 @@ int main(int argc, char *argv[])
     dim_wrt_cmp = dim;
   }
 
-  if (opt_prune_eps_mode || exit_sing == -1) {
-    fprintf(logfptr, "\nEPSILON ORDERS (");
-    if (opt_prune_eps_mode) fprintf(logfptr, "pruned, ");
-    if (exit_sing == -1) fprintf(logfptr, "eta-less, ");
-    fprintf(logfptr, "):\n");
-    for (int i=0; i<dim_wrt_cmp; i++) {
-      fprintf(logfptr, "MI n. %d\n", i);
-      for (int ep=0; ep<=order+2*nloops; ep++) {
-        fprintf(logfptr, "eps^%d: ", ep - 2*nloops);
-        // fprintf(logfptr, "eps order %d\n", ep - 2*nloops + starting_ord[i]);
-        mpc_out_str(logfptr, 10, 0, sol_eps_ord_wrt_cmp[i][ep], MPFR_RNDN); fprintf(logfptr, "\n");
-      }
-    }
-  }
+  // if (opt_prune_eps_mode || exit_sing == -1) {
+  //   fprintf(logfptr, "\nEPSILON ORDERS (");
+  //   if (opt_prune_eps_mode) fprintf(logfptr, "pruned, ");
+  //   if (exit_sing == -1) fprintf(logfptr, "eta-less, ");
+  //   fprintf(logfptr, "):\n");
+  //   for (int i=0; i<dim_wrt_cmp; i++) {
+  //     fprintf(logfptr, "MI n. %d\n", i);
+  //     for (int ep=0; ep<=order+2*nloops; ep++) {
+  //       fprintf(logfptr, "eps^%d: ", ep - 2*nloops);
+  //       // fprintf(logfptr, "eps order %d\n", ep - 2*nloops + starting_ord[i]);
+  //       mpc_out_str(logfptr, 10, 0, sol_eps_ord_wrt_cmp[i][ep], MPFR_RNDN); fprintf(logfptr, "\n");
+  //     }
+  //   }
+  // }
 
   if (opt_write > 0 || opt_write == -2) {
     // cache file
@@ -1409,8 +1409,8 @@ int main(int argc, char *argv[])
     mpfr_set(mpfr_tol_orig, mpfr_tol, MPFR_RNDN);
     // mpfr_tol_set_wp(precision*2);
     mpfr_tol_set_wp(precision*1.2);
-    cout << endl; cout << "check with enlarged mpfr tol:" << endl;
-    mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
+    // cout << endl; cout << "check with enlarged mpfr tol:" << endl;
+    // mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
 
     cout << endl; cout << "CHECK interpolation..." << endl;
     mpc_t **bench_sol_eps_ord;

@@ -214,10 +214,8 @@ void int_rk1_compare_perm(
 
   if (!found_diff) {
     cout << "CHECK: PASS" << endl;
-    cout << endl;
   } else {
     cout << "CHECK: FAIL" << endl;
-    cout << endl;
     exit(1);
   }
 }
@@ -335,10 +333,8 @@ void mpc_rk1_compare_perm(
 
   if (!found_diff) {
     cout << "CHECK: PASS" << endl;
-    cout << endl;
   } else {
     cout << "CHECK: FAIL" << endl;
-    cout << endl;
     exit(1);
   }
 }
@@ -495,7 +491,6 @@ void poly_frac_rk2_compare(
     cout << "CHECK: PASS" << endl;
   } else {
     cout << "CHECK: FAIL" << endl;
-    cout << endl;
     exit(1);
   }
 }

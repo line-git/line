@@ -1636,10 +1636,10 @@ void poly_frac_rk2_prune(
   // int wp2_orig = wp2;
   mpfr_tol_enlarge(wp2_rel_decr);
 
-  cout << endl; cout << "pruning rk2 with:" << endl;
-  cout << "wp2_rel_decr_prune = " << wp2_rel_decr << endl;
-  cout << "wp2 = " << (int) (wp2_rel_decr * wp2) << endl;
-  cout << "tol: "; mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
+  // cout << endl; cout << "pruning rk2 with:" << endl;
+  // cout << "wp2_rel_decr_prune = " << wp2_rel_decr << endl;
+  // cout << "wp2 = " << (int) (wp2_rel_decr * wp2) << endl;
+  // cout << "tol: "; mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
 
   // prune elements
   for (int i1=0; i1<dim1; i1++) {

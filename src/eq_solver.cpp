@@ -940,12 +940,12 @@ void propagate_regular(
     // MATCH WITH NEXT ETA VALUE
     match_next_eta(eta_values, et, *solutions, dim, eta_ord);
 
-    cout << endl << "MI computed in eta_" << et+1 << ":" << endl;
-    for (int i=0; i<dim; i++) {
-      cout << "master n." << i << ": ";
-      print_mpc(&(*solutions)[i][0]);
-      cout << endl;
-    }
+    // cout << endl << "MI computed in eta_" << et+1 << ":" << endl;
+    // for (int i=0; i<dim; i++) {
+    //   cout << "master n." << i << ": ";
+    //   print_mpc(&(*solutions)[i][0]);
+    //   cout << endl;
+    // }
   }
   for (int b=0; b<nblocks; b++) {
     delete[] lcm[b];
@@ -5162,8 +5162,8 @@ void set_analytic_cont_sign(
   poly_eval(&zm, branch_poly, branch_deg, m1);
   poly_eval(&zp, branch_poly, branch_deg, m2);
 
-  cout << "zm = "; print_mpc(&zm); cout << endl;
-  cout << "zp = "; print_mpc(&zp); cout << endl;
+  // cout << "zm = "; print_mpc(&zm); cout << endl;
+  // cout << "zp = "; print_mpc(&zp); cout << endl;
 
   // mpc_set_si_si(zm, 1, 0, MPFR_RNDN);
   // mpc_arg(argzm, zm, MPFR_RNDN);
@@ -5210,8 +5210,8 @@ void set_analytic_cont_sign(
   //     mpfr_neg(argzp, argzp, MPFR_RNDN);
   //   }
   }
-  cout << "arg(zm) = "; mpfr_out_str(stdout, 10, 0, argzm, MPFR_RNDN); cout << endl;
-  cout << "arg(zp) = "; mpfr_out_str(stdout, 10, 0, argzp, MPFR_RNDN); cout << endl;
+  // cout << "arg(zm) = "; mpfr_out_str(stdout, 10, 0, argzm, MPFR_RNDN); cout << endl;
+  // cout << "arg(zp) = "; mpfr_out_str(stdout, 10, 0, argzp, MPFR_RNDN); cout << endl;
 
   mpfr_sub(argzm, argzm, argzp, MPFR_RNDN);
   if (mpfr_sign_within_tol(argzm) < 0) {
@@ -5249,7 +5249,7 @@ void propagate_infty(
   wp2_rel_decr *= wp2_rel_decr_orig;
   mpfr_tol_enlarge(wp2_rel_decr);
   // mpfr_to_gnc(&gnc_tol, &mpfr_tol);  // #uncomment-for-ginac
-  cout << "tol: "; mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
+  // cout << "tol: "; mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
 
   int wp_bin = - mpfr_log2_int(mpfr_tol);
 
@@ -5401,7 +5401,6 @@ void propagate_infty(
   //////
   // SOLVE AT INFINITY
   //////
-  cout << "SOLVE AT INFINITY" << endl;
   fprintf(terminal, "singular: "); fflush(terminal); usleep(sleep_time);
 
   // prune
@@ -5417,17 +5416,17 @@ void propagate_infty(
     &prof, &sb_grid, &nblocks,
     pfmat_infty, dim
   );
-  cout << endl; cout << "BLOCK PROFILE:" << endl;
-  int tmp_offset = 0;
-  for (int b=0; b<nblocks; b++) {
-    // select block
-    int b_len = prof[b][1] - prof[b][0] + 1;
-    // cout << "-------------------------" << endl;
-    cout << "b = " << b << ", ";
-    cout << "b_len = " << b_len << ", ";
-    cout << "offset = " << tmp_offset << endl;
-    tmp_offset += b_len;
-  }
+  // cout << endl; cout << "BLOCK PROFILE:" << endl;
+  // int tmp_offset = 0;
+  // for (int b=0; b<nblocks; b++) {
+  //   // select block
+  //   int b_len = prof[b][1] - prof[b][0] + 1;
+  //   // cout << "-------------------------" << endl;
+  //   cout << "b = " << b << ", ";
+  //   cout << "b_len = " << b_len << ", ";
+  //   cout << "offset = " << tmp_offset << endl;
+  //   tmp_offset += b_len;
+  // }
   if (print) {
   cout << endl; cout << "BLOCK GRID:" << endl;
   for (int b=0; b<nblocks; b++) {
@@ -5449,7 +5448,7 @@ void propagate_infty(
   mpc_t *eig_list;
   int *eq_class = new int[dim];
   int *eig_grid = new int[dim];
-  cout << "NORMALIZE AT INFINITY" << endl;
+  cout << endl; cout << "normalize at infinity..." << endl;
   pf_NormalizeMat(
     tmat, inv_tmat,
     &num_classes, eq_class, &eig_list, eig_grid,
@@ -5458,7 +5457,6 @@ void propagate_infty(
     roots_infty, nroots,
     terminal
   );
-  cout << "done normalize" << endl;
   if (print) {
   cout << "tmat=";
   poly_frac_rk2_print_to_math(tmat, dim, dim, roots_infty);
@@ -5542,6 +5540,7 @@ void propagate_infty(
   mpc_t *PS_fin = new mpc_t[1];
   mpc_init3(PS_fin[0], wp2, wp2);
   mpc_set_ui(PS_fin[0], 1, MPFR_RNDN);
+  cout << "singular propagation at infinity..." << endl;
   solve_zero(
     solutions,
     dim, pfmat_infty,
@@ -5672,7 +5671,7 @@ void propagate_along_path(
 
   int solve_tag, count_sings = 0, nreg_steps = 1;
 
-  fprintf(logfptr, "{\n");
+  // fprintf(logfptr, "{\n");
   for (int et=0; et<neta_values; et++) {
     if (et  > 0) {fprintf(terminal, "\033[23D\033[K");}// fflush(terminal); usleep(sleep_time);}
     fprintf(terminal, "path point %3d /%3d... ", et, neta_values-1); fflush(terminal); usleep(sleep_time);
@@ -5696,32 +5695,31 @@ void propagate_along_path(
     // if (path_tags[et] == 0) {
     //   continue;
     // }
-    fprintf(logfptr, "{\n");
-    for (int s=0; s<ninvs; s++) {
-      mpc_sub(tmpc, PS_fin[s], PS_ini[s], MPFR_RNDN);
-      mpc_fma(tmpc, path[et], tmpc, PS_ini[s], MPFR_RNDN);
-      fprintf(logfptr, "%s", symbols[s+1]);
-      if (is_mass[s]) {
-        // fprintf(logfptr, "2");
-        mpc_sqr(tmpc, tmpc, MPFR_RNDN);
-      }
-      fprintf(logfptr, " -> ");
-      mpfr_out_str(logfptr, 10, 0, mpc_realref(tmpc), MPFR_RNDN);
-      cout << " + I*(";
-      mpfr_out_str(logfptr, 10, 0, mpc_imagref(tmpc), MPFR_RNDN);
-      cout << ")";
-      if (s < ninvs-1) {
-        fprintf(logfptr, ",");
-      }
-      fprintf(logfptr, "\n");
-    }
-    fprintf(logfptr, "}");
-    if (et < neta_values-1) {
-      fprintf(logfptr, ",");
-    }
-    fprintf(logfptr, "\n");
+    // fprintf(logfptr, "{\n");
+    // for (int s=0; s<ninvs; s++) {
+    //   mpc_sub(tmpc, PS_fin[s], PS_ini[s], MPFR_RNDN);
+    //   mpc_fma(tmpc, path[et], tmpc, PS_ini[s], MPFR_RNDN);
+    //   fprintf(logfptr, "  %s", symbols[s+1]);
+    //   if (is_mass[s]) {
+    //     // fprintf(logfptr, "2");
+    //     mpc_sqr(tmpc, tmpc, MPFR_RNDN);
+    //   }
+    //   fprintf(logfptr, " -> ");
+    //   mpfr_out_str(logfptr, 10, 0, mpc_realref(tmpc), MPFR_RNDN);
+    //   cout << " + I*(";
+    //   mpfr_out_str(logfptr, 10, 0, mpc_imagref(tmpc), MPFR_RNDN);
+    //   cout << ")";
+    //   if (s < ninvs-1) {
+    //     fprintf(logfptr, ",");
+    //   }
+    //   fprintf(logfptr, "\n");
+    // }
+    // fprintf(logfptr, "}");
+    // if (et < neta_values-1) {
+    //   fprintf(logfptr, ",");
+    // }
+    // fprintf(logfptr, "\n");
     fflush(logfptr);
-    // continue;
 
     // process tag
     if (path_tags[et] == 0) {
@@ -5767,7 +5765,7 @@ void propagate_along_path(
     } else if (solve_tag == 0) {
       fprintf(terminal, "singular: "); fflush(terminal); usleep(sleep_time);
       // update tolerance
-      cout << endl; cout << "update tol" << endl;
+      // cout << endl; cout << "update tol" << endl;
       // mpfr_mul_d(mpfr_tol, mpfr_tol, 1e30, MPFR_RNDN);
       // gnc_tol *= 1e30;
       wp2_rel_decr *= wp2_rel_decr_orig;
@@ -5775,11 +5773,11 @@ void propagate_along_path(
       // cout << "wp2_rel_decr = " << wp2_rel_decr << endl;
       mpfr_tol_enlarge(wp2_rel_decr);
       // mpfr_to_gnc(&gnc_tol, &mpfr_tol);  // #uncomment-for-ginac
-      cout << "tol: "; mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
+      // cout << "tol: "; mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
       
       // int wp_bin = - mpfr_log2_int(mpfr_tol);
 
-      cout << endl; cout << "sing. point = "; print_mpc(&roots[sing_lab[count_sings]]); cout << endl;
+      // cout << endl; cout << "sing. point = "; print_mpc(&roots[sing_lab[count_sings]]); cout << endl;
       //////
       // SINGULAR PROPAGATION
       //////
@@ -5796,8 +5794,8 @@ void propagate_along_path(
       }
 
       // # SET ANALYTIC CONTINUATION
-      cout << endl; cout << "set analytic continuation sign..." << endl;
-      cout << "sing lab: " << sing_lab[count_sings] << endl;
+      // cout << endl; cout << "set analytic continuation sign..." << endl;
+      // cout << "sing lab: " << sing_lab[count_sings] << endl;
       if (crossl == 1) {
         mpc_set(m1, path[et-1], MPFR_RNDN);
       } else {
@@ -5812,8 +5810,8 @@ void propagate_along_path(
         mpc_sub(m2, path[et], path[et-1], MPFR_RNDN);
         mpc_add(m2, path[et], m2, MPFR_RNDN);          
       }
-      cout << "m1 = "; print_mpc(&m1); cout << endl;
-      cout << "m2 = "; print_mpc(&m2); cout << endl;
+      // cout << "m1 = "; print_mpc(&m1); cout << endl;
+      // cout << "m2 = "; print_mpc(&m2); cout << endl;
 
       // if (cross == 1) {
       //   mpc_set(m1, path[et-1], MPFR_RNDN);
@@ -5837,7 +5835,7 @@ void propagate_along_path(
           if (branch_sing_lab[b][k] == sing_lab[count_sings]) {
             // this is a branch point
             found_branch = 1;
-            cout << "BRANCH POINT" << endl;
+            // cout << "BRANCH POINT" << endl;
             set_analytic_cont_sign(
               &analytic_cont[count_sings],
               &m1, &m2, branch_deg[b], branch_poly[b]
@@ -5850,12 +5848,12 @@ void propagate_along_path(
         analytic_cont[count_sings] = 1;
       }
       // analytic_cont[count_sings] *= -1;
-      cout << "analytic continuation sign: " << analytic_cont[count_sings] << endl;
+      // cout << "analytic continuation sign: " << analytic_cont[count_sings] << endl;
 
       // # SHIFT MATRIX AND POLES
       // cout << "unshifted matrix:" << endl;
       // poly_frac_rk2_print(pfmat, dim, dim);
-      cout << "shift by " << endl; print_mpc(&roots[sing_lab[count_sings]]); cout << endl;
+      // cout << "shift by " << endl; print_mpc(&roots[sing_lab[count_sings]]); cout << endl;
       rel_err_center_around_pole(
         sh_pfmat, sh_roots,
         pfmat, roots, sing_lab[count_sings],
@@ -5971,7 +5969,7 @@ void propagate_along_path(
       }
       }
       // # SOLVE
-      fprintf(logfptr, "\nsingular propagation...\n");
+      fprintf(logfptr, "singular propagation...\n");
       int try_analytic = 0;
       // if (et == 0) {try_analytic = 1;}
       solve_zero(
@@ -6153,17 +6151,17 @@ void propagate_all_eps(
       &prof, &sb_grid, &nblocks,
       pfmat[ep], dim
       );
-    cout << endl; cout << "BLOCK PROFILE:" << endl;
-    int tmp_offset = 0;
-    for (int b=0; b<nblocks; b++) {
-      // select block
-      int b_len = prof[b][1] - prof[b][0] + 1;
-      // cout << "-------------------------" << endl;
-      cout << "b = " << b << ", ";
-      cout << "b_len = " << b_len << ", ";
-      cout << "offset = " << tmp_offset << endl;
-      tmp_offset += b_len;
-    }
+    // cout << endl; cout << "BLOCK PROFILE:" << endl;
+    // int tmp_offset = 0;
+    // for (int b=0; b<nblocks; b++) {
+    //   // select block
+    //   int b_len = prof[b][1] - prof[b][0] + 1;
+    //   // cout << "-------------------------" << endl;
+    //   cout << "b = " << b << ", ";
+    //   cout << "b_len = " << b_len << ", ";
+    //   cout << "offset = " << tmp_offset << endl;
+    //   tmp_offset += b_len;
+    // }
     if (print) {
     cout << endl; cout << "BLOCK GRID:" << endl;
     for (int b=0; b<nblocks; b++) {

@@ -2,7 +2,7 @@
 
 **LINE** (which stands for Loop Integrals Numerical Evaluation), is a
 tool to compute *Feynman integrals* by numerically solving differential
-equations via series expansion. **LINE** is mostly written in `C` and
+equations via series expansion. **LINE** is written in `C` / `C++` and
 leverages the well-known **GMP** family of libraries for **arbitrary
 precision arithmetic**, aiming to achieve efficiency and accessibility
 in order to go beyond proof of concept and make large-scale cluster
@@ -138,6 +138,16 @@ standard tests), run with the `--kira` option (or `-k` for short):
 ``` bash
 ./chek_run.sh -k
 ```
+
+### More tests
+
+Further tests will be made available soon. At present, these files have
+not been included in this repository because the validation files used
+to verify the correctness of intermediate calculation results require
+significant storage space. To address this, a separate Git repository
+will be created to host these files. Users will be able to download the
+repository and integrate it as a Git submodule into their local setup.
+Stay tuned for updates on this resource.
 
 ## Usage
 

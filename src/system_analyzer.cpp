@@ -300,8 +300,8 @@ void process_branch_points(
   mpfr_t *single_branch_tols;
   *num_branch_roots = 0;
   for (int b=0; b<nbranches; b++) {
-    cout << "b = " << b << endl;
-    cout << "branch cut:" << branch_cut_str[b] << endl;
+    // cout << "b = " << b << endl;
+    // cout << "branch cut:" << branch_cut_str[b] << endl;
 
     // parse expression
     lnode_free(&nd);
@@ -563,19 +563,19 @@ void wrt_cmp_DE(
       // cout << endl; cout << "pre-enlarged mpfr tol:" << endl;
       // mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
       mpfr_tol_enlarge(wp2_rel_decr);
-      cout << endl; cout << "check with enlarged mpfr tol:" << endl;
-      mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
+      // cout << endl; cout << "check with enlarged mpfr tol:" << endl;
+      // mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
 
       // ROOTS
       mpc_t *bench_roots;
       int bench_nroots, bench_zero_label;
-      cout << endl; cout << "CHECK roots..." << endl;
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_roots, ep, file_ext);
-      cout << "reading mpc_t roots from file " << tmp_filepath << endl;
+      cout << endl; cout << "reading mpc_t roots from file " << tmp_filepath << endl;
       bench_nroots = count_lines(tmp_filepath) - 1;
       bench_roots = new mpc_t[bench_nroots];
       init_rk1_mpc(bench_roots, bench_nroots);
       int_rk0_mpc_rk1_from_file(tmp_filepath, bench_roots, bench_nroots, &bench_zero_label);
+      cout << "CHECK roots..." << endl;
       if (bench_nroots != nroots[ep]) {
         cout << "CHECK: FAIL" << endl;
         cout << "nroots = " << nroots[ep] << endl;
@@ -601,10 +601,10 @@ void wrt_cmp_DE(
       struct poly_frac **bench_pfmat;
       malloc_rk2_tens(bench_pfmat, dim, dim);
       poly_frac_rk2_build(bench_pfmat, dim, dim);
-      cout << "CHECK pfmat..." << endl;
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_matrix, ep, file_ext);
       cout << endl; cout << "reading poly_frac DE from file " << tmp_filepath << endl;
       poly_frac_rk2_from_file(tmp_filepath, bench_pfmat, dim, dim);
+      cout << "CHECK pfmat..." << endl;
       poly_frac_rk2_perm_roots(bench_pfmat, perm[ep], dim, dim);
       poly_frac_rk2_prune(bench_pfmat, dim, dim, wp2_rel_decr);
       poly_frac_rk2_normal(bench_pfmat, dim, dim);
@@ -719,7 +719,7 @@ void generate_poly_frac_DE(
   //////
   // DECODE
   //////
-  cout << endl; cout << "DECODING..." << endl;
+  cout << "DECODING..." << endl;
   // int nroots_ini = *nroots;
 
   fprintf(terminal, "process mat: "); fflush(terminal); usleep(sleep_time);
@@ -729,7 +729,7 @@ void generate_poly_frac_DE(
     fprintf(stdout, "\n############################################## ep = %d\n", ep);
 		
 		ep_kin[0][0] = strdup(eps_str[ep]);
-		cout << "eps = " << ep_kin[0][0] << endl;
+		// cout << "eps = " << ep_kin[0][0] << endl;
 		poly_frac_build(&pspf[0]);
 		generate_PS_pf(&pspf[0], ep_kin, 0, 0, 0, 1, wp2);
 		// cout << "eps pf:" << endl;

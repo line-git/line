@@ -1659,7 +1659,7 @@ void load_branch_expr_str(
   } else {
     read_param_int(nexpr, (char*)"massless-branch", file);
   }
-  cout << "nexpr = " << *nexpr << endl;
+  // cout << "nexpr = " << *nexpr << endl;
 
 	// allocate memory for the symbols array
 	*expr = (char**) malloc((*nexpr)*sizeof(char*));
@@ -1957,7 +1957,7 @@ void get_path_PS(
 
   */
 
-  int print = 1;
+  int print = 0;
 
   if (zero_label == -1) {
     roots++;
@@ -2393,7 +2393,7 @@ void get_path_PS(
       );
       (*path_tags)[offset+i] = tags[s][i];
       if (print) cout << offset+i << ": ";
-      if (print) cout << (*path_tags)[offset+i] << ", "; print_mpc(&((*path)[offset+i])); cout << endl;
+      if (print) {cout << (*path_tags)[offset+i] << ", "; print_mpc(&((*path)[offset+i])); cout << endl;}
       if (print) printf(" double: (%.27g %.27g)\n", int_points[s][i].real(), int_points[s][i].imag());
     }
 
@@ -2650,10 +2650,9 @@ void wrt_cmp_path(
       cout << "writing to " << tmp_filepath << endl;
       int_rk1_to_file(tmp_filepath, sing_lab[ep], nsings[ep]);
     } else {
-      // COMPARE PATH POINTS
-      cout << endl; cout << "CHECK path..." << endl;
+      // COMPARE PATH POINTS      
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_path, ep, file_ext);
-      cout << "reading path points from file " << tmp_filepath << endl;
+      cout << endl; cout << "reading path points from file " << tmp_filepath << endl;
       mpc_t *bench_path;
       int bench_neta_values = count_lines(tmp_filepath);
       if (bench_neta_values != neta_values[ep]) {
@@ -2665,20 +2664,21 @@ void wrt_cmp_path(
       bench_path = new mpc_t[bench_neta_values];
       init_rk1_mpc(bench_path, bench_neta_values);
       mpc_rk1_from_file(tmp_filepath, bench_path, bench_neta_values);
+      cout << "CHECK path..." << endl;
       mpc_rk1_compare_double(bench_path, path[ep], neta_values[ep]);
 
       // COMPARE PATH TAGS
-      cout << "CHECK path tags..." << endl;
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_path_tags, ep, file_ext);
       cout << "reading path tags from file " << tmp_filepath << endl;
       int *bench_path_tags = new int[neta_values[ep]];
       int_rk1_from_file(tmp_filepath, bench_path_tags, neta_values[ep]);
+      cout << "CHECK path tags..." << endl;
       int_rk1_compare(bench_path_tags, path_tags[ep], neta_values[ep]);
 
       // COMPARE SINGULAR LABELS
       // permutation of roots is needed in order to compare singular labels
-      cout << "CHECK sing labs..." << endl;
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_sing_lab, ep, file_ext);
+      cout << "reading sing labs from file " << tmp_filepath << endl;
       int bench_nsings, *bench_sing_lab;
       bench_nsings = count_lines(tmp_filepath);
       if (bench_nsings != nsings[ep]) {
@@ -2689,6 +2689,7 @@ void wrt_cmp_path(
       }
       bench_sing_lab = new int[bench_nsings];
       int_rk1_from_file(tmp_filepath, bench_sing_lab, bench_nsings);
+      cout << "CHECK sing labs..." << endl;
       int_rk1_compare_perm(perm[ep], bench_sing_lab, sing_lab[ep], nsings[ep]);
     }
   }

@@ -782,14 +782,14 @@ int pfaclist_split(
         remove_fac = 1;
       } else {
         // split factor
-        cout << "factor before split:" << endl;
-        pfac_print(pfacl->fac);
+        // cout << "factor before split:" << endl;
+        // pfac_print(pfacl->fac);
         pfac_split_pfac(pfacl, fac->deg, fac->coeffs, is_in);
-        cout << "factors after split:" << endl;
-        pfac_print(pfacl->fac);
-        pfac_check(pfacl->fac, roots);
-        pfac_print(fac);
-        pfac_check(fac, roots);
+        // cout << "factors after split:" << endl;
+        // pfac_print(pfacl->fac);
+        // pfac_check(pfacl->fac, roots);
+        // pfac_print(fac);
+        // pfac_check(fac, roots);
         
         // recursively split new factor list
         pfaclist_split(facs, pfacl->fac, roots);
@@ -1344,11 +1344,11 @@ int denom_coeffs_to_facs(
     if (pfaclist_split(facs, pfacl->fac, *roots)) {
       return 1;
     } else {
-      cout << "new factor: nfacs = " << facs->nfacs << endl;
-      pfac_print(pfacl->fac);
-      pfac_check(pfacl->fac, *roots);
-      cout << "cumulated roots: nroots = " << *nroots << endl;
-      print_poly(*roots, *nroots-1);
+      // cout << "new factor: nfacs = " << facs->nfacs << endl;
+      // pfac_print(pfacl->fac);
+      // pfac_check(pfacl->fac, *roots);
+      // cout << "cumulated roots: nroots = " << *nroots << endl;
+      // print_poly(*roots, *nroots-1);
       return 0;
     };
   }
@@ -1445,14 +1445,14 @@ int denom_coeffs_to_facs(
     root_prof, deg, *nroots
   );
 
-  cout << "new factor: nfacs = " << facs->nfacs << endl;
-  pfac_print(pfacl->fac);
-  pfac_check(pfacl->fac, *roots);
-  cout << "cumulated roots: nroots = " << *nroots << endl;
-  print_poly(*roots, *nroots-1);
+  // cout << "new factor: nfacs = " << facs->nfacs << endl;
+  // pfac_print(pfacl->fac);
+  // pfac_check(pfacl->fac, *roots);
+  // cout << "cumulated roots: nroots = " << *nroots << endl;
+  // print_poly(*roots, *nroots-1);
 
-  cout << "den:" << endl;
-  pden_print(den);
+  // cout << "den:" << endl;
+  // pden_print(den);
 
   return 0;
 
@@ -2179,14 +2179,14 @@ void kira_to_DE_pf(
   char *tmp_str = NULL;
   size_t len = 0;
   char *line = NULL;
-  cout << "reading Kira results from " << kira_results_filepath << endl;
+  cout << endl; cout << "reading Kira results from " << kira_results_filepath << endl;
   FILE *fptr = fopen(kira_results_filepath, "r");
   int mi_idx, mi_count, c = 0, line_count = 0;
   int topo_len = strlen(topo_name);
 
   int max_num_contr = LI_get_r(&MI_eta[dim_eta-1]);
   // max_num_contr = 7;  // debug
-  cout << "max_num_contr = " << max_num_contr << endl;
+  // cout << "max_num_contr = " << max_num_contr << endl;
   lnode_pf ***der_ndpf;
   malloc_rk3_tens(der_ndpf, dim_eta, max_num_contr, dim_eta);
   // initialize to zero every possible contribution
@@ -2249,7 +2249,7 @@ void kira_to_DE_pf(
   //////
   // READ KIRA RESULTS FILE AND EXTRACT COEFFICIENT TREES
   //////
-  cout << "READ KIRA RESULTS FILE AND EXTRACT COEFFICIENT TREES" << endl;
+  cout << endl; cout << "READ KIRA RESULTS FILE AND EXTRACT COEFFICIENT TREES" << endl;
   struct lnode nd; lnode_build(&nd);
   fprintf(terminal, "process Kira results: "); fflush(terminal); usleep(sleep_time);
   for (int m=0; m<dim_eta; m++) {
@@ -2585,7 +2585,7 @@ void kira_to_DE_pf(
     fprintf(stdout, "\n############################################## ep = %d\n", ep);
 
 		ep_kin[0][0] = strdup(eps_str[ep]);
-		cout << "eps = " << ep_kin[0][0] << endl;
+		// cout << "eps = " << ep_kin[0][0] << endl;
 		poly_frac_build(&pspf[0]);
 		generate_PS_pf(&pspf[0], ep_kin, 0, 0, 0, 1, wp2);
 
@@ -2693,7 +2693,7 @@ void kira_to_DE_pf(
       if (m > 0) {fprintf(terminal, "\033[15D\033[K");}// fflush(terminal); usleep(sleep_time);}
       fprintf(terminal, "MI %3d /%3d... ", m, dim_eta); fflush(terminal); usleep(sleep_time);
       // CONVERT DERIVATIVE CONTRIBUTIONS
-      cout << "CONVERT DERIVATIVE CONTRIBUTIONS" << endl;      
+      // cout << "CONVERT DERIVATIVE CONTRIBUTIONS" << endl;      
       for (int d=0; d<MI_eta[m].nmass; d++) {
         for (int n=0; n<dim_eta; n++) {
           if (dbg) {break;}
@@ -2977,7 +2977,7 @@ void kira_to_DE_pf(
       
 
       // group denominator roots into factors
-      cout << "group denominator roots into factors" << endl;
+      // cout << "group denominator roots into factors" << endl;
       // if (m >= m_pfc_start) {print = 1;}
       for (int d=0; d<MI_eta[m].nmass; d++) {
         for (int n=0; n<dim_eta; n++) {
@@ -3068,7 +3068,7 @@ void kira_to_DE_pf(
       //////
       // SUM TOGETHER DERIVATIVE CONTRIBUTIONS
       //////      
-      cout << "SUM TOGETHER DERIVATIVE CONTRIBUTIONS" << endl;
+      // cout << "SUM TOGETHER DERIVATIVE CONTRIBUTIONS" << endl;
       for (int n=0; n<dim_eta; n++) {
         rpfrac_build(&rpf_mat[m][n]);
         rpfrac_set_zero(&rpf_mat[m][n]);
@@ -3439,7 +3439,7 @@ void call_kira(
   nlist ext_mom_nl, loop_mom_nl, mass_nl, prop_nl, mom_cons_nl, sq_mom_nl, kin_inv_nl;
   FILE *fptr = fopen(topo_filepath, "r");
 
-  cout << "read topology from " << topo_filepath << endl;
+  cout << endl; cout << "read topology from " << topo_filepath << endl;
   nlist_read_file(&ext_mom_nl, (char*)"external-momenta", fptr);
   cout << ext_mom_nl.nitems << " external momenta: ";
   for (int p=0; p<ext_mom_nl.nitems; p++) {cout << ext_mom_nl.item[p].str << ", ";} cout << endl;
@@ -3529,7 +3529,7 @@ void call_kira(
   // DEFINE MIs
   char *MIs_filepath = NULL;
   join_path(&MIs_filepath, dir_common, (char*)"MIs.txt");
-  cout << "reading MIs without eta from " << MIs_filepath << endl;
+  cout << endl; cout << "read MIs without eta from " << MIs_filepath << endl;
 
   LI *MI = NULL;
   LI_rk1_from_file(MIs_filepath, &MI, dim, (char*)"MI");
@@ -3539,7 +3539,7 @@ void call_kira(
   // identify numerator ISP
   int *nISP = new int[prop_nl.nitems];
   LI_rk1_get_nISP(nISP, MI, *dim);
-  cout << "numerator ISP: [";
+  cout << "numerator ISPs: [";
   for (int i=0; i<prop_nl.nitems; i++) {
     cout << nISP[i] << ", ";
   }
@@ -3547,7 +3547,7 @@ void call_kira(
 
   // LOAD FIXED KINEMATICS
   mpq_t *PS = new mpq_t[ninvs];
-  cout << "eta-less point:" << endl;
+  cout << endl; cout << "eta-less point: [" << endl;
   for (int s=0; s<ninvs; s++) {
     mpq_init(PS[s]);
     if (strchr(kin[s], (".")[0])) {
@@ -3575,8 +3575,9 @@ void call_kira(
       }
     }
 
-    cout << inv_sym[s] << " = "; mpq_out_str(stdout, 10, PS[s]); cout << endl;
+    cout << "  " << inv_sym[s] << " = "; mpq_out_str(stdout, 10, PS[s]); cout << endl;
   }
+  cout << "]" << endl;
 
   //////
   // WRITE KIRA INPUT
@@ -3590,6 +3591,7 @@ void call_kira(
   // write MIs as preferred for Kira
   char *preferred_filepath = NULL;
   join_path(&preferred_filepath, dir_kira, (char*)"preferred");
+  cout << endl;
   cout << "writing eta-less MIs to " << preferred_filepath << endl;
   LI_rk1_to_file(preferred_filepath, MI, *dim, topo_name);
 
@@ -3749,19 +3751,22 @@ void call_kira(
       command, MAX_VALUE_LEN*sizeof(char),
       "cd %s && rm -rf results/ sectormappings/ tmp/; cd -", dir_kira
     );
-    cout << "executing shell command: " << endl; cout << "  $ " << command << endl;
+    cout << endl; cout << "executing shell command: " << endl; cout << "  $ " << command << endl;
+    cout << endl;
     system(command);
     snprintf(
       command, MAX_VALUE_LEN*sizeof(char),
       "cd %s && kira --parallel=%d jobs_MIs-eta.yaml; cd -", dir_kira, opt_kira_parallel
     );
-    cout << "executing shell command: " << endl; cout << "  $ " << command << endl;
+    cout << endl; cout << "executing shell command: " << endl; cout << "  $ " << command << endl;
+    cout << endl;
     system(command);
     snprintf(
       command, MAX_VALUE_LEN*sizeof(char),
       "cp %s %s", kira_MIs_eta_filepath, MIs_eta_filepath
     );
-    cout << "executing shell command: " << endl; cout << "  $ " << command << endl;
+    cout << endl; cout << "executing shell command: " << endl; cout << "  $ " << command << endl;
+    cout << endl;
     system(command);
     fprintf(terminal, "\033[25D\033[K"); fflush(terminal); usleep(sleep_time);
   }
@@ -3773,8 +3778,8 @@ void call_kira(
 
   LI *MI_eta_tmp = NULL;
   LI_rk1_from_file(MIs_eta_filepath, &MI_eta_tmp, dim_eta, topo_name);
-  cout << "unsorted:" << endl;
-  LI_rk1_pows_print(MI_eta_tmp, *dim_eta);
+  // cout << "unsorted:" << endl;
+  // LI_rk1_pows_print(MI_eta_tmp, *dim_eta);
 
   // SORT MIs
   if (*MI_eta) {
@@ -3782,7 +3787,7 @@ void call_kira(
   }
   *MI_eta = NULL;
   LI_rk1_qsort(MI_eta, MI_eta_tmp, *dim_eta);
-  cout << "sorted:" << endl;
+  cout << endl; cout << "MIs with auxiliary mass" << endl;
   LI_rk1_pows_print(*MI_eta, *dim_eta);
 
   // STORE INDICES OF eta-LESS MIs
@@ -3795,6 +3800,7 @@ void call_kira(
   char *bound_behav_filepath = NULL;
   join_path(&bound_behav_filepath, dir_common_eta, (char*)"bound_behav.txt");
 
+  cout << endl;
   cout << "writing to " << bound_behav_filepath << endl;
   fptr = fopen(bound_behav_filepath, "w");
   fprintf(fptr, "num-eig: 1\n");
@@ -3930,7 +3936,8 @@ void call_kira(
       command, MAX_VALUE_LEN*sizeof(char),
       "cd %s && kira --parallel=%d jobs.yaml; cd -", dir_kira, opt_kira_parallel
     );
-    cout << "executing shell command: " << endl; cout << "  $ " << command << endl;
+    cout << endl; cout << "executing shell command: " << endl; cout << "  $ " << command << endl;
+    cout << endl;
     system(command);
     fprintf(terminal, "\033[45D\033[K"); fflush(terminal); usleep(sleep_time);
   }

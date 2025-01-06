@@ -447,11 +447,11 @@ void LI_rk1_qsort(
   // sort labels
   LI_rk1_qsort_labels(label, 0, dim-1, liin);
 
-  cout << "sorted labels:" << endl;
-  for (int k=0; k<dim; k++) {
-    cout << label[k] << ", ";
-  }
-  cout << endl;
+  // cout << "sorted labels:" << endl;
+  // for (int k=0; k<dim; k++) {
+  //   cout << label[k] << ", ";
+  // }
+  // cout << endl;
 
   // write output in the right order
   for (int k=0; k<dim; k++) {
