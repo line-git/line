@@ -1,6 +1,6 @@
 # LINE: Loop Integrals Numerical Evaluation
 
-**LINE** (which stands for Loop Integrals Numerical Evaluation), is a
+**LINE** (which stands for Loop Integrals Numerical Evaluation) is a
 tool to compute **Feynman integrals** by numerically solving
 differential equations via series expansion. **LINE** is written in `C`
 / `C++` and leverages the well-known **GMP** family of libraries for
@@ -331,10 +331,10 @@ for updates!
 
 Please note that as this is an alpha version, the code may be prone to
 bugs. If you encounter any issues, we encourage you to [contact
-us](mailto:renatomaria.prisco@unina.it) for support. Please include a
-detailed description of the problem and steps to reproduce it. This will
-help us to diagnose and resolve the issue more efficiently, improving
-the tool for future releases.
+us](mailto:renatomaria.prisco@unina.it,jonathan.ronca@pd.infn.it,francesco.tramontano@unina.it?subject=LINE%20-%20Issue%20Report)
+for support. Please include a detailed description of the problem and
+steps to reproduce it. This will help us to diagnose and resolve the
+issue more efficiently, improving the tool for future releases.
 
 ## Citation
 
