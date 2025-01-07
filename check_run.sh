@@ -5,12 +5,22 @@
 ######
 # default values
 nthreads=1
+kira=0
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     -n|--nthreads)
-      nthreads="$2"
-      shift 2
+      if [[ "$2" =~ ^[1-9][0-9]*$ ]]; then
+        nthreads="$2"
+        shift 2
+      else
+        echo "Errore: il valore per --nthreads deve essere un intero positivo."
+        exit 1
+      fi
+      ;;
+    -k|--kira)
+      kira=1
+      shift
       ;;
     *)  # other options
       echo "option not valid: $1"
@@ -20,6 +30,9 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 echo "using $nthreads core(s)"
+if [[ "$kira" -eq 1 ]]; then
+  echo "using Kira"
+fi
 echo ""
 
 #
@@ -62,7 +75,7 @@ convert_time() {
 ######
 
 prg=line
-workdir=test
+workdir=check/cards
 logdir=${workdir}/log
 
 if [ ! -d "${logdir}" ]; then
@@ -71,72 +84,21 @@ fi
 
 # list of input cards
 cards=(
-  # "1L-3pt-full_exit-sing"
-  # "1L-3pt-full_NSP-pt1"
-  # "1L-3pt-full_pt1-pt2"
-  # "1L-3pt-full_pt2-pt3"
-  # "2L-2pt-m_exit-sing"  # s=1, m2=100
-  #   # "2L-2pt-m_amf-NSP"  # s=1, m2=100  # --one-eps
-  #   # "2L-2pt-m_amf-pt0"  # s=-1, m2=100  # --one-eps
-  #   # "2L-2pt-m_pt0-NSP"  # s=1, m2=100  # --one-eps
-  # "2L-2pt-full_exit-sing-pt0"  # s=1, m12=100, m22=200, m32=300
-  # "2L-2pt-full_amf-pt0"
-  # "2L-2pt-full_pt0-pt1"  # s=-300, m12=100, m22=100, m32=300
-  # "2L-3pt-b_amf-pt0"  # s=10, m2=1
-  # "2L-3pt-b_amf-pt1"  # s=1, m2=3
-  # "2L-3pt-b_amf-pt2"  # s=2/45, m2=280
-  # "2L-3pt-b_pt0-pt1"
-  # "2L-3pt-b_pt0-ptml"  # s=1, m2=0
-  # "2L-4pt-m_exit-sing"  # s=1, t=2, m2=100
-  #   # "2L-4pt-m_NSP-pt1"  # s=-1, t=2, m2=100  # --one-eps
-  # "2L-4pt-m_NSP-pt2"  # s=-63845/42, t=1000/11, m2=100
-  # "2L-4pt-m_NSP-ptml"  # s=1, t=2, m2=0
-  # "2L-4pt-m_exit-sing-Im"  # s=2, t=10, m2=(0 -100)
-  # "2L-4pt-m_NSPIm-m0"  # s=2, t=10, m2=0
-  # "2L-4pt_amf-NSP"  # s=1, t=2
-  # "2L-4pt_amf-pt0"  # s=2, t=10
-  # "2L-4pt_amf-pt2"  # s=-63845/42, t=1000/11
-  # "2L-4pt_NSP-pt1"  # s=-1, t=2
-  #
-  ######
-  # PAPER
-  ######
-  "1L-3pt-full_amf-ppt1"
   "1L-3pt-full_ebr-ppt1"
   "1L-3pt-full_ppt1-ppt2"
   "1L-3pt-full_ppt1-ppt3"
   "1L-3pt-full_ppt3-ppt4"
-  "1L-4pt_amf-ppt1"
-  "1L-4pt_amf-ppt2"
   "1L-4pt_ebr-ppt1"
   "1L-4pt_ppt1-ppt2"
-  "2L-2pt-full_amf-ppt1"
-  "2L-2pt-full_amf-ppt2"
   "2L-2pt-full_ebr-ppt1"
   "2L-2pt-full_ppt1-ppt2"
   "2L-2pt-full_ppt1-ppt3"
   "2L-2pt-full_ppt3-ppt4"
-  # "2L-3pt-b_amf-ppt1"
-  # "2L-3pt-b_amf-ppt2"
-  # "2L-3pt-b_ppt1-ppt2"
-  # "2L-3pt-b_ppt2-ppt3"
-  # "2L-4pt-m_amf-ppt1"
-  # "2L-4pt-m_amf-ppt2"
-  # "2L-4pt-m_ebr-ppt1"
-  # "2L-4pt-m_ppt1-ppt2"
-  # "2L-4pt-m_ppt2-ppt3"
-  # "2L-4pt-np-1m_amf-ppt1"
-  # "2L-4pt-np-1m_amf-ppt2"
-  # "2L-4pt-np-1m_ppt1-ppt2"
-  # "2L-4pt-np-1m-2_amf-bpt1"
-  # "2L-4pt-np-1m-2_amf-bpt2"
-  # "2L-4pt-np-1m-2_bpt1-bpt2"
-  # "2L-4pt-np-1m-2_amf-bpt3"
-  # "2L-4pt-np-1m-2_amf-bpt4"
-  # "2L-4pt-np-1m-2_bpt3-bpt4"
-  # "2L-4pt-np-1m-2_amf-bpt5"
-  # "2L-4pt-np-1m-2_amf-bpt6"
-  # "2L-4pt-np-1m-2_bpt5-bpt6"
+  "1L-3pt-full_amf-ppt1"
+  "1L-4pt_amf-ppt1"
+  "1L-4pt_amf-ppt2"
+  "2L-2pt-full_amf-ppt1"
+  "2L-2pt-full_amf-ppt2"
 )
 
 # function that runs a single test and store results
@@ -169,7 +131,7 @@ run_test() {
 
   {
     time {
-      ./$prg -i "${workdir}/${card}.txt" -w 0 -b --kira-redo -1 --kira-parallel 6 > "${logfile}" 2> "${stderr_redirect}"
+      ./$prg -i "${workdir}/${card}.txt" --parent-dir check -w 0 --kira-redo "${kira}" --kira-parallel 6 > "${logfile}" 2> "${stderr_redirect}"
       exit_status=$?
     } 2>&1 
   } 2> "${time_file}"
@@ -209,6 +171,7 @@ export prg
 export workdir
 export logdir
 export nthreads
+export kira
 printf "%s\n" "${cards[@]}" | xargs -P $nthreads -I {} bash -c 'run_test "$@"' _ {}
 # echo "${cards[@]}" | xargs -n 1 -P $nthreads -I {} bash -c 'run_test "$@"' _ {}
 
