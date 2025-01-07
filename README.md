@@ -140,19 +140,8 @@ standard tests), run with the `--kira` option (or `-k` for short):
 ```
 
 The script runs `line` using the input cards in the folder
-`check/test/`. Log files are generated and stored in the
-`check/test/log/` folder.
-
-### More tests
-
-Further tests will be made available soon. At present, these files have
-not been included in this repository because the DE matrices and the
-validation files used to verify the correctness of intermediate
-calculation results require significant storage space. To address this,
-a separate Git repository will be created to host these files. Users
-will be able to download the repository and integrate it as a Git
-submodule into their local setup. Stay tuned for updates on this
-resource.
+`check/cards/`. Log files are generated and stored in the
+`check/cards/log/` folder.
 
 ## Usage
 
@@ -178,19 +167,20 @@ integrals you want to calculate in the list of MIs.
 
 ### Structure
 
-Each topology is associated with a working directory `work-dir/`. The
-topology-related files (everything except the input card) must be stored
-into the `common/` subdirectory. After the first run, the subdirectory
-`points/` is also created. Each time a run produces results for a new
-phase-space point, a directory is created within `points/`, where the
-calculated values of the MIs are saved. When propagating to a new point,
-**LINE** automatically checks if the starting point has been used
-previously as a target. If so, it can reuse the result from the previous
-run as the boundary for the new propagation.
+Each topology is associated with a working directory `topo-name/`
+specified in the input card. The topology-related files (everything
+except the input card) must be stored into the `common/` subdirectory.
+After the first run, the subdirectory `points/` is also created. Each
+time a run produces results for a new phase-space point, a directory is
+created within `points/`, where the calculated values of the MIs are
+saved. When propagating to a new point, **LINE** automatically checks if
+the starting point has been used previously as a target. If so, it can
+reuse the result from the previous run as the boundary for the new
+propagation.
 
 The typical structure of the working directories is as follows:
 
-    work-dir/
+    topo-name/
     ├── common/  # run-independent files
     │   ├── 0.txt  # DE matrix w.r.t. 1st invariant
     │   ├── 1.txt  # DE matrix w.r.t. 2nd invariant
@@ -217,11 +207,15 @@ The typical structure of the working directories is as follows:
         │   └── ...
         └── ...
 
+By default, `line` looks for the working directory `topo-name/` in a
+folder named `app/`. A different location can be specified using the
+option `--parent-dir path/to/dir`.
+
 ### How to run
 
 A typical example of an input card looks as follows:
 
-    work-dir: 1L-triangle-full  # working-directory
+    work-dir: 1L-triangle-full  # topology name
     loops: 1  # number of loops
     order: 6  # number of order for the Laurent series beyond the leading coefficient
     precision: 16  # number of digits for the result
@@ -305,7 +299,7 @@ make `line` stop immediately after printing the epsilon list.
 For some of the provided examples, automated boundaries can be generated
 through **Expansion By Regions** (EBR) using `exit-sing: 1` in the input
 card. When doing so, if no `starting-point` is provided in the input
-card, the one specified in the file `work-dir/common/initial_point.txt`
+card, the one specified in the file `topo-name/common/initial_point.txt`
 is used. The other relevant files in the `common/` directory to generate
 boundaries with EBR are:
 
@@ -315,8 +309,27 @@ boundaries with EBR are:
     from simpler subtopologies (leading coefficients for the others are
     automatically obtained when solving the DE)
 
-Please refer to the provided examples for the format of the input files
-located in the `work-dir/common/` directory.
+For more details on the input files format, please refer to the examples
+in the `check/` folder, where you can find a `topo-name/` folder for
+every proposed topology. Examples of input cards can be found in the
+`check/cards/` folder. For instance:
+
+``` bash
+./line -i check/cards/1L-3pt-full_ebr-ppt1.txt -r result.txt > log.txt
+```
+
+runs processing the files in `check/1L-triangle-full/common/`.
+
+### More examples
+
+Further tests will be made available soon. At present, these files have
+not been included in this repository because the DE matrices and the
+validation files used to verify the correctness of intermediate
+calculation results require significant storage space. To address this,
+a separate Git repository will be created to host these files. Users
+will be able to download the repository and integrate it as a Git
+submodule into their local setup. Stay tuned for updates on this
+resource.
 
 ## Alpha version and future improvements
 
