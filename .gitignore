@@ -1,0 +1,9 @@
+.DS_Store
+*~
+#*
+**/#*
+line
+obj/
+check/cards/log/
+test/log/
+**/amflow/*/kira/
