@@ -1337,6 +1337,24 @@ void evaluate_series_around_zero(
     }
   }
 
+  // FREE
+
+  for (int lam, n=0; n<num_eig; n++) {
+    for (int l=0; l<max_log[n]; l++) {
+      for (int i=0; i<dim1; i++) {
+        for (int j=0; j<dim2; j++) {
+          for (int k=0; k<=eta_ord; k++) {
+            mpc_clear(sol_times_log[n][l][i][j][k]);
+          }
+          delete[] sol_times_log[n][l][i][j];
+        }
+        delete[] sol_times_log[n][l][i];
+      }
+      delete[] sol_times_log[n][l];
+    }
+    delete[] sol_times_log[n];
+  }
+
   if (particular) {
     for (int lam, n=0; n<num_eig; n++) {
       lam = eig_labels[n];
@@ -4700,7 +4718,9 @@ void solve_zero(
         if (sol_log_len[lam] == 0) {
           continue;
         }
+        mpc_rk4_clear(hsol[n], sol_log_len[lam], b_len, b_len, eta_ord+1);
         del_rk4_tens(hsol[n], sol_log_len[lam], b_len, b_len);
+        mpc_rk4_clear(psol[n], sol_log_len[lam], b_len, 1, eta_ord+1);
         del_rk4_tens(psol[n], sol_log_len[lam], b_len, 1);
       }
       delete[] hsol;
@@ -4715,6 +4735,7 @@ void solve_zero(
         for (int lam, n=0; n<num_cum_eig; n++) {
           lam = cum_eig[n];
           if (rhs_log_len[lam] > 0) {
+            mpc_rk3_clear(const_term[n],rhs_log_len[lam], b_len, eta_ord+1);
             del_rk3_tens(const_term[n], rhs_log_len[lam], b_len);
           }
         }
@@ -4858,11 +4879,26 @@ void solve_zero(
     //   cout << "eq class = " << i << ", length = " << sblock_log_len[i] << endl; 
     // }
 
+    // FREE
+    for (int i=0; i<b_len; i++) {
+      for (int j=0; j<b_len; j++) {
+        mpc_rk1_clear(mpc_lcm_mat_ep[b_idx[i]][b_idx[j]][0], block_max_deg[b]+1);
+        delete[] mpc_lcm_mat_ep[b_idx[i]][b_idx[j]][0];
+      }
+      for (int j=0; j<sb_len; j++) {
+        mpc_rk1_clear(mpc_lcm_mat_ep[b_idx[i]][sb_idx[j]][0], num_max_deg[b]+1);
+        delete[] mpc_lcm_mat_ep[b_idx[i]][sb_idx[j]][0];
+        mpc_rk1_clear(mpc_lcm_mat_ep[b_idx[i]][sb_idx[j]][1], den_max_deg[b]+1);
+        delete[] mpc_lcm_mat_ep[b_idx[i]][sb_idx[j]][1];
+      }
+    }
+
     offset += b_len;
     // if (b == 18) {fflush(stdout); exit(0);}
     // if (b == 18) {break;}
   }
   fprintf(terminal, "\033[18D\033[K"); fflush(terminal); usleep(sleep_time);
+
   if (debug) {
   //////
   // EXPORT SOLUTIONS
@@ -4892,27 +4928,7 @@ void solve_zero(
     }
   }
   }
-
-
-  // for (int lam, n=0; n<num_cum_eig; n++) {
-  //   lam = cum_eig[n];
-  //   if (lam != lam0) {
-  //     continue;
-  //   }
-    
-    
-  //   for (int i=0; i<dim; i++) {
-  //     mpc_rk1_to_file((char*)"checksol.txt", sol[lam][0][i], eta_ord);
-  //     for (int k=0; k<eta_ord; k++) {
-
-  //     }
-  //     poly_frac_build(&pf_sol[lam][i]);
-  //     if (log_prof[lam][i] == 0) {
-  //       poly_frac_set_zero(&pf_sol[lam][i]);
-  //       continue;
-  //     }
   
-
   // #debug
   int nmi = dim, kplus = 1;
   struct poly_frac **pf_sol;
@@ -4952,49 +4968,6 @@ void solve_zero(
     poly_frac_rk2_mul_pf_rk1(pf_sol[lam], tmat, pf_sol[lam], nmi, nmi, roots);
   }
 
-  // // cout << "lam, i = " << lam0 << ", " << 0 << endl;
-  // // poly_frac_print(&pf_sol[lam0][0]);
-  // // cout << "lam, i = " << lam0 << ", " << 2 << endl;
-  // // poly_frac_print(&pf_sol[lam0][2]);
-  // // cout << "lam, i = " << lam0 << ", " << 3 << endl;
-  // // poly_frac_print(&pf_sol[lam0][3]);
-  // // cout << "lam, m = " << 0 << ", " << 26 << endl;
-  // // poly_frac_print(&pf_sol[0][26]);
-  // // cout << "lam, m = " << 1 << ", " << 26 << endl;
-  // // poly_frac_print(&pf_sol[1][26]);
-  // // cout << "lam, m = " << 0 << ", " << 27 << endl;
-  // // poly_frac_print(&pf_sol[0][27]);
-  // // cout << "lam, m = " << 0 << ", " << 29 << endl;
-  // // poly_frac_print(&pf_sol[0][29]);
-  // // cout << "lam, m = " << 0 << ", " << 30 << endl;
-  // // poly_frac_print(&pf_sol[0][30]);
-  // // cout << "lam, m = " << 1 << ", " << 31 << endl;
-  // // poly_frac_print(&pf_sol[1][31]);
-
-  // mpfr_mul_d(mpfr_tol, mpfr_tol, 1e60, MPFR_RNDN);
-  // cout << "tol: "; mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
-  // for (int m=0; m<dim; m++) {
-  //   // cout << "m = " << m << endl;
-  //   for (int lam, n=0; n<num_cum_eig; n++) {
-  //     // cout << "n = " << n << endl;
-  //     lam = n;
-  //     // cout << "pf:" << endl; poly_frac_print(&pf_sol[lam][m]);
-  //     if (pf_sol[lam][m].num_vdeg == -1) {
-  //       cout << "0";
-  //     } else {
-  //       cout << pf_sol[lam][m].num_deg - pf_sol[lam][m].num_vdeg - pf_sol[lam][m].mults[0];
-  //     }
-  //     // if (n < num_cum_eig-1) {
-  //     //   cout << ", ";
-  //     // }
-  //     cout << endl;
-  //   }
-  //   // cout << endl;
-  // }
-  // cout << endl;
-  // mpfr_mul_d(mpfr_tol, mpfr_tol, 1e-60, MPFR_RNDN);
-  // cout << "tol: "; mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
-
   for (int m=0; m<dim; m++) {
     for (int lam, n=0; n<num_cum_eig; n++) {
       lam = cum_eig[n];
@@ -5006,22 +4979,6 @@ void solve_zero(
     }
   }
   }
-
-  // mpfr_mul_d(mpfr_tol, mpfr_tol, 1e60, MPFR_RNDN);
-  // cout << "tol: "; mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
-  // cout << "LIMIT IN ZERO" << endl;
-  // pf_limit_in_zero(
-  //   tmp_vec,
-  //   sol, tmat,
-  //   dim, lam0, tp_rank,
-  //   roots, npoles
-  // );
-  // for (int i=0; i<dim; i++) {
-  //   cout << "i = " << i << endl;
-  //   print_mpc(&tmp_vec[i]); cout << endl;
-  // }
-  // cout << endl;
-  // exit(0);
 
   if (cross) {
     // TRANSFORM BACK MI AT TARGET IN THE ORIGINAL GAUGE
@@ -5069,7 +5026,7 @@ void solve_zero(
     }
   }
 
-
+  // FREE
   delete[] cum_eig;
   delete[] block_log_len;
   for (int b=0; b<nblocks; b++) {
@@ -5079,6 +5036,17 @@ void solve_zero(
   delete[] lcm;
   delete[] lcm_orig;
   delete[] tmp_vec;
+  mpc_rk2_clear(tmat_eval, dim, dim);
+  del_rk2_tens(tmat_eval, dim);
+  // fprintf(terminal, "\nfree mpc_lcm_mat_ep\n"); fflush(terminal); sleep(2);
+  del_rk3_tens(mpc_lcm_mat_ep, dim, dim);
+  // fprintf(terminal, "\nfree lcm_mat_ep\n"); fflush(terminal); sleep(2);
+  poly_frac_rk2_free(lcm_mat_ep, dim, dim);
+  del_rk2_tens(lcm_mat_ep, dim);
+  // fprintf(terminal, "\nfree sol\n"); fflush(terminal); sleep(2);
+  mpc_rk4_clear(sol, num_classes, dim, dim, eta_ord+1);
+  del_rk4_tens(sol, num_classes, dim, dim);
+  // fprintf(terminal, "\ndonel\n"); fflush(terminal); sleep(2);
 
   return;
 }
@@ -5591,6 +5559,9 @@ void propagate_infty(
   fprintf(terminal, "\033[10D\033[K"); fflush(terminal); usleep(sleep_time);
   fprintf(terminal, "\033[10D\033[K"); fflush(terminal); usleep(sleep_time);
 
+  // FREE
+  poly_frac_rk2_free(pfmat_infty, dim, dim);
+  del_rk2_tens(pfmat_infty, dim);
 }
 
 
@@ -6025,6 +5996,21 @@ void propagate_along_path(
   }
 
   fprintf(logfptr, "}\n"); fflush(logfptr);
+
+  // FREE
+  // fprintf(terminal, "\nfree tmats\n"); fflush(terminal); sleep(2);
+  delete[] eq_class;
+  delete[] eig_grid;
+  poly_frac_rk2_free(tmat, dim, dim);
+  del_rk2_tens(tmat, dim);
+  poly_frac_rk2_free(inv_tmat, dim, dim);
+  del_rk2_tens(inv_tmat, dim);
+  // fprintf(terminal, "\nfree sh_pfmat\n"); fflush(terminal); sleep(2);
+  poly_frac_rk2_free(sh_pfmat, dim, dim);
+  del_rk2_tens(sh_pfmat, dim);
+  // fprintf(terminal, "\ndone\n"); fflush(terminal); sleep(2);
+  mpc_rk1_clear(sh_roots, nroots);
+  delete[] sh_roots;
 }
 
 
@@ -6211,6 +6197,7 @@ void propagate_all_eps(
     mpfr_set(mpfr_tol, mpfr_tol_orig, MPFR_RNDN);
     // gnc_tol = gnc_tol_orig;  // #uncomment-for-ginac
     // wp2 = wp2_orig;
+    if (ep == 2) exit(0);
   }
   // mpc_rk2_to_file((char*)"sol_at_eps.txt", sol_at_eps, dim, eps_num);
   fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);

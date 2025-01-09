@@ -79,6 +79,17 @@ void mp_ludcmp(mpc_t **a, int n, int *indx, float *d)
 		}
 		// free_vector(vv, 1, n);	
 	}
+
+	// FREE
+	for (i = 1; i <= n; i++) {
+		mpfr_clear(vv[i]);
+	}
+	++vv;
+	free(vv);
+	mpfr_clear(temp);
+	mpfr_clear(big);
+	mpfr_clear(dum);
+	mpc_clear(sum);
 }
 
 
@@ -116,6 +127,10 @@ void mp_lubksb(mpc_t **a, int n, int *indx, mpc_t *b)
 			}
 		mpc_div(b[i], sum, a[i][i], MPFR_RNDN);
 	}
+
+	// FREE
+	mpc_clear(sum);
+	mpc_clear(dum);
 }
 
 //////
@@ -172,4 +187,13 @@ void mp_inverse(mpc_t **a_inv, mpc_t **a, int n)
 	for (int i=0; i<n; i++) {
 		a[i]++;
 	}
+
+	// FREE
+	for (int i = 1; i <= n; i++) {
+		mpc_clear(col[i]);
+	}
+	col++;
+	free(col);
+	indx++;
+	free(indx);
 }

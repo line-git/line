@@ -924,7 +924,7 @@ void generate_constant_term(
   }
   // cout << "solve in zero = " << solve_in_zero << endl;
   mpc_t *tmp_pol = new mpc_t[eta_ord+1];
-  init_poly(tmp_pol, eta_ord);
+  init_rk1_mpc(tmp_pol, eta_ord+1);
   for (int i=0; i<b_len; i++) {
     // cout << "i = " << i << endl;
     set_null_poly(const_term[i], eta_ord);
@@ -958,6 +958,7 @@ void generate_constant_term(
       // print_poly(const_term[i], 0);
     }
   }
+  mpc_rk1_clear(tmp_pol, eta_ord+1);
   delete[] tmp_pol;
 }
 
@@ -1390,6 +1391,7 @@ void sys_block_info(
   // cout << "GENERATE CONSTANT TERM" << endl;
   if (num_prev_eig == -1) {
     malloc_rk2_tens(const_term[0][0], b_len, eta_ord+1);
+    init_rk2_mpc(const_term[0][0], b_len, eta_ord+1);
     generate_constant_term(
       const_term[0][0],
       sblock_num, sblock_den, *(*solutions),
@@ -1414,6 +1416,7 @@ void sys_block_info(
         continue;
       }
       malloc_rk3_tens(const_term[n], sol_log_len[lam], b_len, eta_ord+1);
+      init_rk3_mpc(const_term[n], sol_log_len[lam], b_len, eta_ord+1);
       for (int l=0; l<sol_log_len[lam]; l++) {
         // cout << "l = " << l << endl;
         // generate an alternative sb_idx using the log profile, in order to avoid

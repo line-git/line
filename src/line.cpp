@@ -196,6 +196,19 @@ int main(int argc, char *argv[])
 		}
 	}
 
+  //////
+  // PROCESSING OPTIONS
+  //////
+  if (opt_checkpoint >= 1) {
+    if (opt_kira_redo != 0) {
+      cout << endl;
+      cout << "Option --kira-redo = " << opt_kira_redo;
+      cout << " while --checkpoint = " << opt_checkpoint << ";" << endl;
+      cout << "setting --kira-redo to 0" << endl;
+      opt_kira_redo = 0;
+    }
+  }
+
   // open virtual terminal for progress bars
   FILE *terminal = NULL;
   if (opt_bar) {

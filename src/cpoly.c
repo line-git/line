@@ -52,7 +52,7 @@ void init_poly(mpc_t *pol, int deg) {
 
 void set_null_poly(mpc_t *pol, int deg) {
     for (int k=0; k<=deg; k++){
-        mpc_init3(pol[k], wp2, wp2);
+        // mpc_init3(pol[k], wp2, wp2);
         mpc_set_d(pol[k], 0, MPFR_RNDN);
     }
 }

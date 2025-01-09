@@ -38,6 +38,18 @@ void mpc_rk1_clear(
   mpc_t *tens, int dim
 );
 
+void mpc_rk2_clear(
+  mpc_t **tens, int dim1, int dim2
+);
+
+void mpc_rk3_clear(
+  mpc_t ***tens, int dim1, int dim2, int dim3
+);
+
+void mpc_rk4_clear(
+  mpc_t ****tens, int dim1, int dim2, int dim3, int dim4
+);
+
 //////
 // COPY
 //////
