@@ -427,6 +427,7 @@ int read_param_str(
 
   *value = (char*) malloc((len+1)*sizeof(char));
   strcpy(*value, line+i);
+  free(line);
   return 1;
 }
 
@@ -440,6 +441,7 @@ int read_param_int(
   unsigned long int line_size = MAX_VALUE_LENGTH * sizeof(char);
   char *line = (char*) malloc(line_size);
   if (!goto_key(&line, key, fptr)) {
+    free(line);
     return 0;
   }
 
@@ -457,6 +459,7 @@ int read_param_int(
 
   // extract value
   sscanf(line+i, "%d", value);
+  free(line);
   return 1;
 }
 
@@ -470,17 +473,19 @@ int read_list_str(
   unsigned long int line_size = MAX_VALUE_LENGTH * sizeof(char);
   char *line = (char*) malloc(line_size);
   if (!goto_key(&line, key, fptr)) {
+    free(line);
     return 0;
   };
   
   // look for "[", ignore everything else
   int i = 0, security_count = 0;
-  while (line[i] != '[') { 
+  while (line[i] != '[') {
     security_count++;
     if (security_count == 500) {
       // ensure end of program if '[' is not found
       perror("error while parsing phase-space point: left delimiter missing or too many characters");
       fclose(fptr);
+      free(line);
       exit(1);
     }
     i++;
@@ -515,6 +520,7 @@ int read_list_str(
       if (security_count_comma == 500) {
         perror("error while parsing phase-space point: separator missing or too many characters");
         fclose(fptr);
+        free(line);
         exit(1);
       }
       num_len++;
@@ -549,11 +555,13 @@ int read_list_str(
       } else {
         perror("error while parsing phase-space point: input point has fewer invariants than symbols");
         fclose(fptr);
+        free(line);
         exit(1);
       }
     }
   }
 
+  free(line);
   return 1;
 }
 
@@ -567,6 +575,7 @@ int read_PS_point(
   unsigned long int line_size = MAX_VALUE_LENGTH * sizeof(char);
   char *line = (char*) malloc(line_size);
   if (!goto_key(&line, key, fptr)) {
+    free(line);
     return 0;
   };
   
@@ -578,6 +587,7 @@ int read_PS_point(
       // ensure end of program if '[' is not found
       perror("error while parsing phase-space point: left delimiter missing or too many characters");
       fclose(fptr);
+      free(line);
       exit(1);
     }
     i++;
@@ -629,6 +639,7 @@ int read_PS_point(
       if (security_count_comma == 500) {
         perror("error while parsing phase-space point: separator missing or too many characters");
         fclose(fptr);
+        free(line);
         exit(1);
       }
       num_len++;
@@ -663,11 +674,13 @@ int read_PS_point(
       } else {
         perror("error while parsing phase-space point: input point has fewer invariants than symbols");
         fclose(fptr);
+        free(line);
         exit(1);
       }
     }
   }
 
+  free(line);
   return 1;
 }
 
@@ -681,6 +694,7 @@ int read_bound_factors(
   unsigned long int line_size = MAX_VALUE_LENGTH * sizeof(char);
   char *line = (char*) malloc(line_size);
   if (!goto_key(&line, key, fptr)) {
+    free(line);
     return 0;
   };
 
@@ -692,6 +706,7 @@ int read_bound_factors(
       // ensure end of program if '{' is not found
       perror("error while parsing phase-space point: left delimiter missing or too many characters");
       fclose(fptr);
+      free(line);
       exit(1);
     }
     i++;
@@ -709,8 +724,10 @@ int read_bound_factors(
         // ensure end of program if '[' is not found
         perror("error while parsing phase-space point: left delimiter missing or too many characters");
         fclose(fptr);
+        free(line);
         exit(1);
       } else if (line[i] == '}') {
+        free(line);
         return 1;
       }
       i++;
@@ -774,6 +791,7 @@ int read_bound_factors(
         if (security_count_comma == 500) {
           perror("error while parsing phase-space point: separator missing or too many characters");
           fclose(fptr);
+          free(line);
           exit(1);
         }
         num_len++;
@@ -810,6 +828,7 @@ int read_bound_factors(
         } else {
           perror("error while parsing phase-space point: input point has fewer invariants than symbols");
           fclose(fptr);
+          free(line);
           exit(1);
         }
       }
@@ -840,12 +859,14 @@ int read_bound_factors(
       } else if (*nfac >= nfac_max) {        
         perror("error while parsing boundary factors: input point has more factors than maximum allowed");
         fclose(fptr);
+        free(line);
         exit(1);
       }
     }
   }
 
   (*nfac)++;
+  free(line);
   return 1;
 }
 
@@ -1716,6 +1737,10 @@ void bound_behav_from_file(
       cout << "m, np, behav = " << m << ", " << (*mi_eig)[m][n] << ", " << (*bound_behav)[m][(*mi_eig)[m][n]] << endl;
     }
   }
+
+  // FREE
+  nlist_rk1_free(BB, dim);
+  
 }
 
 
@@ -2799,6 +2824,7 @@ int nlist_read_file(
     exit(1);
   }
   if (!goto_key(&line, key, fptr)) {
+    free(line);
     return 0;
   }
 
@@ -2820,7 +2846,6 @@ int nlist_read_file(
   // get no-space string
   int del_count = 1;
   while (del_count > 0) {
-    // cout << "line[i], del_count = " << line[i] << ", " << del_count << endl;
     if (line[i] == '\n') {
       fgets(line, MAX_VALUE_LENGTH, fptr);
       i = 0;
@@ -2846,8 +2871,28 @@ int nlist_read_file(
 
   // read child items
   nlist_self_parse(nl);
-  
+
+  free(line);
   return 1;
 }
 
+
+void nlist_free(nlist *nl) {
+  if (nl->item != NULL) {
+    for (int i=0; i<nl->nitems; i++) {
+      nlist_free(&nl->item[i]);
+    }
+    delete[] nl->item;
+  }
+  if (nl->str != NULL) {
+    free(nl->str);  // Free the allocated memory for str
+  }
+}
+
+
+void nlist_rk1_free(nlist *nl, int dim) {
+  for (int i=0; i<dim; i++) {
+    nlist_free(&nl[i]);
+  }
+}
 

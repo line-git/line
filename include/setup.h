@@ -305,4 +305,8 @@ int nlist_read_file(
   char *key, FILE *fptr
 );
 
+void nlist_free(nlist *nl);
+
+void nlist_rk1_free(nlist *nl, int dim);
+
 #endif

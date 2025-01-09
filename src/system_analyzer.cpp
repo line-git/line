@@ -1446,7 +1446,9 @@ void sys_block_info(
     delete[] log_sb_idx;
   }
   // delete numerators and denominators
+  mpc_rk3_clear(sblock_num, b_len, sb_len, *num_max_deg+1);
   del_rk3_tens(sblock_num, b_len, sb_len);
+  mpc_rk3_clear(sblock_den, b_len, sb_len, *den_max_deg+1);
   del_rk3_tens(sblock_den, b_len, sb_len);
 
 }

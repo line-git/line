@@ -80,6 +80,10 @@ void poly_frac_rk2_free(
   struct poly_frac **pf_tens, int dim1, int dim2
 );
 
+void poly_frac_rk3_free(
+  struct poly_frac ***pf_tens, int dim1, int dim2, int dim3
+);
+
 void poly_frac_alloc_init_coeffs(
   struct poly_frac *pf
 );

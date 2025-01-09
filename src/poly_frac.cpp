@@ -255,8 +255,21 @@ void poly_frac_rk2_free(
   struct poly_frac **pf_tens, int dim1, int dim2
 ) {
   for (int i1=0; i1<dim1; i1++) {
-    for (int i2=0; i2<dim1; i2++) {
+    for (int i2=0; i2<dim2; i2++) {
       poly_frac_free(&pf_tens[i1][i2]);
+    }
+  }
+}
+
+
+void poly_frac_rk3_free(
+  struct poly_frac ***pf_tens, int dim1, int dim2, int dim3
+) {
+  for (int i1=0; i1<dim1; i1++) {
+    for (int i2=0; i2<dim2; i2++) {
+      for (int i3=0; i3<dim3; i3++) {
+        poly_frac_free(&pf_tens[i1][i2][i3]);
+      }
     }
   }
 }
@@ -752,8 +765,8 @@ void poly_frac_set_coeffs(
   }
 
   if ((*pf).coeffs) {
-    delete[] (*pf).coeffs;
     mpc_rk1_clear((*pf).coeffs, (*pf).num_vdeg+1);
+    delete[] (*pf).coeffs;
   }
   (*pf).num_deg = deg;
   (*pf).num_vdeg = deg - ldeg;

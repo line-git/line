@@ -936,6 +936,8 @@ void generate_boundaries(
     );
   }
 
-
+  // FREE
+  nlist_rk1_free(BC, dim);
+  delete[] BC;
 }
 

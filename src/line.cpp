@@ -1460,6 +1460,17 @@ int main(int argc, char *argv[])
   //////
   // EXIT PROGRAM
   //////
+  // FREE
+  delete[] zero_label;
+  delete[] nroots;
+  poly_frac_rk3_free(pfmat, eps_num, dim, dim);
+  del_rk3_tens(pfmat, eps_num, dim);
+  mpc_rk2_clear(*solutions, dim, eta_ord+1);
+  del_rk2_tens(*solutions, dim);  
+  delete[] solutions;
+  mpc_rk2_clear(sol_at_eps, dim, eps_num);
+  del_rk2_tens(sol_at_eps, dim);
+
   // close progress bars
   fprintf(terminal, "\033[2K\r"); fflush(terminal); usleep(sleep_time);
   if (!opt_bar) {

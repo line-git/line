@@ -742,6 +742,17 @@ void interpolate_epsilon_orders(
       }      
     }
   }
+
+  // FREE
+  mpc_rk1_clear(mpc_eps_list, eps_num);
+  delete[] mpc_eps_list;
+  mpc_rk2_clear(eps_mat, eps_num, eps_num + null_pow);
+  del_rk2_tens(eps_mat, eps_num);
+  mpc_rk2_clear(eps_mat_copy, eps_num, eps_num);
+  del_rk2_tens(eps_mat_copy, eps_num);
+  mpc_rk3_clear(inv_eps_mat, null_pow, eps_num, eps_num);
+  del_rk3_tens(inv_eps_mat, null_pow, eps_num);
+
 }
 
 
@@ -932,5 +943,18 @@ void interpolate_epsilon_orders_prune(
       }      
     }
   }
+
+  // FREE
+  mpc_rk1_clear(mpc_eps_list, eps_num);
+  delete[] mpc_eps_list;
+  mpc_rk2_clear(eps_mat, eps_num, eps_num + null_pow);
+  del_rk2_tens(eps_mat, eps_num);
+  mpc_rk2_clear(eps_mat_copy, eps_num, eps_num);
+  del_rk2_tens(eps_mat_copy, eps_num);
+  mpc_rk3_clear(inv_eps_mat, null_pow, eps_num, eps_num);
+  del_rk3_tens(inv_eps_mat, null_pow, eps_num);
+  mpc_rk3_clear(inv_eps_mat_red, null_pow, eps_num-1, eps_num-1);
+  del_rk3_tens(inv_eps_mat_red, null_pow, eps_num-1);
+  
 }
 

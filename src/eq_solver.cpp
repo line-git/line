@@ -975,10 +975,12 @@ void propagate_regular(
         delete[] mpc_lcm_mat_ep[b_idx[i]][sb_idx[j]][1];
       }
     }
-
   }
+  del_rk3_tens(mpc_lcm_mat_ep, dim, dim);
 
-
+  poly_frac_rk2_free(lcm_mat_ep, dim, dim);
+  del_rk2_tens(lcm_mat_ep, dim);
+  
   for (int b=0; b<nblocks; b++) {
     delete[] lcm[b];
     delete[] lcm_orig[b];
@@ -1217,7 +1219,8 @@ void evaluate_series_around_zero(
       lam = eig_labels[n];
       in_tens[n] = new mpc_t***[max_log[n]];
       for (int l=0; l<max_log[n]; l++) {
-        malloc_rk3_tens(in_tens[n][l], dim1, dim2, eta_ord+1);
+        // malloc_rk3_tens(in_tens[n][l], dim1, dim2, eta_ord+1);
+        malloc_rk2_tens(in_tens[n][l], dim1, dim2);
         for (int i=0; i<dim1; i++) {
           for (int j=0; j<dim2; j++) {
             in_tens[n][l][i][j] = rk4_sol[lam][l][i];
@@ -1893,10 +1896,9 @@ void match_sol_around_zero(
     mpc_t tmpc;
     mpc_init3(tmpc, wp2, wp2);
     struct poly_frac *pf_sol = new struct poly_frac[offset+b_len];
+    poly_frac_rk1_build(pf_sol, offset+b_len);
     struct poly_frac *tmp_pf = new struct poly_frac[b_len];
-    struct poly_frac *lam_pf = new struct poly_frac[num_classes];
     poly_frac_rk1_build(tmp_pf, b_len);
-    poly_frac_rk1_build(lam_pf, num_classes);
     // #mem
     struct poly_frac ***tmat_times_hsol;
     tmat_times_hsol = new struct poly_frac**[num_classes];
@@ -1908,7 +1910,7 @@ void match_sol_around_zero(
       malloc_rk2_tens(tmat_times_hsol[lam], b_len, match_constr_dim[lam]);
       poly_frac_rk2_build(tmat_times_hsol[lam], b_len, match_constr_dim[lam]);
     }
-    struct poly_frac ***mat_times_tmat_times_hsol = new struct poly_frac**[b_len];
+    struct poly_frac ***mat_times_tmat_times_hsol;// = new struct poly_frac**[b_len];
     mat_times_tmat_times_hsol = new struct poly_frac**[num_classes];
     for (int lam, n=0; n<num_cum_eig; n++) {
       lam = cum_eig[n];
@@ -1936,7 +1938,7 @@ void match_sol_around_zero(
         poly_frac_build(&tmat_times_psol[lam][i]);
       }
     }
-    struct poly_frac **mat_times_tmat_times_psol = new struct poly_frac*[b_len];
+    struct poly_frac **mat_times_tmat_times_psol;// = new struct poly_frac*[b_len];
     mat_times_tmat_times_psol = new struct poly_frac*[num_classes];
     for (int lam, n=0; n<num_cum_eig; n++) {
       lam = cum_eig[n];
@@ -1945,7 +1947,7 @@ void match_sol_around_zero(
         poly_frac_build(&mat_times_tmat_times_psol[lam][i]);
       }
     }
-    struct poly_frac **mat_times_prevsol = new struct poly_frac*[b_len];
+    struct poly_frac **mat_times_prevsol;// = new struct poly_frac*[b_len];
     mat_times_prevsol = new struct poly_frac*[num_classes];
     for (int lam, n=0; n<num_cum_eig; n++) {
       lam = cum_eig[n];
@@ -1954,7 +1956,7 @@ void match_sol_around_zero(
         poly_frac_build(&mat_times_prevsol[lam][i]);
       }
     }
-    struct poly_frac **DE_const_term = new struct poly_frac*[b_len];
+    struct poly_frac **DE_const_term ;//= new struct poly_frac*[b_len];
     DE_const_term = new struct poly_frac*[num_classes];
     for (int lam, n=0; n<num_cum_eig; n++) {
       lam = cum_eig[n];
@@ -1990,7 +1992,7 @@ void match_sol_around_zero(
         for (int i=0; i<offset; i++) {
           // cout << "lam, i = " << lam << ", " << i << endl;
           // cout << "log prof = " << log_prof[lam][i] << endl;
-          poly_frac_build(&pf_sol[i]);
+          // poly_frac_build(&pf_sol[i]);
           if (log_prof[lam][i] == 0) {
             // cout << "set pf to zero" << endl;
             poly_frac_set_zero(&pf_sol[i]);
@@ -2041,7 +2043,7 @@ void match_sol_around_zero(
 
         for (int i=0; i<b_len; i++) {
           if (print) cout << "lamp, i = " << lamp << ", " << i << endl;
-          poly_frac_build(&pf_sol[i]);        
+          // poly_frac_build(&pf_sol[i]);        
           // cout << "set pf coeffs from poly" << endl;
           // print_poly(prev_sol[lam][0][i], tp_rank+1);
           poly_frac_set_coeffs(&pf_sol[i], psol[np][0][i][0], tp_rank+1);
@@ -2136,7 +2138,7 @@ void match_sol_around_zero(
         jc = match_constr_idx[lam][j];
         for (int i=0; i<b_len; i++) {
           // cout << "i = " << i << endl;
-          poly_frac_build(&pf_sol[offset+i]);
+          // poly_frac_build(&pf_sol[offset+i]);
           // cout << "hsol poly:" << endl;
           // print_poly(hsol[n][0][i][match_constr_idx[lam][j]], tp_rank+1);
           // cout << "set coeffs..." << endl;
@@ -3506,15 +3508,6 @@ void match_sol_around_zero(
     }
     tmat -= offset;
 
-
-    // if (offset == 13) exit(0);
-
-
-    poly_frac_rk1_free(pf_sol, offset+b_len);
-    delete[] pf_sol;
-    poly_frac_rk1_free(tmp_pf, b_len);
-    delete[] tmp_pf;
-
     //////
     // SOLVE MATCHING CONSTRAINTS
     //////
@@ -3661,6 +3654,73 @@ void match_sol_around_zero(
     }
     // del_rk2_tens(constr, num_constr);
     // del_rk2_tens(constr_inv, num_constr);
+
+    // FREE
+    poly_frac_rk1_free(pf_sol, offset+b_len);
+    delete[] pf_sol;
+    poly_frac_rk1_free(tmp_pf, b_len);
+    delete[] tmp_pf;
+    for (int lam, n=0; n<num_cum_eig; n++) {
+      lam = cum_eig[n];
+      if (block_log_len[lam] == 0) {
+        continue;
+      }
+      poly_frac_rk2_free(tmat_times_hsol[lam], b_len, match_constr_dim[lam]);
+      del_rk2_tens(tmat_times_hsol[lam], b_len);
+    }
+    delete[] tmat_times_hsol;
+    for (int lam, n=0; n<num_cum_eig; n++) {
+      lam = cum_eig[n];
+      if (block_log_len[lam] == 0) {
+        continue;
+      }
+      poly_frac_rk2_free(mat_times_tmat_times_hsol[lam], b_len, match_constr_dim[lam]);
+      del_rk2_tens(mat_times_tmat_times_hsol[lam], b_len);
+    }
+    delete[] mat_times_tmat_times_hsol;
+    for (int lam, n=0; n<num_cum_eig; n++) {
+      lam = cum_eig[n];
+      for (int i=0; i<b_len; i++) {
+        poly_frac_free(&pf_const_term[lam][i]);
+      }
+      delete[] pf_const_term[lam];
+    }
+    delete[] pf_const_term;
+    for (int lam, n=0; n<num_cum_eig; n++) {
+      lam = cum_eig[n];
+      for (int i=0; i<b_len; i++) {
+        poly_frac_free(&tmat_times_psol[lam][i]);
+      }
+      delete[] tmat_times_psol[lam];
+    }
+    delete[] tmat_times_psol;
+    for (int lam, n=0; n<num_cum_eig; n++) {
+      lam = cum_eig[n];      
+      for (int i=0; i<b_len; i++) {
+        poly_frac_free(&mat_times_tmat_times_psol[lam][i]);
+      }
+      delete[] mat_times_tmat_times_psol[lam];
+    }
+    delete[] mat_times_tmat_times_psol;
+    for (int lam, n=0; n<num_cum_eig; n++) {
+      lam = cum_eig[n];
+      for (int i=0; i<b_len; i++) {
+        poly_frac_free(&mat_times_prevsol[lam][i]);
+      }
+      delete[] mat_times_prevsol[lam];
+    }
+    delete[] mat_times_prevsol;
+    for (int lam, n=0; n<num_cum_eig; n++) {
+      lam = cum_eig[n];
+      for (int i=0; i<b_len; i++) {
+        poly_frac_free(&DE_const_term[lam][i]);
+      }
+      delete[] DE_const_term[lam];
+    }
+    delete[] DE_const_term;
+
+    poly_frac_free(&pf_tmp);
+
   }
 
   // solve the system
@@ -4940,6 +5000,10 @@ void solve_zero(
       }
     }
 
+    // FREE
+    mpc_rk1_clear(lcm[b], lcm_deg[b]+1);
+    delete[] lcm[b];
+
     offset += b_len;
     // if (b == 18) {fflush(stdout); exit(0);}
     // if (b == 18) {break;}
@@ -5078,7 +5142,7 @@ void solve_zero(
   delete[] cum_eig;
   delete[] block_log_len;
   for (int b=0; b<nblocks; b++) {
-    delete[] lcm[b];
+    mpc_rk1_clear(lcm_orig[b], lcm_deg[b]);
     delete[] lcm_orig[b];
   }
   delete[] lcm;
@@ -6238,7 +6302,7 @@ void propagate_all_eps(
     mpfr_set(mpfr_tol, mpfr_tol_orig, MPFR_RNDN);
     // gnc_tol = gnc_tol_orig;  // #uncomment-for-ginac
     // wp2 = wp2_orig;
-    // if (ep == 2) exit(0); // #dbg
+    if (ep == 2) exit(0); // #dbg
   }
   // mpc_rk2_to_file((char*)"sol_at_eps.txt", sol_at_eps, dim, eps_num);
   fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
