@@ -844,6 +844,7 @@ int main(int argc, char *argv[])
   mpc_t ***solutions;
   solutions = new mpc_t**[1];
   malloc_rk2_tens(*solutions, dim, eta_ord+1);
+  init_rk2_mpc(*solutions, dim, eta_ord+1);
   mpc_t **sol_at_eps;
   malloc_rk2_tens(sol_at_eps, dim, eps_num);
   init_rk2_mpc(sol_at_eps, dim, eps_num);

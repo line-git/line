@@ -113,6 +113,7 @@ void mul_poly(mpc_t *out_pol, mpc_t *pol1, mpc_t *pol2, int deg1, int deg2) {
             // mpc_fma(out_pol[k], pol1[i], pol2[k-i], out_pol[k], MPFR_RNDN);
         }
     }
+    mpc_clear(tmp);
 }
 
 
@@ -152,6 +153,7 @@ void mul_poly_mpq(mpq_t *out_pol, mpq_t *pol1, mpq_t *pol2, int deg1, int deg2) 
             // mpq_out_str(stdout, 10, out_pol[k]); printf("\n");
         }
     }
+    mpq_clear(tmp);
 }
 
 
@@ -183,6 +185,7 @@ void mul_poly_mpq_tot(mpq_t *out_pol, mpq_t *pol1, mpq_t *pol2, int deg1, int de
             mpq_add(out_pol[k], out_pol[k], tmp);
         }
     }
+    mpq_clear(tmp);
 }
 
 
@@ -224,6 +227,7 @@ void div_poly(mpc_t *out_pol, mpc_t *pol1, mpc_t *pol2, int deg1, int deg2) {
             mpc_div(tmp, pol1[k], pol2[0], MPFR_RNDN);
             mpc_set(out_pol[k], tmp, MPFR_RNDD);
         }
+        mpc_clear(tmp);
         return;        
     }
 
@@ -244,6 +248,7 @@ void div_poly(mpc_t *out_pol, mpc_t *pol1, mpc_t *pol2, int deg1, int deg2) {
         }
 	    mpc_div(out_pol[k], out_pol[k], pol2[0], MPFR_RNDN);
     }
+    mpc_clear(tmp);
 }
 
 
@@ -264,6 +269,7 @@ int div_poly_mpq(mpq_t *out_pol, mpq_t *pol1, mpq_t *pol2, int deg1, int deg2) {
         for (k=0; k<=deg1; k++) {
             mpq_div(out_pol[k], pol1[k], pol2[0]);
         }
+        mpq_clear(tmp);
         return 0;
     }
 
@@ -280,6 +286,7 @@ int div_poly_mpq(mpq_t *out_pol, mpq_t *pol1, mpq_t *pol2, int deg1, int deg2) {
 	    mpq_div(out_pol[k], out_pol[k], pol2[0]);
     }
 
+    mpq_clear(tmp);
     return mpq_cmp_ui(out_pol[deg1-deg2+1], 0, 1);
 }
 
