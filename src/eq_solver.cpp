@@ -4429,8 +4429,8 @@ void solve_zero(
   }
 
   mpc_t *****hsol, *****psol, ****sol;
-  malloc_rk4_tens(sol, num_classes, b_len_max, dim, eta_ord+1);
-  init_rk4_mpc(sol, num_classes, b_len_max, dim, eta_ord+1);
+  malloc_rk4_tens(sol, num_classes, b_len_max+2, dim, eta_ord+1);
+  init_rk4_mpc(sol, num_classes, b_len_max+2, dim, eta_ord+1);
   // initialize to zero
   for (int i=0; i<dim; i++) {
     for (int k=0; k<eta_ord+1; k++) {
@@ -4440,8 +4440,8 @@ void solve_zero(
 
   mpfr_t mpfr_mem; mpfr_init2(mpfr_mem, wp2);
   cout << endl; cout << "memory for the solution: ";
-  cout << num_classes << " x " << dim << " x " << dim << " x " << mpfr_get_memory_usage(mpfr_mem)*2;
-  cout << " = " << num_classes*dim*dim*mpfr_get_memory_usage(mpfr_mem)*2 << endl;
+  cout << num_classes << " x " << b_len_max+2 << " x " << dim << " x " << eta_ord+1 << " x " << mpfr_get_memory_usage(mpfr_mem)*2;
+  cout << " = " << num_classes*(b_len_max+2)*dim*(eta_ord+1)*mpfr_get_memory_usage(mpfr_mem)*2 << endl;
   mpfr_clear(mpfr_mem);
   //////
   // CHECK INPUTS
@@ -4632,6 +4632,15 @@ void solve_zero(
       for (int i=0; i<b_len; i++) {
         log_prof[lam][offset+i] = sol_log_len[lam];
         block_log_prof[lam][i] = block_log_len[lam];
+      }
+
+      if (sol_log_len[lam] > b_len_max+2) {
+        fprintf(
+          stderr,
+          "b = %d, lam = %d: sol_log_len = %d greater than b_len_max + 2 = %d\n",
+          b, lam, sol_log_len[lam], b_len_max+2
+        );
+        exit(1);
       }
     }
     if (print) {
@@ -5246,8 +5255,8 @@ void solve_zero(
   del_rk3_tens(mpc_lcm_mat_ep, dim, dim);
   poly_frac_rk2_free(lcm_mat_ep, dim, dim);
   del_rk2_tens(lcm_mat_ep, dim);
-  mpc_rk4_clear(sol, num_classes, b_len_max, dim, eta_ord+1);
-  del_rk4_tens(sol, num_classes, b_len_max, dim);
+  mpc_rk4_clear(sol, num_classes, b_len_max+2, dim, eta_ord+1);
+  del_rk4_tens(sol, num_classes, b_len_max+2, dim);
 
   return;
 }
