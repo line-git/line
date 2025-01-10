@@ -1092,7 +1092,6 @@ void pf_NormalizeDiagonal(
     // cout << "CUMULATED INV TMAT" << endl;
     // poly_frac_rk2_print(inv_tmat, b_len, b_len);
     // getchar();
-    offset += b_len;
 
     // p_rank = poly_frac_Poinc_rank(mat_ep, b_len, b_len);
     // if (p_rank > 0) {
@@ -1105,6 +1104,10 @@ void pf_NormalizeDiagonal(
     poly_frac_rk2_unslice(&mat_ep, prof[b][0], prof[b][1], prof[b][0]);
     poly_frac_rk2_unslice(&tmat, prof[b][0], prof[b][1], prof[b][0]);
     poly_frac_rk2_unslice(&inv_tmat, prof[b][0], prof[b][1], prof[b][0]);
+
+    // FREE
+    poly_frac_rk2_free(pf_tmp_mat, b_len, b_len);
+    del_rk2_tens(pf_tmp_mat, b_len);
 
     if (!eig_normalized) {
       delete[] LOre;
@@ -1120,6 +1123,8 @@ void pf_NormalizeDiagonal(
       // delete[] chain_len_copy;
       // }
     }
+
+    offset += b_len;
   }
   dbg = 0;
   

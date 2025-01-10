@@ -249,6 +249,7 @@ void solve_block(mpc_t **solutions,
   }
 
   // FREE
+  mpfr_clear(mpfr_zero);
   mpc_clear(tmp_rec);
   mpc_clear(inv);
 }
@@ -928,6 +929,9 @@ void propagate_regular(
       }
       }
       
+      // FREE
+      mpc_rk1_clear(lcm[b], lcm_deg[b]+1);
+      delete[] lcm[b];
       if (sb_len>0) {
         mpc_rk2_clear(const_term[0][0], b_len, eta_ord+1);
         del_rk2_tens(const_term[0][0], b_len);
@@ -982,7 +986,7 @@ void propagate_regular(
   del_rk2_tens(lcm_mat_ep, dim);
   
   for (int b=0; b<nblocks; b++) {
-    delete[] lcm[b];
+    mpc_rk1_clear(lcm_orig[b], lcm_deg[b]);
     delete[] lcm_orig[b];
   }
   delete[] lcm;
@@ -3992,6 +3996,10 @@ void pf_limit_in_zero(
   // poly_frac_rk1_prune_rel_tol(pf_sol, wp_bin, dim);
   poly_frac_rk1_prune_radius(pf_sol, wp_bin, rad_exp, dim);
   poly_frac_rk1_eval_sym_zero(final_sol, pf_sol, roots, dim);
+
+  // FREE
+  poly_frac_rk1_free(pf_sol, dim);
+  delete[] pf_sol;
 }
 
 
@@ -5000,7 +5008,15 @@ void solve_zero(
       }
     }
 
-    // FREE
+    for (int i=0; i<b_len; i++) {
+      for (int j=0; j<b_len; j++) {
+        mpc_rk1_clear(block[i][j], block_max_deg[b]+1);
+        delete[] block[i][j];
+      }
+      delete[] block[i];
+    }
+    delete[] block;
+
     mpc_rk1_clear(lcm[b], lcm_deg[b]+1);
     delete[] lcm[b];
 
@@ -5670,6 +5686,11 @@ void propagate_infty(
   // FREE
   poly_frac_rk2_free(pfmat_infty, dim, dim);
   del_rk2_tens(pfmat_infty, dim);
+  poly_frac_rk2_free(tmat, dim, dim);
+  del_rk2_tens(tmat, dim);
+  poly_frac_rk2_free(inv_tmat, dim, dim);
+  del_rk2_tens(inv_tmat, dim);
+
 }
 
 
@@ -6302,7 +6323,7 @@ void propagate_all_eps(
     mpfr_set(mpfr_tol, mpfr_tol_orig, MPFR_RNDN);
     // gnc_tol = gnc_tol_orig;  // #uncomment-for-ginac
     // wp2 = wp2_orig;
-    if (ep == 2) exit(0); // #dbg
+    // if (ep == 2) exit(0); // #dbg
   }
   // mpc_rk2_to_file((char*)"sol_at_eps.txt", sol_at_eps, dim, eps_num);
   fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);

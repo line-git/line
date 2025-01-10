@@ -5268,4 +5268,109 @@ L10400:;
 		}
 		printf("\n");
 	}
+
+	// FREE
+	mpfr_clear(mpfr_zero);
+	mpfr_clear(mpfr_one);
+	mpfr_clear(tmp0);
+	mpfr_clear(tmp1);
+	mpfr_clear(tmp2);
+	mpfr_clear(tmp3);
+	mpfr_clear(cmp0);
+	for (int i=0; i<N+1; i++) {
+		mpfr_clear(rad[i]);
+	}
+	for (int i=0; i<N+1; i++) {
+		mpfr_clear(radr[i]);
+	}
+	sm++;
+	for (int i=0; i<N+1; i++) {
+		mpfr_clear(sm[i]);
+	}
+	dele++;
+	for (int i=0; i<N+1; i++) {
+		mpfr_clear(dele[i]);
+	}
+	supd++;
+	for (int i=0; i<N+1; i++) {
+		mpfr_clear(supd[i]);
+	}
+	evr++;
+	for (int i=0; i<N+1; i++) {
+		mpfr_clear(evr[i]);
+	}
+	evi++;
+	for (int i=0; i<N+1; i++) {
+		mpfr_clear(evi[i]);
+	}
+	zr += zr_offset;
+	for (int i=0; i<(N+1)*(nm+1); i++) {
+		mpfr_clear(zr[i]);
+	}
+	free(zr);
+	zi += zi_offset;
+	for (int i=0; i<(N+1)*(nm+1); i++) {
+		mpfr_clear(zi[i]);
+	}
+	free(zi);
+	mpfr_clear(r__1);
+	mpfr_clear(r__2);
+	mpfr_clear(r__3);
+	mpfr_clear(r__4);
+	mpfr_clear(fn);
+	mpfr_clear(told);
+	mpfr_clear(min__);
+	mpfr_clear(sk);
+	mpfr_clear(ksi);
+	mpfr_clear(myr);
+	mpfr_clear(myi);
+	mpfr_clear(nyr);
+	mpfr_clear(nyi);
+	mpfr_clear(sl);
+	mpfr_clear(hilj);
+	mpfr_clear(hrlj);
+	mpfr_clear(hilj1);
+	mpfr_clear(hrlj1);
+	mpc_clear(q__1);
+	mpc_clear(q__2);
+	mpc_clear(q__3);
+	mpc_clear(q__4);
+	mpc_clear(q__5);
+	mpc_clear(q__6);
+	mpc_clear(q__7);
+	mpfr_clear(pc1);
+	mpfr_clear(pc2);
+	mpfr_clear(ein);
+	mpfr_clear(tol);
+	mpfr_clear(einf);
+	mpfr_clear(mpr);
+	mpfr_clear(mpi);
+	mpfr_clear(rgmax);
+	mpfr_clear(cabs1);
+	mpfr_clear(rigmin);
+	mpfr_clear(radi);
+	mpfr_clear(shtr);
+	mpfr_clear(shti);
+	for (int i=0; i<N; i++) {
+		mpfr_clear(dt[i]);
+	}
+	for (int i=0; i<N; i++) {
+		mpfr_clear(cshtr[i]);
+	}
+	for (int i=0; i<N; i++) {
+		mpfr_clear(cshti[i]);
+	}
+	mpc_clear(m);
+	mpc_clear(x);
+	mpfr_clear(xr);
+	mpfr_clear(xi);
+	mpfr_clear(c1);
+	mpfr_clear(c2);
+	mpfr_clear(hrik);
+	mpfr_clear(hiik);
+	mpc_clear(hri);
+	mpc_clear(zri);
+	mpfr_clear(b);
+	mpfr_clear(t1);
+	mpfr_clear(t2);
 }
