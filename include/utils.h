@@ -72,6 +72,8 @@ void mpfr_tol_enlarge_rel(double wp2_rel_decr);
 
 int mpfr_log2_int(mpfr_t log2_mpfr);
 
+size_t mpfr_get_memory_usage(mpfr_t x);
+
 void interpolate_epsilon_orders(
   // OUTPUT
   mpc_t **sol_eps_ord,

@@ -4003,6 +4003,53 @@ void pf_limit_in_zero(
 }
 
 
+void pf_limit_in_zero_block(
+  // OUTPUT
+  mpc_t *final_sol,
+  // IN-OUT
+  struct poly_frac *pf_sol,
+  // INTPUT
+  mpc_t ****sol, struct poly_frac **tmat,
+  int offset, int b_len, int lam0, int tp_rank,
+  mpc_t *roots, int nroots,
+  int rad_exp
+) {
+  struct poly_frac *pf_tmat_sol;
+  pf_tmat_sol = new struct poly_frac[b_len];
+  poly_frac_rk1_build(pf_tmat_sol, b_len);
+
+  // fill poly_frac with the lam0 contribution to the block sol
+  for (int i=offset; i<offset+b_len; i++) {    
+    poly_frac_build(&pf_sol[i]);
+    poly_frac_set_coeffs(&pf_sol[i], sol[lam0][0][i], tp_rank+1);
+    pf_sol[i].den_deg = 0;
+    pf_sol[i].nroots = nroots;
+    pf_sol[i].mults = new int[nroots];
+    for (int k=0; k<nroots; k++) {
+      pf_sol[i].mults[k] = 0;
+    }
+  }
+
+  int wp_bin = - mpfr_log2_int(mpfr_tol);
+  wp_bin *= 0.5;  // #hard-coded
+  
+  rel_err_poly_frac_rk2_mul_pf_rk1(
+    pf_tmat_sol,
+    tmat+offset, pf_sol,
+    b_len, offset+b_len,
+    roots, wp_bin
+  );
+
+  poly_frac_rk1_prune_radius(pf_tmat_sol, wp_bin, rad_exp, b_len);
+  poly_frac_rk1_eval_sym_zero(final_sol, pf_tmat_sol, roots, b_len);
+
+  // FREE
+  poly_frac_rk1_free(pf_tmat_sol, b_len);
+  delete[] pf_tmat_sol;
+
+}
+
+
 void mpc_Log(
   // OUTPUT
   mpc_t *out,
@@ -4372,16 +4419,30 @@ void solve_zero(
     }
   }
 
+  // compute max block len
+  int b_len_max = 0, b_len_tmp;
+  for (int b=0; b<nblocks; b++) {
+    b_len_tmp = prof[b][1] - prof[b][0] + 1;
+    if (b_len_tmp > b_len_max) {
+      b_len_max = b_len_tmp;
+    }
+  }
+
   mpc_t *****hsol, *****psol, ****sol;
-  malloc_rk4_tens(sol, num_classes, dim, dim, eta_ord+1);
-  init_rk4_mpc(sol, num_classes, dim, dim, eta_ord+1);
+  malloc_rk4_tens(sol, num_classes, b_len_max, dim, eta_ord+1);
+  init_rk4_mpc(sol, num_classes, b_len_max, dim, eta_ord+1);
   // initialize to zero
   for (int i=0; i<dim; i++) {
     for (int k=0; k<eta_ord+1; k++) {
       mpc_set_d(sol[lam0][0][i][k], 0, MPFR_RNDN);
     }
   }
-  
+
+  mpfr_t mpfr_mem; mpfr_init2(mpfr_mem, wp2);
+  cout << endl; cout << "memory for the solution: ";
+  cout << num_classes << " x " << dim << " x " << dim << " x " << mpfr_get_memory_usage(mpfr_mem)*2;
+  cout << " = " << num_classes*dim*dim*mpfr_get_memory_usage(mpfr_mem)*2 << endl;
+  mpfr_clear(mpfr_mem);
   //////
   // CHECK INPUTS
   //////
@@ -4459,6 +4520,12 @@ void solve_zero(
     malloc_rk2_tens(sol_at_target, dim, 1);
     init_rk2_mpc(sol_at_target, dim, 1);
   }
+
+  // needed for limit in zero
+  mpfr_t tmpfr; mpfr_init2(tmpfr, wp2);
+  mpc_abs(tmpfr, *matching_point, MPFR_RNDN);
+  int rad_exp = mpfr_get_exp(tmpfr);
+  struct poly_frac *pf_sol = new struct poly_frac[dim];
 
   for (int b=0; b<nblocks; b++) {
     // for (int b=0; b<1; b++) {
@@ -4968,7 +5035,20 @@ void solve_zero(
       // }
       tmat -= offset;
     }
-
+    else {
+      // cout << "COMPUTE LIMIT IN ZERO (BY BLOCK)" << endl;
+      // pf_limit_in_zero_block(
+      //   tmp_vec,
+      //   pf_sol,
+      //   sol, tmat,
+      //   offset, b_len, lam0, tp_rank,
+      //   roots, npoles,
+      //   rad_exp
+      // );
+      // for (int i=0; i<b_len; i++) {
+      //   mpc_set(solutions[0][offset+i][0], tmp_vec[i], MPFR_RNDN);
+      // }
+    }
     if (print) {
     cout << endl; cout << "enter to SOLUTION" << endl;
     // getchar();
@@ -5058,8 +5138,8 @@ void solve_zero(
   
   // #debug
   int nmi = dim, kplus = 1;
-  struct poly_frac **pf_sol;
-  malloc_rk2_tens(pf_sol, num_classes, dim);
+  struct poly_frac **pf_sol_dbg;
+  malloc_rk2_tens(pf_sol_dbg, num_classes, dim);
   if (print) {
   cout << endl << "BEHAVIOUR OF THE MIs" << endl;
   // cout << "tp_rank = " << tp_rank << endl;
@@ -5073,26 +5153,26 @@ void solve_zero(
     }
     for (int i=0; i<nmi; i++) {
       // cout << "i = " << i << endl;
-      poly_frac_build(&pf_sol[lam][i]);
+      poly_frac_build(&pf_sol_dbg[lam][i]);
       if (log_prof[lam][i] == 0) {
-        poly_frac_set_zero(&pf_sol[lam][i]);
+        poly_frac_set_zero(&pf_sol_dbg[lam][i]);
         continue;
       }
       // cout << "input poly:" << endl;
       // print_poly(sol[lam][0][i], tp_rank+1+kplus);
-      poly_frac_set_coeffs(&pf_sol[lam][i], sol[lam][0][i], tp_rank+1+kplus);
-      pf_sol[lam][i].den_deg = 0;
-      pf_sol[lam][i].nroots = nroots;
-      pf_sol[lam][i].mults = new int[nroots];
+      poly_frac_set_coeffs(&pf_sol_dbg[lam][i], sol[lam][0][i], tp_rank+1+kplus);
+      pf_sol_dbg[lam][i].den_deg = 0;
+      pf_sol_dbg[lam][i].nroots = nroots;
+      pf_sol_dbg[lam][i].mults = new int[nroots];
       for (int k=0; k<nroots; k++) {
-        pf_sol[lam][i].mults[k] = 0;
+        pf_sol_dbg[lam][i].mults[k] = 0;
       }
-      // poly_frac_print(&pf_sol[lam][i]);
+      // poly_frac_print(&pf_sol_dbg[lam][i]);
     }
 
     // apply matrix
     // cout << "apply matrix" << endl;
-    poly_frac_rk2_mul_pf_rk1(pf_sol[lam], tmat, pf_sol[lam], nmi, nmi, roots);
+    poly_frac_rk2_mul_pf_rk1(pf_sol_dbg[lam], tmat, pf_sol_dbg[lam], nmi, nmi, roots);
   }
 
   for (int m=0; m<dim; m++) {
@@ -5102,7 +5182,7 @@ void solve_zero(
         continue;
       }
       cout << "m, lam = " << m << ", " << lam << endl;
-      poly_frac_print(&pf_sol[lam][m]);
+      poly_frac_print(&pf_sol_dbg[lam][m]);
     }
   }
   }
@@ -5136,9 +5216,6 @@ void solve_zero(
   } else {
     // COMPUTE LIMIT IN ZERO AND TRANSFORM BACK TO ORIGINAL GAUGE
     if (print) cout << "COMPUTE LIMIT IN ZERO" << endl;
-    mpfr_t tmpfr; mpfr_init2(tmpfr, wp2);
-    mpc_abs(tmpfr, *matching_point, MPFR_RNDN);
-    int rad_exp = mpfr_get_exp(tmpfr);
     pf_limit_in_zero(
       tmp_vec,
       sol, tmat,
@@ -5146,7 +5223,6 @@ void solve_zero(
       roots, npoles,
       rad_exp
     );
-    mpfr_clear(tmpfr);
     // the copy tmp_vec is unnecessary, we could avoid it if inside
     // pf_limit_in_zero we perform the rk2_mul_rk1 with a slice on the output
     for (int i=0; i<dim; i++) {
@@ -5155,6 +5231,7 @@ void solve_zero(
   }
 
   // FREE
+  mpfr_clear(tmpfr);
   delete[] cum_eig;
   delete[] block_log_len;
   for (int b=0; b<nblocks; b++) {
@@ -5169,8 +5246,8 @@ void solve_zero(
   del_rk3_tens(mpc_lcm_mat_ep, dim, dim);
   poly_frac_rk2_free(lcm_mat_ep, dim, dim);
   del_rk2_tens(lcm_mat_ep, dim);
-  mpc_rk4_clear(sol, num_classes, dim, dim, eta_ord+1);
-  del_rk4_tens(sol, num_classes, dim, dim);
+  mpc_rk4_clear(sol, num_classes, b_len_max, dim, eta_ord+1);
+  del_rk4_tens(sol, num_classes, b_len_max, dim);
 
   return;
 }

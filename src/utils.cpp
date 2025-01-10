@@ -629,6 +629,17 @@ int mpfr_log2_int(mpfr_t in) {
 }
 
 
+size_t mpfr_get_memory_usage(mpfr_t x) {
+	// sizeof(mpfr_t) restituisce la dimensione statica della struttura
+	size_t static_size = sizeof(mpfr_t);
+
+	// Calcola la memoria allocata dinamicamente per il significand
+	size_t dynamic_size = (mpfr_get_prec(x) + 7) / 8; // byte necessari per la precisione
+
+	return static_size + dynamic_size;
+}
+
+
 void interpolate_epsilon_orders(
   // OUTPUT
   mpc_t **sol_eps_ord,

@@ -85,6 +85,18 @@ void pf_limit_in_zero(
   int rad_exp
 );
 
+void pf_limit_in_zero_block(
+  // OUTPUT
+  mpc_t *final_sol,
+  // IN-OUT
+  struct poly_frac *pf_sol,
+  // INTPUT
+  mpc_t ****sol, struct poly_frac **tmat,
+  int offset, int b_len, int lam0, int tp_rank,
+  mpc_t *roots, int nroots,
+  int rad_exp
+);
+
 void solve_zero(
   // IN-OUTPUT
   mpc_t ***solutions,
