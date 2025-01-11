@@ -45,9 +45,11 @@ int max_ints(int *arr, int dim);
 
 void minmax0(double *min, double *max, double *arr, int MAX_SIZE);
 
+void minmax0_mp(mpfr_t *min, mpfr_t *max, mpfr_t *arr, int MAX_SIZE);
+
 double min1(double *arr, int MAX_SIZE);
 
-int length_file(ifstream &fmat);
+void min1_mp(mpfr_t *min, mpfr_t *arr, int MAX_SIZE);
 
 void rationalize(mpq_t out_rat, double x, double tolerance);
 
@@ -61,6 +63,8 @@ void limit_denominator(
 void rationalize_cf_from_str(mpq_t rat, char *str);
 
 void print_mpc(mpc_t *mpc_num);
+
+void print_mpfr(mpfr_t *mpfr_num);
 
 bool mpfr_is_diff_int(mpfr_t real1, mpfr_t real2);
 

@@ -275,6 +275,13 @@ void get_path_PS_infty(
   mpc_t *roots, int nroots, int zero_label
 );
 
+void get_path_PS_infty_mp(
+  // OUTPUT
+  mpc_t **path, int **path_tags, int *neta_vals, int **sing_lab, int *nsings,
+  // INPUT
+  mpc_t *roots, int nroots, int zero_label
+);
+
 void path_to_math(
   mpc_t *path, int *path_tags, int neta_values,
   mpc_t *roots, int nroots

@@ -2437,6 +2437,8 @@ void get_path_PS(
 
 
 void get_path(mpc_t **eta_values, int* neta_vals, complex_d *poles, int npoles) {
+  int print = 0;
+
   // cout << "poles:" << endl;
   // for (int k=0; k<npoles; k++) {
   //   cout << poles[k] << endl;
@@ -2447,6 +2449,7 @@ void get_path(mpc_t **eta_values, int* neta_vals, complex_d *poles, int npoles) 
 
   // compute initial and final point in the [0, 1] interval
   double ini, fin;
+  if (print) cout << "npoles = " << npoles << endl;
   if (npoles == 0 && poles[0] == (complex_d){0, 0}) {
     ini = 1;
     fin = 1;
@@ -2460,15 +2463,15 @@ void get_path(mpc_t **eta_values, int* neta_vals, complex_d *poles, int npoles) 
     ini = max*RunRadius;
     fin = min/RunRadius;
   }
-  // cout << "ini = " << ini << endl;
-  // cout << "fin = " << fin << endl;
+  if (print) cout << "ini = " << ini << endl;
+  if (print) cout << "fin = " << fin << endl;
 
   // define candidate directions
   complex_d dirs[2*RunCandidate+1];
-  // cout << "candidates" << endl;
+  if (print) cout << "candidates" << endl;
   for (int i=-RunCandidate; i<=RunCandidate; i++) {
     dirs[i+RunCandidate] = ((complex_d) {(double) i, -1.} )/ sqrt(1+i*i);
-    // cout << dirs[i+RunCandidate] << endl;
+    if (print) cout << dirs[i+RunCandidate] << endl;
   }
   
   // loop that generates points in the [0, 1] interval
@@ -2483,13 +2486,13 @@ void get_path(mpc_t **eta_values, int* neta_vals, complex_d *poles, int npoles) 
     // for (int i=0; i<1; i++) {
     // i = 10;
     for (int i=0; i<=2*RunCandidate; i++) {
-      // cout << "candidate " << i << ":" << endl;
+      if (print) cout << "candidate " << i << ":" << endl;
       fails = 0;
       for (int j=0; j<npoles; j++) {
         cen_rot_poles[j] = (poles[j]/dirs[i] -  ini)/(fin - ini);
-        // cout << "cen_rot_poles[" << j << "] = " << cen_rot_poles[j] << endl;
+        if (print) cout << "cen_rot_poles[" << j << "] = " << cen_rot_poles[j] << endl;
         if (cen_rot_poles[j].imag() == 0 &&  0 <= cen_rot_poles[j].real() && cen_rot_poles[j].real() <= 1) {
-          // cout << "fails" << endl;
+          if (print) cout << "fails" << endl;
           fails = 1;
           break;
         }
@@ -2497,7 +2500,7 @@ void get_path(mpc_t **eta_values, int* neta_vals, complex_d *poles, int npoles) 
       if (fails) {
         run[1] = {-1};
       } else {
-        // cout << "pass" << endl;
+        if (print) cout << "pass" << endl;
         current = 0;
         run[0] = current;
         count_run = 1;
@@ -2509,7 +2512,7 @@ void get_path(mpc_t **eta_values, int* neta_vals, complex_d *poles, int npoles) 
           run[count_run] = current;
           count_run++;
         }
-        // cout << "count run = " << count_run << endl;
+        if (print) cout << "count run = " << count_run << endl;
       }
       if (count_run < run_len && run[0] != -1) {
         run_len = count_run;
@@ -2521,30 +2524,200 @@ void get_path(mpc_t **eta_values, int* neta_vals, complex_d *poles, int npoles) 
       }
     }
   }
+  if (print) cout << "dir = " << dir_sav << endl;
+  if (print) cout << "count run = " << count_run << endl;
 
   // map back [0, 1] to complex half-line
-
-  // DEPRECATED: we used to convert to rational cln numbers
-  // *eta_values = new complex<cln::cl_RA>[count_run_sav];
-  // double re, im;
-  // for (int i=0; i<count_run_sav ; i++) {
-  //   rationalize(eta_values[i],
-  //   (ini + run_pts[i]*(fin - ini))*dir_sav,
-  //     std::pow(10., -tolerance_digits));
-  // }
-
-
+  if (print) cout << "map back [0, 1] to complex half-line" << endl;
   *eta_values = new mpc_t[count_run_sav];
   complex_d tmp;
   for (int i=0; i<count_run_sav ; i++) {
+    if (print) cout << "i = " << i << endl;
+    if (print) cout << "run_pts = " << run_pts[i] << endl;
     tmp = (ini + run_pts[i]*(fin - ini))*dir_sav;
     mpc_init3((*eta_values)[i], wp2, wp2);
     mpc_set_d_d((*eta_values)[i], tmp.real(), tmp.imag(), MPFR_RNDN);
+    // print_mpc(&(*eta_values[i])); cout << endl; fflush(stdout);
   }
   delete[] run_pts;
   
   // save number of path values
   *neta_vals = count_run_sav;
+
+}
+
+
+void get_path_mp(mpc_t **eta_values, int* neta_vals, mpc_t *poles, int npoles) {
+  int print = 0;
+
+  // define parameters
+  int RunCandidate = 10, RunRadius = 2, len_max = 200;
+
+  mpc_t tmpc; mpc_init3(tmpc, wp2, wp2);
+  mpfr_t tmpfr; mpfr_init2(tmpfr, wp2);
+  mpfr_t mpfr_one; mpfr_init2(mpfr_one, wp2);
+  mpfr_set_ui(mpfr_one, 1, MPFR_RNDN);
+  mpfr_t min_dist;
+  mpfr_init2(min_dist, wp2);
+
+  // compute initial and final point in the [0, 1] interval
+  mpfr_t ini, fin;
+  mpfr_init2(ini, wp2);
+  mpfr_init2(fin, wp2);
+  mpfr_t min, max;
+  mpfr_init2(min, wp2);
+  mpfr_init2(max, wp2);
+  if (print) cout << "npoles = " << npoles << endl;
+  if (npoles == 0 && mpc_cmp_si_si(poles[0], 0, 0) == 0) {
+    mpfr_set_si(ini, 1, MPFR_RNDN);
+    mpfr_set_si(fin, 1, MPFR_RNDN);
+  } else {
+    mpfr_t pole_mods[npoles];
+    for(int i=0; i<npoles; i++) {
+      mpfr_init2(pole_mods[i], wp2);
+      mpc_abs(pole_mods[i], poles[i], MPFR_RNDN);
+    }
+    minmax0_mp(&min, &max, pole_mods, npoles);
+    mpfr_mul_si(ini, max, RunRadius, MPFR_RNDN);
+    mpfr_div_si(fin, min, RunRadius, MPFR_RNDN);
+    for(int i=0; i<npoles; i++) {
+      mpfr_clear(pole_mods[i]);
+    }
+  }
+  if (print) {cout << "ini = "; print_mpfr(&ini); cout << endl;}
+  if (print) {cout << "fin = "; print_mpfr(&fin); cout << endl;}
+
+  // define candidate directions
+  mpc_t dirs[2*RunCandidate+1];
+  mpfr_t denom;
+  mpfr_init2(denom, wp2);
+  if (print) cout << "candidates" << endl;
+  for (int i=-RunCandidate; i<=RunCandidate; i++) {
+    mpc_init2(dirs[i+RunCandidate], wp2);
+    mpc_set_d_d(dirs[i+RunCandidate], (double) i, -1., MPFR_RNDN);
+    mpfr_set_si(denom, 1 + i * i, MPFR_RNDN);
+    mpfr_sqrt(denom, denom, MPFR_RNDN);
+    mpc_div_fr(dirs[i+RunCandidate], dirs[i+RunCandidate], denom, MPFR_RNDN);
+    if (print) {print_mpc(&dirs[i+RunCandidate]); cout << endl;}
+  }
+  mpfr_clear(denom);
+  
+  // loop that generates points in the [0, 1] interval
+  int run_len = len_max, fails, count_run, count_run_sav;
+  mpfr_t run[len_max], current, dists[npoles], run_pts[len_max];
+  mpc_t cen_rot_poles[npoles], dir_sav;
+  for (int i=0; i<len_max; i++) {
+    mpfr_init2(run[i], wp2);
+    mpfr_init2(run_pts[i], wp2);
+  }
+  for (int i=0; i<npoles; i++) {
+    mpfr_init2(dists[i], wp2);
+    mpc_init3(cen_rot_poles[i], wp2, wp2);
+  }
+  mpc_init2(dir_sav, wp2);
+  mpfr_init2(current, wp2);
+  if (mpfr_equal_within_tol(ini, fin)) {
+    mpfr_set(run_pts[0], ini, MPFR_RNDN);
+  } else {
+    for (int i=0; i<=2*RunCandidate; i++) {
+      if (print) cout << "candidate " << i << ":" << endl;
+      fails = 0;
+      for (int j=0; j<npoles; j++) {
+        mpc_div(cen_rot_poles[j], poles[j], dirs[i], MPFR_RNDN);
+        mpc_sub_fr(cen_rot_poles[j], cen_rot_poles[j], ini, MPFR_RNDN);
+        mpfr_sub(tmpfr, fin, ini, MPFR_RNDN);
+        mpc_div_fr(cen_rot_poles[j], cen_rot_poles[j], tmpfr, MPFR_RNDN);
+        if (print) {cout << "cen_rot_poles[" << j << "] = "; print_mpc(&cen_rot_poles[j]); cout << endl;}
+        if (
+          mpfr_lessthan_tol(mpc_imagref(cen_rot_poles[j])) &&\
+          !mpfr_lessthan_tol(mpc_realref(cen_rot_poles[j])) &&\
+          mpfr_cmp_si(mpc_realref(cen_rot_poles[j]), 1) <= 0 &&\
+          !mpfr_equal_within_tol(mpc_realref(cen_rot_poles[j]), mpfr_one)
+        ) {
+          if (print) cout << "fails" << endl;
+          fails = 1;
+          break;
+        }
+      }
+      if (fails) {
+        mpfr_set_si(run[1], -1, MPFR_RNDN);
+      } else {
+        if (print) cout << "pass" << endl;
+        mpfr_set_si(current, 0, MPFR_RNDN);
+        mpfr_set(run[0], current, MPFR_RNDN);
+        count_run = 1;
+        while (
+          (mpfr_cmp_si(current, 1) < 0 && !mpfr_equal_within_tol(current, mpfr_one)) &&\
+          count_run < len_max
+        ) {
+          for (int k=0; k<npoles; k++) {
+            mpfr_sub(mpc_realref(tmpc), current, mpc_realref(cen_rot_poles[k]), MPFR_RNDN);
+            mpfr_neg(mpc_imagref(tmpc), mpc_imagref(cen_rot_poles[k]), MPFR_RNDN);
+            mpc_abs(dists[k], tmpc, MPFR_RNDN);
+          }
+          min1_mp(&min_dist, dists, npoles);
+          mpfr_div_si(min_dist, min_dist, RunRadius, MPFR_RNDN);
+          mpfr_add(current, current, min_dist, MPFR_RNDN);
+          if (mpfr_cmp_ui(current, 1) < 1) {
+            mpfr_set(run[count_run], current, MPFR_RNDN);
+          } else {
+            mpfr_set_ui(run[count_run], 1, MPFR_RNDN);
+          }
+          count_run++;
+        }
+        if (print) cout << "count run = " << count_run << endl;
+      }
+      if (count_run < run_len && mpfr_cmp_si(run[0], -1) != 0) {
+        run_len = count_run;
+        for (int l=0; l<count_run; l++) {
+          mpfr_set(run_pts[l], run[l], MPFR_RNDN);
+        }
+        mpc_set(dir_sav, dirs[i], MPFR_RNDN);
+        count_run_sav = count_run;
+      }
+    }
+  }
+  if (print) {cout << "dir = "; print_mpc(&dir_sav); cout << endl;}
+  if (print) cout << "count run = " << count_run << endl;
+
+  // map back [0, 1] to complex half-line
+  if (print) cout << "map back [0, 1] to complex half-line" << endl;
+  *eta_values = new mpc_t[count_run_sav];
+  for (int i=0; i<count_run_sav ; i++) {
+    if (print) cout << "i = " << i << endl;
+    if (print) {cout << "run_pts = "; print_mpfr(&run_pts[i]); cout << endl;}
+    mpfr_sub(tmpfr, fin, ini, MPFR_RNDN);
+    mpfr_fma(tmpfr, tmpfr, run_pts[i], ini, MPFR_RNDN);
+    mpc_init3((*eta_values)[i], wp2, wp2);
+    mpc_mul_fr((*eta_values)[i], dir_sav, tmpfr, MPFR_RNDN);
+    // print_mpc(&(*eta_values[i])); cout << endl;
+  }
+  
+  // save number of path values
+  *neta_vals = count_run_sav;
+
+  // clear allocated memory
+  mpfr_clear(ini);
+  mpfr_clear(fin);
+  mpfr_clear(min);
+  mpfr_clear(max);
+  for (int i=0; i<len_max; i++) {
+    mpfr_clear(run[i]);
+    mpfr_clear(run_pts[i]);
+  }
+  for (int i=0; i<npoles; i++) {
+    mpfr_clear(dists[i]);
+    mpc_clear(cen_rot_poles[i]);
+  }
+  for (int i=0; i<=2*RunCandidate; i++) {
+    mpc_clear(dirs[i]);
+  }
+  mpc_clear(dir_sav);
+  mpfr_clear(current);
+  mpfr_clear(min_dist);
+  mpc_clear(tmpc);
+  mpfr_clear(tmpfr);
+  mpfr_clear(mpfr_one);
 
 }
 
@@ -2575,6 +2748,55 @@ void get_path_PS_infty(
 
   // CALL ROUTINE FOR PATH FROM INFTY
   get_path(path, neta_vals, poles, nroots);
+
+  // add zero
+  mpc_t *zero = new mpc_t[1];
+  mpc_init3(zero[0], wp2, wp2);
+  mpc_set_ui(zero[0], 0, MPFR_RNDN);
+
+  mpc_rk1_append(neta_vals, path, 1, zero);
+  (*neta_vals)++;
+
+  // for (int k=0; k<*neta_vals; k++) {
+  //   cout << "k = " << k << ": "; print_mpc(&(*path)[k]); cout << endl;
+  // }
+  // exit(0);
+
+  // SET PATH TAGS
+  *path_tags = new int[*neta_vals];
+  (*path_tags)[0] = 1;
+  for (int k=1; k<*neta_vals-1; k++) {
+    (*path_tags)[k] = 1;
+  }
+  (*path_tags)[*neta_vals-1] = 0;
+
+}
+
+
+void get_path_PS_infty_mp(
+  // OUTPUT
+  mpc_t **path, int **path_tags, int *neta_vals, int **sing_lab, int *nsings,
+  // INPUT
+  mpc_t *roots, int nroots, int zero_label
+) {
+  // specific infty parameters
+  *nsings = 1;
+  *sing_lab = new int[*nsings];
+  (*sing_lab)[0] = 0;
+
+  // prune poles
+  mpc_t *poles = new mpc_t[nroots];
+  for (int k=0; k<nroots; k++) {
+    mpc_init3(poles[k], wp2, wp2);
+    if (mpc_lessthan_tol(roots[k])) {
+      mpc_set_ui(poles[k], 0, MPFR_RNDN);
+    } else {
+      mpc_set(poles[k], roots[k], MPFR_RNDN);
+    }  
+  }
+
+  // CALL ROUTINE FOR PATH FROM INFTY
+  get_path_mp(path, neta_vals, poles, nroots);
 
   // add zero
   mpc_t *zero = new mpc_t[1];

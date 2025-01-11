@@ -4440,8 +4440,9 @@ void solve_zero(
 
   mpfr_t mpfr_mem; mpfr_init2(mpfr_mem, wp2);
   cout << endl; cout << "memory for the solution: ";
-  cout << num_classes << " x " << b_len_max+2 << " x " << dim << " x " << eta_ord+1 << " x " << mpfr_get_memory_usage(mpfr_mem)*2;
-  cout << " = " << num_classes*(b_len_max+2)*dim*(eta_ord+1)*mpfr_get_memory_usage(mpfr_mem)*2 << endl;
+  cout << num_classes << " x " << b_len_max+2 << " x " << dim << " x " << eta_ord+1 << " x ";
+  cout << mpfr_get_memory_usage(mpfr_mem)*2 << "bytes = ";
+  cout << num_classes*(b_len_max+2)*dim*(eta_ord+1)*mpfr_get_memory_usage(mpfr_mem)*2 << "bytes" << endl;
   mpfr_clear(mpfr_mem);
   //////
   // CHECK INPUTS

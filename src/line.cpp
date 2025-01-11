@@ -839,6 +839,11 @@ int main(int argc, char *argv[])
   int *neta_values = new int[eps_num];
   int  **sing_lab = new int*[eps_num];
   int *nsings = new int[eps_num];
+  mpc_t **path_mp = new mpc_t*[eps_num];
+  int **path_tags_mp = new int*[eps_num];
+  int *neta_values_mp = new int[eps_num];
+  int  **sing_lab_mp = new int*[eps_num];
+  int *nsings_mp = new int[eps_num];
 
   // SOLUTIONS
   mpc_t ***solutions;
@@ -999,7 +1004,7 @@ int main(int argc, char *argv[])
   cout << endl; cout << "BUILD PATH..." << endl;
   for (int ep=0; ep<eps_num; ep++) {
     if (exit_sing == -1) {
-      get_path_PS_infty(
+      get_path_PS_infty_mp(
         &path[ep], &path_tags[ep], &neta_values[ep], &sing_lab[ep], &nsings[ep],
         roots[ep], nroots[ep], zero_label[ep]
       );
@@ -1126,7 +1131,62 @@ int main(int argc, char *argv[])
         cout << i << ". tag: " << path_tags[0][i] << ", point: ";
         print_mpc(&path[0][i]); cout << endl;
       }
-      
+
+      // // MP PATH
+      // cout << endl; cout << "BUILD PATH..." << endl;
+      // for (int ep=0; ep<eps_num; ep++) {
+      //   if (exit_sing == -1) {
+      //     get_path_PS_infty_mp(
+      //       &path_mp[ep], &path_tags_mp[ep], &neta_values_mp[ep], &sing_lab_mp[ep], &nsings_mp[ep],
+      //       roots[ep], nroots[ep], zero_label[ep]
+      //     );
+      //   } else {
+      //     get_path_PS(
+      //       &path_mp[ep], &path_tags_mp[ep], &neta_values_mp[ep], &sing_lab_mp[ep], &nsings_mp[ep],
+      //       roots[ep], nroots[ep], zero_label[ep]
+      //     );
+      //   }
+      // }
+      // MP PATH
+      // cout << endl; cout << "BUILD PATH..." << endl;
+      // for (int ep=0; ep<eps_num; ep++) {
+      //   if (exit_sing == -1) {
+      //     get_path_PS_infty_mp(
+      //       &path[ep], &path_tags[ep], &neta_values[ep], &sing_lab[ep], &nsings[ep],
+      //       roots[ep], nroots[ep], zero_label[ep]
+      //     );
+      //   } else {
+      //     get_path_PS(
+      //       &path[ep], &path_tags[ep], &neta_values[ep], &sing_lab[ep], &nsings[ep],
+      //       roots[ep], nroots[ep], zero_label[ep]
+      //     );
+      //   }
+      // }
+
+      // cout << endl; cout << "SINGULAR POINTS MP (1st epsilon):" << endl;
+      // cout << nsings_mp[0] << " points" << endl;
+      // for (int i=0; i<nsings_mp[0]; i++) {
+      //   cout << "lab: " << sing_lab_mp[0][i] << ", root: "; print_mpc(&roots[0][sing_lab_mp[0][i]]); cout << endl;
+      // }
+      // cout << endl; cout << "PATH MP (1st epsilon):" << endl;
+      // cout << neta_values_mp[0] << " points" << endl;
+      // for (int i=0; i<neta_values_mp[0]; i++) {
+      //   cout << i << ". tag: " << path_tags_mp[0][i] << ", point: ";
+      //   print_mpc(&path_mp[0][i]); cout << endl;
+      // }
+
+      // wrt_cmp_DE(
+      //   perm,
+      //   zero_label, nroots, roots,
+      //   pfmat, eps_num, dim,
+      //   0.80,
+      //   file_ext, filepath_matrix, filepath_roots, 0
+      // );
+      // wrt_cmp_path(
+      //   path_mp, path_tags_mp, eps_num, neta_values_mp,
+      //   nsings_mp, sing_lab_mp, perm,
+      //   file_ext, filepath_path, filepath_path_tags, filepath_sing_lab, 1
+      // );
       break;
   
     case -2:

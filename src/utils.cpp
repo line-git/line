@@ -255,6 +255,26 @@ void minmax0(double *min, double *max, double *arr, int MAX_SIZE) {
 }
 
 
+void minmax0_mp(mpfr_t *min, mpfr_t *max, mpfr_t *arr, int MAX_SIZE) {
+  // compute max and min for arrays of unique mpfr_t, where
+  // the min is found among non-vanishing values
+  int i;
+
+  mpfr_set(*max, arr[0], MPFR_RNDN);
+  mpfr_set(*min, arr[0], MPFR_RNDN);
+  if (mpfr_lessthan_tol(*min))
+    mpfr_set(*min, arr[1], MPFR_RNDN);
+  for(i=1; i<MAX_SIZE; i++) {
+    if(mpfr_cmp(arr[i], *max) > 0) {
+      mpfr_set(*max, arr[i], MPFR_RNDN);
+    }
+    if(mpfr_cmp(arr[i], *min) < 0 && !mpfr_lessthan_tol(arr[i])) {
+      mpfr_set(*min, arr[i], MPFR_RNDN);
+    }
+  }
+}
+
+
 double min1(double *arr, int MAX_SIZE) {
   // compute the min among non-vanishing elements of an arrays 
   // of unique doubles
@@ -277,6 +297,30 @@ double min1(double *arr, int MAX_SIZE) {
     }
   }
   return min;
+}
+
+
+void min1_mp(mpfr_t *min, mpfr_t *arr, int MAX_SIZE) {
+  // compute the min among non-vanishing elements of an array 
+  // of unique mpfr_t
+  int i, j;
+  mpfr_set_si(*min, 0, MPFR_RNDN);
+  for(i=0; i<MAX_SIZE; i++) {
+    if (!mpfr_lessthan_tol(arr[i])) {
+      mpfr_set(*min, arr[i], MPFR_RNDN);
+      break;
+    }
+  }
+  if (mpfr_lessthan_tol(*min)) {
+    fprintf(stderr, "non-zero minimum does not exist in input array\n");
+    exit(EXIT_FAILURE);
+  }
+
+  for(j=i+1; j<MAX_SIZE; j++) {
+    if(mpfr_cmp(arr[j], *min) < 0 && !mpfr_lessthan_tol(arr[j])) {
+      mpfr_set(*min, arr[j], MPFR_RNDN);
+    }
+  }
 }
 
 
