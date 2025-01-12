@@ -1009,7 +1009,7 @@ int main(int argc, char *argv[])
         roots[ep], nroots[ep], zero_label[ep]
       );
     } else {
-      get_path_PS(
+      get_path_PS_mp(
         &path[ep], &path_tags[ep], &neta_values[ep], &sing_lab[ep], &nsings[ep],
         roots[ep], nroots[ep], zero_label[ep]
       );
@@ -1141,7 +1141,7 @@ int main(int argc, char *argv[])
       //       roots[ep], nroots[ep], zero_label[ep]
       //     );
       //   } else {
-      //     get_path_PS(
+      //     get_path_PS_mp(
       //       &path_mp[ep], &path_tags_mp[ep], &neta_values_mp[ep], &sing_lab_mp[ep], &nsings_mp[ep],
       //       roots[ep], nroots[ep], zero_label[ep]
       //     );

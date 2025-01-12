@@ -266,6 +266,13 @@ void get_path_PS(
   mpc_t *roots, int nroots, int zero_label
 );
 
+void get_path_PS_mp(
+  // OUTPUT
+  mpc_t **path, int **path_tags, int *neta_vals, int **sing_lab, int *nsings,
+  // INPUT
+  mpc_t *roots, int nroots, int zero_label
+);
+
 void get_path(mpc_t **eta_values, int* neta_vals, complex_d *poles, int npoles);
 
 void get_path_PS_infty(

@@ -1821,6 +1821,51 @@ void qsort_singular_labels(int *label, int first, int last, complex_d *poles, in
 }
 
 
+void qsort_singular_labels_mp(int *label, int first, int last, mpc_t *poles, int *sort_also_these){
+  int i, j, pivot, temp;
+  if(first<last){
+    pivot = first;
+    i = first;
+    j = last;
+    while(i<j){
+        while(
+          (
+            mpfr_equal_within_tol(mpc_realref(poles[label[i]]), mpc_realref(poles[label[pivot]])) ||\
+            mpfr_cmp(mpc_realref(poles[label[i]]), mpc_realref(poles[label[pivot]])) < 0
+          ) &&\
+          i<last
+        ) {
+          i++;
+        }
+        while(
+          mpfr_cmp(mpc_realref(poles[label[j]]), mpc_realref(poles[label[pivot]])) > 0 &&\
+          !mpfr_equal_within_tol(mpc_realref(poles[label[j]]), mpc_realref(poles[label[pivot]]))
+        ) {
+          j--;
+        }
+        if(i<j){
+          temp=label[i];
+          label[i]=label[j];
+          label[j]=temp;
+          // sort also these
+          temp=sort_also_these[i];
+          sort_also_these[i]=sort_also_these[j];
+          sort_also_these[j]=temp;          
+        }
+    }
+    temp = label[pivot];
+    label[pivot] = label[j];
+    label[j] = temp;
+    // sort also these
+    temp = sort_also_these[pivot];
+    sort_also_these[pivot] = sort_also_these[j];
+    sort_also_these[j] = temp;
+    qsort_singular_labels_mp(label, first, j-1, poles, sort_also_these);
+    qsort_singular_labels_mp(label, j+1, last, poles, sort_also_these);
+  }
+}
+
+
 void generate_coordinates(
   // OUTPUT
   double *pts,
@@ -1885,6 +1930,81 @@ void generate_coordinates(
 }
 
 
+void generate_coordinates_mp(
+  // OUTPUT
+  mpfr_t *pts,
+  int *npts,
+  // INPUT
+  mpc_t *poles, int npoles,
+  int RunRadius, int len_max, int mall
+) {
+  mpfr_t mpfr_one; mpfr_init2(mpfr_one, wp2);
+  mpfr_set_ui(mpfr_one, 1, MPFR_RNDN);
+  mpc_t tmpc; mpc_init3(tmpc, wp2, wp2);
+  mpfr_t min_dist; mpfr_init2(min_dist, wp2);
+
+  mpfr_t *int_pts;
+  if (mall) {
+    int_pts = new mpfr_t[len_max];
+    for (int i = 0; i < len_max; i++) {
+      mpfr_init2(int_pts[i], wp2);
+    }
+  } else {
+    int_pts = pts;
+  }
+
+  mpfr_t current;
+  mpfr_init2(current, wp2);
+  mpfr_set_si(current, 0, MPFR_RNDN);
+
+  mpfr_t dists[npoles];
+  for (int i = 0; i < npoles; i++) {
+    mpfr_init2(dists[i], wp2);
+  }
+
+  mpfr_set(int_pts[0], current, MPFR_RNDN);
+  *npts = 1;
+  while (
+    mpfr_cmp_si(current, 1) < 0 && !mpfr_equal_within_tol(current, mpfr_one) &&\
+    *npts < len_max
+  ) {
+    for (int k = 0; k < npoles; k++) {
+      mpc_sub_fr(tmpc, poles[k], current, MPFR_RNDN);
+      mpc_abs(dists[k], tmpc, MPFR_RNDN);
+    }
+    min1_mp(&min_dist, dists, npoles);
+    mpfr_div_si(min_dist, min_dist, RunRadius, MPFR_RNDN);
+    mpfr_add(current, current, min_dist, MPFR_RNDN);
+    if (mpfr_cmp_ui(current, 1) < 0) {
+      mpfr_set(int_pts[*npts], current, MPFR_RNDN);
+    } else {
+      mpfr_set_ui(int_pts[*npts], 1, MPFR_RNDN);
+    }
+    (*npts)++;
+  }
+
+  if (mall) {
+    pts = new mpfr_t[*npts];
+    for (int l = 0; l < *npts; l++) {
+      mpfr_init2(pts[l], wp2);
+      mpfr_set(pts[l], int_pts[l], MPFR_RNDN);
+    }
+    for (int i = 0; i < len_max; i++) {
+      mpfr_clear(int_pts[i]);
+    }
+    delete[] int_pts;
+  }
+
+  mpfr_clear(mpfr_one);
+  mpc_clear(tmpc);
+  mpfr_clear(min_dist);
+  mpfr_clear(current);
+  for (int i = 0; i < npoles; i++) {
+    mpfr_clear(dists[i]);
+  }
+}
+
+
 void generate_regular_points(
   // OUTPUT
   double *pts, int *npts,
@@ -1935,6 +2055,41 @@ void generate_regular_points(
   //   cout << "pts[" << i << "] = " << pts[i] << endl;
   // }
 
+}
+
+
+void generate_regular_points_mp(
+  // OUTPUT
+  mpfr_t *pts, int *npts,
+  // INPUT
+  mpc_t *poles, int npoles,
+  int RunRadius, int len_max,
+  mpc_t pt1, mpc_t pt2
+) { 
+  mpc_t mod_poles[npoles];
+  mpc_t dist;
+  mpc_init2(dist, wp2);
+  mpc_sub(dist, pt2, pt1, MPFR_RNDN);
+  for (int i = 0; i < npoles; i++) {
+    mpc_init3(mod_poles[i], wp2, wp2);
+    mpc_sub(mod_poles[i], poles[i], pt1, MPFR_RNDN);
+    mpc_div(mod_poles[i], mod_poles[i], dist, MPFR_RNDN);
+    // cout << "mod_poles[" << i << "] = " << mod_poles[i] << endl;
+  }
+
+  generate_coordinates_mp(
+    pts, npts,
+    mod_poles, npoles,
+    RunRadius, len_max, 0
+  );
+  // for (int i = 0; i < *npts; i++) {
+  //   cout << "pts[" << i << "] = " << pts[i] << endl;
+  // }
+
+  mpc_clear(dist);
+  for (int i = 0; i < npoles; i++) {
+    mpc_clear(mod_poles[i]);
+  }
 }
 
 
@@ -2045,55 +2200,12 @@ void get_path_PS(
   cout << "nsings = " << *nsings << endl;
   }
 
-  // // CREATE POLE DISTRIBUTION
-  // int npoles = 21;
-  // int segs[npoles+2], nsegs = 1;
-  // int *tmp_sing_lab = new int[npoles];
-  // complex_d poles[21] = {
-  //   // singular points
-  //   (complex_d) {0.2, 0.},
-  //   (complex_d) {0.25, 0.},
-  //   (complex_d) {0.5, 0.},
-  //   (complex_d) {0.65, 0.},
-  //   (complex_d) {0.7, 0.},
-  //   // other poles
-  //   (complex_d) {-0.05, 0},
-  //   (complex_d) {0.05, 0.05},
-  //   (complex_d) {0.15, 0.05},
-  //   (complex_d) {0.25, -0.1},
-  //   (complex_d) {0.275, -0.05},
-  //   (complex_d) {0.3, -0.05},
-  //   (complex_d) {0.325, -0.05},
-  //   (complex_d) {0.35, -0.05},
-  //   (complex_d) {0.375, -0.05},
-  //   (complex_d) {0.4, 0.1},
-  //   (complex_d) {0.5, -0.1},
-  //   (complex_d) {0.8, 0.1},
-  //   (complex_d) {0.85, -0.1},
-  //   (complex_d) {0.9, -0.02},
-  //   (complex_d) {0.95, -0.02},
-  //   (complex_d) {1.02, 0},
-  // };
-  
-  // // IDENTITY SINGULAR POINTS
-  // for (int k=0; k<nroots; k++) {
-  //   if (
-  //     poles[k].imag() == 0 &&\
-  //     0 < poles[k].real() && poles[k].real() < 1
-  //   ) {
-  //     segs[nsegs-1] = k;
-  //     tmp_sing_lab[nsegs-1] = k;
-  //     nsegs++;
-  //   }
-  // }
-
   // arrange output singular labels
   *sing_lab = new int[*nsings];
   // *nsings = nsegs-1;
   for (int k=0; k<*nsings; k++) {
     (*sing_lab)[k] = tmp_sing_lab[k];    
   }
-
 
   // cout << "unsorted singular points:" << endl;
   // for (int k=0; k<*nsings; k++) {
@@ -2252,7 +2364,7 @@ void get_path_PS(
         // tags[s][0] = 1;
         // nints[s] = 1;
         // add middle point as matching point
-        int_points[s][0] = (poles[segs[s-1]] + poles[segs[s]])/2.;
+        int_points[s][0] = (complex_d) {(m1+m2)/2., 0};
         tags[s][0] = 1;
         nints[s] = 1;
       } else {
@@ -2312,14 +2424,14 @@ void get_path_PS(
       // }
       // // count internal points
       // nints[s] = ncoords - 1;
-    } else if (m1 != poles[segs[s]].real() && m2 == poles[segs[s-1]].real()) {
+    } else if (m1 == poles[segs[s]].real() && m2 != poles[segs[s-1]].real()) {
       //////
       // s1, m2, m1 = s2
       //////
       if (print) cout << "s1, m2, m1 = s2" << endl;
       
       // add 1nd matching point
-      int_points[s][0] = (complex_d) {m1, 0};
+      int_points[s][0] = (complex_d) {m2, 0};
       tags[s][0] = 1;
       nints[s] = 1;
     } else {
@@ -2432,6 +2544,482 @@ void get_path_PS(
       (*sing_lab)[i]++;
     }
   }
+  
+}
+
+
+void get_path_PS_mp(
+  // OUTPUT
+  mpc_t **path, int **path_tags, int *neta_vals, int **sing_lab, int *nsings,
+  // INPUT
+  mpc_t *roots, int nroots, int zero_label
+) {
+  int print = 0;
+
+  mpc_t tmpc; mpc_init3(tmpc, wp2, wp2);
+  mpfr_t tmpfr; mpfr_init2(tmpfr, wp2);
+  mpc_t mpc_zero; mpc_init3(mpc_zero, wp2, wp2);
+  mpc_set_ui(mpc_zero, 0, MPFR_RNDN);
+  mpc_t mpc_one; mpc_init3(mpc_one, wp2, wp2);
+  mpc_set_ui(mpc_one, 1, MPFR_RNDN);
+  mpfr_t mpfr_one; mpfr_init2(mpfr_one, wp2);
+  mpfr_set_ui(mpfr_one, 1, MPFR_RNDN);
+
+  if (zero_label == -1) {
+    roots++;
+    nroots--;
+  }
+
+  // define parameters
+  int RunRadius = 2, len_max = 200;
+
+  // CONVERT POLES TO DOUBLE AND IDENTIFY SINGULAR POINTS
+  // int npoles = nroots;
+  int npoles = nroots;
+  // double realp;
+  mpc_t *poles = new mpc_t[npoles];
+  init_rk1_mpc(poles, npoles);
+  int segs[npoles+2], nsegs = 1;
+  int *tmp_sing_lab = new int[npoles];
+  int count = 0;
+  *nsings = 0;
+  if (print) cout << "poles:" << endl;
+  for (int k=0; k<nroots; k++) {
+    if (print) {
+    cout << "k = " << k << endl;
+    cout << "mpc root:" << endl; print_mpc(&roots[k]); cout << endl;
+    }
+    // cout << "real and imaginary doubles:" << endl;
+    // cout << mpfr_get_d(mpc_realref(roots[k]), MPFR_RNDN) << endl;
+    // cout << mpfr_get_d(mpc_imagref(roots[k]), MPFR_RNDN) << endl;
+    // realp = mpfr_get_d(mpc_realref(roots[k]), MPFR_RNDN);
+    // if (realp == 0 || realp == 1) {
+    //   continue;
+    // }
+    if (mpc_lessthan_tol(roots[k])) {
+      mpc_set_ui(poles[count], 0, MPFR_RNDN);
+    } else {
+      mpc_set(poles[count], roots[k], MPFR_RNDN);
+    }
+    // cout << poles[count] << endl;
+
+    // IDENTIFY SINGULAR POINTS
+    if (
+      mpfr_lessthan_tol(mpc_imagref(poles[count])) &&\
+      (
+        mpfr_lessthan_tol(mpc_realref(poles[count])) ||\
+        (
+          mpfr_cmp_si(mpc_realref(poles[count]), 0) > 0 &&\
+          mpfr_cmp_si(mpc_realref(poles[count]), 1) < 0
+        ) ||\
+        mpfr_equal_within_tol(mpc_realref(poles[count]), mpfr_one)
+      )
+    ) {
+      // cout << poles[count] << endl;
+      segs[(*nsings)] = count;
+      tmp_sing_lab[(*nsings)] = k;
+      (*nsings)++;
+      if (
+        !mpfr_lessthan_tol(mpc_realref(poles[count])) &&
+        mpfr_cmp_ui(mpc_realref(poles[count]), 0) > 0
+      ) {
+        nsegs++;
+      }
+    }
+    count++;
+  }
+  if (print) {
+  cout << endl;
+  cout << "nsegs = " << nsegs << endl;
+  cout << "nsings = " << *nsings << endl;
+  }
+
+  // arrange output singular labels
+  *sing_lab = new int[*nsings];
+  // *nsings = nsegs-1;
+  for (int k=0; k<*nsings; k++) {
+    (*sing_lab)[k] = tmp_sing_lab[k];    
+  }
+
+  // cout << "unsorted singular points:" << endl;
+  // for (int k=0; k<*nsings; k++) {
+  //   cout << poles[segs[k]] << endl;
+  // }
+  // cout << endl;
+
+  // sort singular points in ascending order of real part
+  if (*nsings >= 2) {
+    qsort_singular_labels_mp(segs, 0, (*nsings)-1, poles, *sing_lab);
+  }
+
+  // cout << "sorted singular points:" << endl;
+  // for (int k=0; k<*nsings; k++) {
+  //   cout << poles[segs[k]] << endl;
+  // }
+  // cout << endl;
+  // cout << "sorted output sin lab:" << endl;
+  // for (int k=0; k<*nsings; k++) {
+  //   cout << (*sing_lab)[k] << endl;
+  // }
+
+  // COMPUTE DISTANCE OF MATCHING POINTS
+  if (print) cout << "COMPUTE DISTANCE OF MATCHING POINTS" << endl;
+  mpfr_t *match = new mpfr_t[nsegs];
+  mpfr_t dists[npoles];
+  for (int s=0; s<*nsings; s++) {
+    // calculate distance of the poles
+    for (int k=0; k<npoles; k++) {
+      mpc_sub(tmpc, poles[k], poles[segs[s]], MPFR_RNDN);
+      mpfr_init2(dists[k], wp2);
+      mpc_abs(dists[k], tmpc, MPFR_RNDN);
+    }
+    mpfr_init2(match[s], wp2);
+    min1_mp(&match[s], dists, npoles);
+    mpfr_div_ui(match[s], match[s], RunRadius, MPFR_RNDN);
+    if (print) {cout << "match[" << s << "] = "; print_mpfr(&match[s]); cout << endl;}
+  }
+
+
+  // GENERATE MATCHING AND REGULAR POINTS
+  mpfr_t m1, m2;
+  mpfr_init2(m1, wp2);
+  mpfr_init2(m2, wp2);
+  mpc_t **int_points;
+  int_points = new mpc_t*[nsegs+1];
+  int **tags;
+  tags = new int*[nsegs+1];
+  int *nints;
+  nints = new int[nsegs+1];
+  mpfr_t **coordinates;
+  coordinates = new mpfr_t*[nsegs+1];
+  int ncoords;
+  mpc_t pt1, pt2;
+  mpc_init3(pt1, wp2, wp2);
+  mpc_init3(pt2, wp2, wp2);
+  *neta_vals = nsegs-1;
+
+  int s_start = 0, s_end = 0;
+  if (*nsings == 0) {
+    s_end = 0;
+    int_points[0] = new mpc_t[len_max];
+    init_rk1_mpc(int_points[0], len_max);
+    tags[0] = new int[len_max];
+    coordinates[0] = new mpfr_t[len_max];
+    init_rk1_mpfr(coordinates[0], len_max);
+    tags[0][0] = 1;
+    generate_regular_points_mp(
+      coordinates[0], &ncoords,
+      poles, npoles,
+      RunRadius, len_max,
+      mpc_zero, mpc_one
+    );
+    // cout << "ncoords = " << ncoords << endl;
+    for (int i=1; i<ncoords-1; i++) {
+      // cout << "coordinate = " << coordinates[0][i] << endl;
+      mpc_set_fr(int_points[0][i], coordinates[0][i], MPFR_RNDN);
+      tags[0][i] = 2;
+    }
+    // count internal points
+    nints[0] = ncoords;
+    mpc_set_ui(int_points[0][ncoords-1], 1, MPFR_RNDN);
+    tags[0][ncoords-1] = 1;
+    *neta_vals += nints[0];
+    goto merge_segments;
+  }
+
+  // deal with 1st segment if necessary
+  if (
+    !mpfr_lessthan_tol(mpc_realref(poles[segs[0]])) &&\
+    mpfr_cmp_ui(mpc_realref(poles[segs[0]]), 0) > 0
+  ) {
+    if (print) cout << "processing 1st segment" << endl;
+    int_points[0] = new mpc_t[len_max];
+    init_rk1_mpc(int_points[0], len_max);
+    tags[0] = new int[len_max];
+    coordinates[0] = new mpfr_t[len_max];
+    init_rk1_mpfr(coordinates[0], len_max);
+    //// add 1st matching point
+    mpc_set_ui(int_points[0][0], 0, MPFR_RNDN);
+    tags[0][0] = 1;
+    mpfr_sub(m2, mpc_realref(poles[segs[0]]), match[0], MPFR_RNDN);
+    // cout << "m2 = " << m2 << endl;
+    if (
+      mpfr_lessthan_tol(m2) ||\
+      mpfr_cmp_ui(m2, 0) < 0
+    ) {
+      nints[0] = 1;
+    } else {
+      // generate regular points
+      mpc_set_fr(tmpc, m2, MPFR_RNDN);
+      generate_regular_points_mp(
+        coordinates[0], &ncoords,
+        poles, npoles,
+        RunRadius, len_max,
+        mpc_zero, tmpc
+      );
+      for (int i=1; i<ncoords-1; i++) {
+        // cout << "coordinate = " << coordinates[0][i] << endl;
+        mpc_mul_fr(int_points[0][i], tmpc, coordinates[0][i], MPFR_RNDN);
+        tags[0][i] = 2;
+      }
+      // add 2nd matching point
+      mpc_set_fr(int_points[0][ncoords-1], m2, MPFR_RNDN);
+      tags[0][ncoords-1] = 1;
+      // count internal points
+      nints[0] = ncoords;
+    }
+    *neta_vals += nints[0];
+    s_start = 0;
+    s_end = nsegs - 1;
+  } else {
+    if (print) cout << "1st segment is trivial" << endl;
+    s_start = 1;
+    s_end = nsegs;
+    (*neta_vals)++;
+  }
+  // cout << "1st segment:" << endl;
+  // cout << "nints = " << nints[0] << endl;
+  // for (int i=0; i<nints[0]; i++) {
+  //   cout << tags[0][i] << ", " << int_points[0][i] << endl;
+  // }
+
+  if (print) {
+  cout << "s_start = " << s_start << endl;
+  cout << "s_end = " << s_end << endl;
+  }
+
+  // deal with internal segments
+  if (print) cout << "deal with internal segments" << endl;
+  for (int s=1; s<s_end; s++) {
+    if (print) cout << "segment " << s << endl;
+    // getchar();
+    int_points[s] = new mpc_t[len_max];
+    init_rk1_mpc(int_points[s], len_max);
+    tags[s] = new int[len_max];
+    coordinates[s] = new mpfr_t[len_max];
+    init_rk1_mpfr(coordinates[s], len_max);
+
+    // get position of the matching points
+    mpfr_add(m1, mpc_realref(poles[segs[s-1]]), match[s-1], MPFR_RNDN);
+    mpfr_sub(m2, mpc_realref(poles[segs[s]]), match[s], MPFR_RNDN);
+    if (print) cout << "m1 = " << m1 << endl;
+    if (print) cout << "m2 = " << m2 << endl;
+    
+    if (
+      !mpfr_equal_within_tol(m1, mpc_realref(poles[segs[s]])) &&\
+      !mpfr_equal_within_tol(m2, mpc_realref(poles[segs[s-1]]))
+    ) {
+      if (print) cout << "case 1" << endl;
+      if (
+        mpfr_equal_within_tol(m1, m2) ||\
+        mpfr_cmp(m1, m2) > 0
+      ) {
+        //////
+        // s1, m2, m1, s2
+        //////
+        if (print) cout << "s1, m2, m1, s2" << endl;
+
+        // // add only 2nd matching point
+        // int_points[s][0] = (complex_d) {m2, 0};
+        // tags[s][0] = 1;
+        // nints[s] = 1;
+        // add middle point as matching point
+        mpc_set_fr(int_points[s][0], m1, MPFR_RNDN);
+        mpc_add_fr(int_points[s][0], int_points[s][0], m2, MPFR_RNDN);
+        mpc_div_ui(int_points[s][0], int_points[s][0], 2, MPFR_RNDN);
+        tags[s][0] = 1;
+        nints[s] = 1;
+      } else {
+        //////
+        // s1, m1, ..., m2, s2
+        //////
+        if (print) cout << "s1, m1, ..., m2, s2" << endl;
+
+        // add 1st matching point
+        mpc_set_fr(int_points[s][0], m1, MPFR_RNDN);
+        tags[s][0] = 1;
+        // generate regular points
+        mpc_set_fr(tmpc, m2, MPFR_RNDN);
+        generate_regular_points_mp(
+          coordinates[s], &ncoords,
+          poles, npoles,
+          RunRadius, len_max,
+          int_points[s][0], tmpc
+        );
+        for (int i=1; i<ncoords-1; i++) {
+          // cout << "coordinate = " << coordinates[s][i] << endl;
+          mpfr_sub(tmpfr, m2, m1, MPFR_RNDN);
+          mpfr_fma(
+            mpc_realref(int_points[s][i]),
+            tmpfr, coordinates[s][i], m1,
+            MPFR_RNDN
+          );
+          mpfr_set_ui(mpc_imagref(int_points[s][i]), 0, MPFR_RNDN);
+          tags[s][i] = 2;
+        }
+        // add 2nd matching point
+        mpc_set_fr(int_points[s][ncoords-1], m2, MPFR_RNDN);
+        tags[s][ncoords-1] = 1;
+        // count internal points
+        nints[s] = ncoords;
+      }
+    } else if (
+      !mpfr_equal_within_tol(m1, mpc_realref(poles[segs[s]])) &&\
+      mpfr_equal_within_tol(m2, mpc_realref(poles[segs[s-1]]))
+    ) {
+      cout << "case 2" << endl;
+      //////
+      // s1 = m2, m1, s2
+      //////
+      if (print) cout << "s1 = m2, m1, s2" << endl;
+
+      // add 1st matching point
+      mpc_set_fr(int_points[s][0], m1, MPFR_RNDN);
+      tags[s][0] = 1;
+      nints[s] = 1;
+    } else if (
+      mpfr_equal_within_tol(m1, mpc_realref(poles[segs[s]])) &&\
+      !mpfr_equal_within_tol(m2, mpc_realref(poles[segs[s-1]]))
+    ) {
+      // #adjust
+      //////
+      // s1, m2, m1 = s2
+      //////
+      if (print) cout << "s1, m2, m1 = s2" << endl;
+      
+      // add 1nd matching point
+      mpc_set_fr(int_points[s][0], m2, MPFR_RNDN);
+      tags[s][0] = 1;
+      nints[s] = 1;
+    } else {
+      if (print) cout << "else" << endl;
+      // add middle point as matching point
+      mpc_add(int_points[s][0], poles[segs[s-1]], poles[segs[s]], MPFR_RNDN);
+      mpc_div_ui(int_points[s][0], int_points[s][0], 2, MPFR_RNDN);
+      tags[s][0] = 1;
+      nints[s] = 1;
+    }
+    *neta_vals += nints[s];
+  }
+
+  // deal with last segments if necessary
+  // (i.e. only when last point is not singular)
+  if (
+    !mpfr_equal_within_tol(mpc_realref(poles[segs[s_end-1]]), mpfr_one) &&\
+    mpfr_cmp_ui(mpc_realref(poles[segs[s_end-1]]), 1) < 0
+  ) {
+    if (print) cout << "processing last segment" << endl;
+    int_points[s_end] = new mpc_t[len_max];
+    init_rk1_mpc(int_points[s_end], len_max);
+    tags[s_end] = new int[len_max];
+    coordinates[s_end] = new mpfr_t[len_max];
+    init_rk1_mpfr(coordinates[s_end], len_max);
+
+    mpfr_add(m1, mpc_realref(poles[segs[s_end-1]]), match[s_end-1], MPFR_RNDN);
+    if (print) {
+    cout << "last segment" << endl;
+    cout << "nsegs = " << nsegs << endl;
+    cout << "index of last pole = " << segs[s_end-1] << endl;
+    cout << "last pole = " << poles[segs[s_end-1]] << endl;
+    cout << "m1 = " << m1 << endl;
+    }
+    // getchar();
+    if (
+      mpfr_equal_within_tol(m1, mpfr_one) ||\
+      mpfr_cmp_ui(m1, 1) > 0
+    ) {
+      nints[s_end] = 1;
+      ncoords = 1;
+    } else {
+      // add 1st matching point
+      mpc_set_fr(int_points[s_end][0], m1, MPFR_RNDN);
+      tags[s_end][0] = 1;
+      // generate regular points
+      generate_regular_points_mp(
+        coordinates[s_end], &ncoords,
+        poles, npoles,
+        RunRadius, len_max,
+        int_points[s_end][0], mpc_one
+      );
+      for (int i=1; i<ncoords-1; i++) {
+        // cout << "coordinate = " << coordinates[s_end][i] << endl;
+        mpfr_sub(tmpfr, mpfr_one, m1, MPFR_RNDN);
+        mpfr_fma(
+          mpc_realref(int_points[s_end][i]),
+          tmpfr, coordinates[s_end][i], m1,
+          MPFR_RNDN
+        );
+        mpfr_set_ui(mpc_imagref(int_points[s_end][i]), 0, MPFR_RNDN);
+        tags[s_end][i] = 2;
+      }
+      // count internal points
+      nints[s_end] = ncoords;
+    }
+    mpc_set_ui(int_points[s_end][ncoords-1], 1, MPFR_RNDN);
+    tags[s_end][ncoords-1] = 1;
+    *neta_vals += nints[s_end];
+
+    if (print) {
+    cout << "last segment:" << endl;
+    cout << "nints = " << nints[s_end] << endl;
+    for (int i=0; i<nints[s_end]; i++) {
+      cout << tags[s_end][i] << ", " << int_points[s_end][i] << endl;
+    }
+    }
+  } else {
+    if (print) cout << "last segment is trivial" << endl;
+    nints[s_end] = 0;
+  }
+
+  merge_segments:
+  // MERGE SEGMENTS IN THE OUPUT
+  if (print) cout << "MERGING SEGMENTS IN PATH" << endl;
+  if (print) cout << *neta_vals << " eta values" << endl;
+  *path = new mpc_t[*neta_vals];
+  init_rk1_mpc(*path, *neta_vals);
+  *path_tags = new int[*neta_vals];
+  int offset = 0;
+  if (print) cout << "n. segments = " << nsegs << endl;
+  for (int s=s_start; s<s_end+1; s++) {
+  // for (int s=0; s<s_end+1; s++) {
+    if (print) cout << "s = " << s << endl;
+    if (s != 0) {
+      mpc_set((*path)[offset], poles[segs[s-1]], MPFR_RNDN);
+      (*path_tags)[offset] = 0;
+      if (print) {
+      cout << "sing point:" << endl;
+      cout << offset << ": ";
+      cout << (*path_tags)[offset] << ", "; print_mpc(&((*path)[offset])); cout << endl;
+      }
+      offset++;
+    }
+    if (print) cout << nints[s] << " internal points:" << endl;
+    for (int i=0; i<nints[s]; i++) {
+      mpc_set((*path)[offset+i], int_points[s][i], MPFR_RNDN);
+      (*path_tags)[offset+i] = tags[s][i];
+      if (print) cout << offset+i << ": ";
+      if (print) {cout << (*path_tags)[offset+i] << ", "; print_mpc(&((*path)[offset+i])); cout << endl;}
+    }
+
+    offset += nints[s];
+  }
+
+  if (zero_label == -1) {
+    roots--;
+    nroots++;
+    for (int i=0; i<*nsings; i++) {
+      (*sing_lab)[i]++;
+    }
+  }
+
+  // FREE
+  mpc_clear(tmpc);
+  mpfr_clear(tmpfr);
+  mpc_clear(mpc_zero);
+  mpc_clear(mpc_one);
+  mpfr_clear(mpfr_one);
+  mpc_clear(pt1);
+  mpc_clear(pt2);
   
 }
 
@@ -2630,9 +3218,14 @@ void get_path_mp(mpc_t **eta_values, int* neta_vals, mpc_t *poles, int npoles) {
         if (print) {cout << "cen_rot_poles[" << j << "] = "; print_mpc(&cen_rot_poles[j]); cout << endl;}
         if (
           mpfr_lessthan_tol(mpc_imagref(cen_rot_poles[j])) &&\
-          !mpfr_lessthan_tol(mpc_realref(cen_rot_poles[j])) &&\
-          mpfr_cmp_si(mpc_realref(cen_rot_poles[j]), 1) <= 0 &&\
-          !mpfr_equal_within_tol(mpc_realref(cen_rot_poles[j]), mpfr_one)
+          (
+            mpfr_lessthan_tol(mpc_realref(cen_rot_poles[j])) ||\
+            (
+              mpfr_cmp_si(mpc_realref(cen_rot_poles[j]), 0) > 0 &&\
+              mpfr_cmp_si(mpc_realref(cen_rot_poles[j]), 1) < 0
+            ) ||\
+            mpfr_equal_within_tol(mpc_realref(cen_rot_poles[j]), mpfr_one)
+          )
         ) {
           if (print) cout << "fails" << endl;
           fails = 1;
@@ -2658,7 +3251,7 @@ void get_path_mp(mpc_t **eta_values, int* neta_vals, mpc_t *poles, int npoles) {
           min1_mp(&min_dist, dists, npoles);
           mpfr_div_si(min_dist, min_dist, RunRadius, MPFR_RNDN);
           mpfr_add(current, current, min_dist, MPFR_RNDN);
-          if (mpfr_cmp_ui(current, 1) < 1) {
+          if (mpfr_cmp_ui(current, 1) < 0) {
             mpfr_set(run[count_run], current, MPFR_RNDN);
           } else {
             mpfr_set_ui(run[count_run], 1, MPFR_RNDN);
