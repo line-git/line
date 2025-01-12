@@ -1946,21 +1946,17 @@ void generate_coordinates_mp(
   mpfr_t *int_pts;
   if (mall) {
     int_pts = new mpfr_t[len_max];
-    for (int i = 0; i < len_max; i++) {
-      mpfr_init2(int_pts[i], wp2);
-    }
+    init_rk1_mpfr(int_pts, len_max);
   } else {
     int_pts = pts;
   }
 
   mpfr_t current;
   mpfr_init2(current, wp2);
-  mpfr_set_si(current, 0, MPFR_RNDN);
+  mpfr_set_ui(current, 0, MPFR_RNDN);
 
   mpfr_t dists[npoles];
-  for (int i = 0; i < npoles; i++) {
-    mpfr_init2(dists[i], wp2);
-  }
+  init_rk1_mpfr(dists, npoles);
 
   mpfr_set(int_pts[0], current, MPFR_RNDN);
   *npts = 1;
@@ -2068,7 +2064,7 @@ void generate_regular_points_mp(
 ) { 
   mpc_t mod_poles[npoles];
   mpc_t dist;
-  mpc_init2(dist, wp2);
+  mpc_init3(dist, wp2, wp2);
   mpc_sub(dist, pt2, pt1, MPFR_RNDN);
   for (int i = 0; i < npoles; i++) {
     mpc_init3(mod_poles[i], wp2, wp2);
@@ -2083,7 +2079,7 @@ void generate_regular_points_mp(
     RunRadius, len_max, 0
   );
   // for (int i = 0; i < *npts; i++) {
-  //   cout << "pts[" << i << "] = " << pts[i] << endl;
+  //   cout << "pts[" << i << "] = "; print_mpfr(&pts[i]); cout << endl;
   // }
 
   mpc_clear(dist);
@@ -2262,15 +2258,16 @@ void get_path_PS(
     tags[0] = new int[len_max];
     coordinates[0] = new double[len_max];
     tags[0][0] = 1;
+    int_points[0][ncoords-1] = (complex_d) {0, 0};
     generate_regular_points(
       coordinates[0], &ncoords,
       poles, npoles,
       RunRadius, len_max,
       (complex_d) {0, 0}, (complex_d) {1, 0}
     );
-    // cout << "ncoords = " << ncoords << endl;
+    if (print) cout << "ncoords = " << ncoords << endl;
     for (int i=1; i<ncoords-1; i++) {
-      // cout << "coordinate = " << coordinates[0][i] << endl;
+      if (print) {cout << "i = " << i << ", coordinate = " << coordinates[0][i] << endl;}
       int_points[0][i] = (complex_d) {0, 0} +\
         coordinates[0][i]*((complex_d) {1, 0}-(complex_d) {0, 0});
       tags[0][i] = 2;
@@ -2364,6 +2361,7 @@ void get_path_PS(
         // tags[s][0] = 1;
         // nints[s] = 1;
         // add middle point as matching point
+        // int_points[s][0] = (poles[segs[s-1]] + poles[segs[s]])/2.;
         int_points[s][0] = (complex_d) {(m1+m2)/2., 0};
         tags[s][0] = 1;
         nints[s] = 1;
@@ -2424,6 +2422,7 @@ void get_path_PS(
       // }
       // // count internal points
       // nints[s] = ncoords - 1;
+    // } else if (m1 != poles[segs[s]].real() && m2 == poles[segs[s-1]].real()) {
     } else if (m1 == poles[segs[s]].real() && m2 != poles[segs[s-1]].real()) {
       //////
       // s1, m2, m1 = s2
@@ -2431,6 +2430,7 @@ void get_path_PS(
       if (print) cout << "s1, m2, m1 = s2" << endl;
       
       // add 1nd matching point
+      // int_points[s][0] = (complex_d) {m1, 0};
       int_points[s][0] = (complex_d) {m2, 0};
       tags[s][0] = 1;
       nints[s] = 1;
@@ -2707,15 +2707,16 @@ void get_path_PS_mp(
     coordinates[0] = new mpfr_t[len_max];
     init_rk1_mpfr(coordinates[0], len_max);
     tags[0][0] = 1;
+    mpc_set_ui(int_points[0][0], 0, MPFR_RNDN);
     generate_regular_points_mp(
       coordinates[0], &ncoords,
       poles, npoles,
       RunRadius, len_max,
       mpc_zero, mpc_one
     );
-    // cout << "ncoords = " << ncoords << endl;
+    if (print) cout << "ncoords = " << ncoords << endl;
     for (int i=1; i<ncoords-1; i++) {
-      // cout << "coordinate = " << coordinates[0][i] << endl;
+      if (print) {cout << "i = " << i << ", coordinate = "; print_mpfr(&coordinates[0][i]); cout << endl;}
       mpc_set_fr(int_points[0][i], coordinates[0][i], MPFR_RNDN);
       tags[0][i] = 2;
     }
@@ -2920,7 +2921,7 @@ void get_path_PS_mp(
     cout << "last segment" << endl;
     cout << "nsegs = " << nsegs << endl;
     cout << "index of last pole = " << segs[s_end-1] << endl;
-    cout << "last pole = " << poles[segs[s_end-1]] << endl;
+    cout << "last pole = "; print_mpc(&poles[segs[s_end-1]]); cout << endl;
     cout << "m1 = " << m1 << endl;
     }
     // getchar();
@@ -2963,7 +2964,7 @@ void get_path_PS_mp(
     cout << "last segment:" << endl;
     cout << "nints = " << nints[s_end] << endl;
     for (int i=0; i<nints[s_end]; i++) {
-      cout << tags[s_end][i] << ", " << int_points[s_end][i] << endl;
+      cout << tags[s_end][i] << ", "; print_mpc(&int_points[s_end][i]); cout << endl;
     }
     }
   } else {
@@ -2999,6 +3000,7 @@ void get_path_PS_mp(
       (*path_tags)[offset+i] = tags[s][i];
       if (print) cout << offset+i << ": ";
       if (print) {cout << (*path_tags)[offset+i] << ", "; print_mpc(&((*path)[offset+i])); cout << endl;}
+      if (print) {cout << "  int_points = "; print_mpc(&int_points[s][i]); cout << endl;}
     }
 
     offset += nints[s];
