@@ -1182,8 +1182,9 @@ void mp_zroots_impr_out_mul(
 		*out_mul = mul;
 		if (mul > curr_mul) {
 			*out_mul = mul;
-			mpc_init3(roots[0], wp2, wp2);
+			// mpc_init3(roots[0], wp2, wp2);
 			mpc_set(roots[0], x, MPFR_RNDN);
+			goto goto_return;
 			return;
 		}
 
@@ -1280,6 +1281,7 @@ void mp_zroots_impr_out_mul(
 		// mpfr_out_str(stdout, 10, 0, err[j], MPFR_RNDN); printf("\n");
 	}
 
+	goto_return:
 	// FREE
 	for (j=0; j<=m; j++) {
 		mpc_clear(ad[j]);

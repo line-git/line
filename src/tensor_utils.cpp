@@ -117,11 +117,27 @@ void init_rk4_mpc(mpc_t ****tens, int dim1, int dim2, int dim3, int dim4) {
 //////
 // CLEAR
 //////
+void mpz_rk1_clear(
+  mpz_t *tens, int dim
+) {
+  for (int i=0; i<dim; i++) {
+    mpz_clear(tens[i]);
+  }
+}
+
 void mpq_rk1_clear(
   mpq_t *tens, int dim
 ) {
   for (int i=0; i<dim; i++) {
     mpq_clear(tens[i]);
+  }
+}
+
+void mpfr_rk1_clear(
+  mpfr_t *tens, int dim
+) {
+  for (int i=0; i<dim; i++) {
+    mpfr_clear(tens[i]);
   }
 }
 
@@ -646,6 +662,7 @@ void mpc_rk1_append(
   // delete holder
   // cout << "delete holder" << endl;
   if (*dim > 0) {
+    mpc_rk1_clear(holder, *dim);
     delete[] holder;
   }
   // copy new values
@@ -680,6 +697,7 @@ void mpfr_rk1_append(
   }
   // delete holder
   if (*dim > 0) {
+    mpfr_rk1_clear(holder, *dim);
     delete[] holder;
   }
   // copy new values

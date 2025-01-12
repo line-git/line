@@ -262,6 +262,7 @@ void pden_free(
   if (den->fmults) {
     delete[] den->fmults;
   }
+  mpq_clear(den->norm);
 }
 
 
@@ -1082,6 +1083,10 @@ void pden_group_roots(
       pfacl = pfacl->next;
     };
   }
+
+  // FREE
+  delete[] mults_cp;
+  delete[] mults_neg;
   
 }
 
@@ -1300,6 +1305,8 @@ int denom_coeffs_to_facs(
   if (nrem_roots == 0) {
     // store normalization constant
     // mpq_set(den->norm, coeffs[0]);
+    delete[] mults_rem;
+    delete[] fac_incl;
     return 0;
   }
   for (int k=0; k<nrem_roots; k++) {
@@ -1453,6 +1460,19 @@ int denom_coeffs_to_facs(
 
   // cout << "den:" << endl;
   // pden_print(den);
+
+  // FREE
+  delete[] mults_rem;
+  delete[] fac_incl;
+  delete[] root_prof;
+  mpc_rk1_clear(den_roots, den_vdeg+1);
+  delete[] den_roots;
+  mpfr_rk1_clear(den_tols, den_vdeg+1);
+  delete[] den_tols;
+  mpc_rk1_clear(new_roots, num_new_roots);
+  delete[] new_roots;
+  mpfr_rk1_clear(new_tols, num_new_roots);
+  delete[] new_tols;
 
   return 0;
 
@@ -1750,11 +1770,9 @@ void rpfrac_add_rpf(
   mpq_t *pout = pol11, *num1 = pol12, *ptmp;
   
   for (int k=0; k<ldeg_mul1; k++) {
-    mpq_init(num1[k]);
     mpq_set_ui(num1[k], 0, 1);
   }
   for (int k=ldeg_mul1; k<=ldeg_mul1+in1->num_deg; k++) {
-    mpq_init(num1[k]);
     mpq_set(num1[k], in1->coeffs[k-ldeg_mul1]);
   }
 
@@ -1784,7 +1802,6 @@ void rpfrac_add_rpf(
   // for (int k=0; k<=num_deg1; k++) {
   //   mpq_out_str(stdout, 10, num1[k]); cout << endl;
   // }
-  delete[] pout;
 
   // 2nd NUMERATOR
   // cout << "2nd NUMERATOR" << endl;
@@ -1798,11 +1815,9 @@ void rpfrac_add_rpf(
   mpq_t *num2 = pol22;
 
   for (int k=0; k<ldeg_mul2; k++) {
-    mpq_init(num2[k]);
     mpq_set_ui(num2[k], 0, 1);
   }
   for (int k=ldeg_mul2; k<=ldeg_mul2+in2->num_deg; k++) {
-    mpq_init(num2[k]);
     mpq_set(num2[k], in2->coeffs[k-ldeg_mul2]);
   }
 
@@ -1832,7 +1847,6 @@ void rpfrac_add_rpf(
   // for (int k=0; k<=num_deg2; k++) {
   //   mpq_out_str(stdout, 10, num2[k]); cout << endl;
   // }
-  delete[] pout;
 
   //////
   // ADD NUMERATORS
@@ -1863,6 +1877,10 @@ void rpfrac_add_rpf(
   // cout << "norm 1 = "; mpq_out_str(stdout, 10, in1->den.norm); cout << endl;
   // cout << "norm 2 = "; mpq_out_str(stdout, 10, in2->den.norm); cout << endl;
   // cout << "norm tmp = "; mpq_out_str(stdout, 10, norm_tmp); cout << endl;
+  if (out->coeffs) {
+    mpq_rk1_clear(out->coeffs, out->num_deg+1);
+    delete[] out->coeffs;
+  }
   out->coeffs = new mpq_t[maxdeg+1];
 
   // common powers
@@ -1919,6 +1937,19 @@ void rpfrac_add_rpf(
     delete[] fmults;
   }
 
+  // FREE
+  delete[] common;
+  delete[] fmults_mul1;
+  delete[] fmults_mul2;
+  mpq_rk1_clear(pol11, num_deg1+1);
+  delete[] pol11;
+  mpq_rk1_clear(pol12, num_deg1+1);
+  delete[] pol12;
+  mpq_rk1_clear(pol21, num_deg2+1);
+  delete[] pol21;
+  mpq_rk1_clear(pol22, num_deg2+1);
+  delete[] pol22;
+  mpq_clear(norm_tmp);
   
 }
 
@@ -1931,6 +1962,7 @@ void rpfrac_mul_ui_ovrwrt(
   mpq_init(mpq_ui);
   mpq_set_ui(mpq_ui, 1, ui);
   mpq_mul(rpf->den.norm, rpf->den.norm, mpq_ui);
+  mpq_clear(mpq_ui);
 }
 
 
@@ -2046,6 +2078,7 @@ void poly_frac_set_rpf(
   // FREE
   mpq_clear(norm);
   mpq_clear(tmpq);
+  delete[] fmults_glob;
 }
 
 
@@ -2601,13 +2634,14 @@ void kira_to_DE_pf(
     mpq_add(stdim[0], mpq_si, stdim[0]);
 
     // space-time dimension powers
-    mpz_t *stdim_num_pows = new mpz_t[50];
-    mpz_t *stdim_den_pows = new mpz_t[50];
+    int stdim_npows = 200;  // #hard-coded
+    mpz_t *stdim_num_pows = new mpz_t[stdim_npows];
+    mpz_t *stdim_den_pows = new mpz_t[stdim_npows];
     mpz_init(stdim_num_pows[0]);
     mpz_set_ui(stdim_num_pows[0], 1);
     mpz_init(stdim_den_pows[0]);
     mpz_set_ui(stdim_den_pows[0], 1);
-    for (int p=1; p<50; p++) {
+    for (int p=1; p<stdim_npows; p++) {
       mpz_init(stdim_num_pows[p]);
       mpz_mul(stdim_num_pows[p], stdim_num_pows[p-1], mpq_numref(stdim[0]));
       mpz_init(stdim_den_pows[p]);
@@ -2715,7 +2749,7 @@ void kira_to_DE_pf(
           // DECODE NUMERATOR
           //////
           if (print || dbg) cout << "DECODE NUMERATOR" << endl;
-          if (der_ndpf[m][d][n].info == 2) {            
+          if (der_ndpf[m][d][n].info == 2) {
             // find degree and decode terms
             // lnode_poly_coeffs_eval(
             //   &rpf_der[m][d][n].coeffs, &rpf_der[m][d][n].num_deg,
@@ -3241,6 +3275,11 @@ void kira_to_DE_pf(
     }
 
     // free memory
+    mpc_rk1_clear(roots_bench, nroots_branch);
+    delete[] roots_bench;
+    mpfr_rk1_clear(tols_bench, nroots_branch);
+    delete[] tols_bench;
+
     // for (int m=0; m<dim_eta; m++) {
     //   for (int d=0; d<MI_eta[m].nmass; d++) {
     //     for (int n=0; n<dim_eta; n++) {
@@ -3270,9 +3309,17 @@ void kira_to_DE_pf(
     delete[] rpf_mat;
     if (pf_der) {delete[] pf_der;}
     poly_frac_free(&pf_check);
+
+    mpz_rk1_clear(stdim_num_pows, stdim_npows);
+    delete[] stdim_num_pows;
+    mpz_rk1_clear(stdim_den_pows, stdim_npows);
+    delete[] stdim_den_pows;
   }
   fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
 
+  // FREE
+  if (kira_results_filepath) free(kira_results_filepath);
+  if (line) free(line);
   if (kira_str) {
     for (int m=0; m<dim_eta; m++) {
       for (int d=0; d<max_num_contr; d++) {
@@ -3285,7 +3332,50 @@ void kira_to_DE_pf(
     }
     del_rk3_tens(kira_str, dim_eta, max_num_contr);
   }
+
+  for (int m=0; m<dim_eta; m++) {
+    for (int d=0; d<MI_eta[m].nmass; d++) {
+      for (int n=0; n<dim_eta; n++) {
+        if (der_ndpf[m][d][n].info == -1) {
+          continue;
+        } else if (der_ndpf[m][d][n].info == 1) {
+          continue;
+        }
+
+        if (der_ndpf[m][d][n].info == 2) {
+          free(der_ndpf[m][d][n].num_pows);
+          free(der_ndpf[m][d][n].den_pows);
+
+          for (int nt=0; nt<der_ndpf[m][d][n].num_nterms; nt++) {
+            mpz_rk1_clear(coeffs_num_den[m][d][n][0][nt], nterms_num_den[m][d][n][0][nt]);
+            delete[] coeffs_num_den[m][d][n][0][nt];
+            free(pows_num_den[m][d][n][0][nt]);
+          }
+          delete[] coeffs_num_den[m][d][n][0];
+          delete[] pows_num_den[m][d][n][0];
+          delete[] nterms_num_den[m][d][n][0];
+
+          if (der_ndpf[m][d][n].den_is_one) {
+            continue;
+          }
+
+          for (int nt=0; nt<der_ndpf[m][d][n].den_nterms; nt++) {
+            mpz_rk1_clear(coeffs_num_den[m][d][n][1][nt], nterms_num_den[m][d][n][1][nt]);
+            delete[] coeffs_num_den[m][d][n][1][nt];
+            free(pows_num_den[m][d][n][1][nt]);
+          }
+          delete[] coeffs_num_den[m][d][n][1];
+          delete[] pows_num_den[m][d][n][1];
+          delete[] nterms_num_den[m][d][n][1];
+        }
+      }
+    }
+  }
+  del_rk4_tens(coeffs_num_den, dim_eta, max_num_contr, dim_eta);
+  del_rk4_tens(pows_num_den, dim_eta, max_num_contr, dim_eta);
+  del_rk4_tens(nterms_num_den, dim_eta, max_num_contr, dim_eta);
   del_rk3_tens(der_ndpf, dim_eta, max_num_contr);
+  
   fclose(fptr);
 
   fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);

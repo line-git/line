@@ -1522,6 +1522,14 @@ int main(int argc, char *argv[])
   //////
   // FREE
   delete[] zero_label;
+  for (int ep=0; ep<eps_num; ep++) {
+    mpc_rk1_clear(roots[ep], nroots[ep]);
+    delete[] roots[ep];
+    mpfr_rk1_clear(tols[ep], nroots[ep]);
+    delete[] tols[ep];
+  }
+  delete[] roots;
+  delete[] tols;
   delete[] nroots;
   poly_frac_rk3_free(pfmat, eps_num, dim, dim);
   del_rk3_tens(pfmat, eps_num, dim);

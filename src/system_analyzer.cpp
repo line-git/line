@@ -221,6 +221,10 @@ void update_new_roots(
   }
   // getchar();
 
+  // FREE
+  mpc_clear(tmpc);
+  mpfr_clear(tmpfr);
+  mpfr_clear(tmpfr1);
 }
 
 
@@ -612,6 +616,13 @@ void wrt_cmp_DE(
 
       // restore original tolerance
       mpfr_set(mpfr_tol, mpfr_tol_orig, MPFR_RNDN);
+
+      // FREE
+      mpfr_clear(mpfr_tol_orig);
+      mpc_rk1_clear(bench_roots, bench_nroots);
+      delete[] bench_roots;
+      poly_frac_rk2_free(bench_pfmat, dim, dim);
+      del_rk2_tens(bench_pfmat, dim);
     }
   }
 }

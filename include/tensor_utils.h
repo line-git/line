@@ -30,8 +30,16 @@ void init_rk4_mpc(mpc_t ****tens, int dim1, int dim2, int dim3, int dim4);
 //////
 // CLEAR
 //////
+void mpz_rk1_clear(
+  mpz_t *tens, int dim
+);
+
 void mpq_rk1_clear(
   mpq_t *tens, int dim
+);
+
+void mpfr_rk1_clear(
+  mpfr_t *tens, int dim
 );
 
 void mpc_rk1_clear(

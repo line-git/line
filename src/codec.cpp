@@ -1145,18 +1145,20 @@ void poly_mpq_find_roots(
 	// ITERATIVE CALLS
 	//////
 	int p_wp2;
-	mpfr_t p_mpfr_tol;
-	mpfr_init(p_mpfr_tol);
-	mpc_t *p_roots;
-	mpfr_t *p_tols;
 	if (mul <= curr_mul) {
 		*found_mul_roots = 0;
 		delete[] defl_root_lab;
+		mpc_rk1_clear(coeffs, deg+1);
+		delete[] coeffs;
 		return;
 	} else {
 		// increase precision
 		p_wp2 = ((double) mul * wp2)/curr_mul;
 	}
+	mpfr_t p_mpfr_tol;
+	mpfr_init(p_mpfr_tol);
+	mpc_t *p_roots;
+	mpfr_t *p_tols;
 
 	mpfr_set_prec(p_mpfr_tol, p_wp2);
 	mpfr_rootn_ui(p_mpfr_tol, mpfr_tol, curr_mul, MPFR_RNDN);
@@ -1207,6 +1209,12 @@ void poly_mpq_find_roots(
 	*found_mul_roots = 1;
 	// delete[] defl_root_lab;
 
+	// FREE
+	mpfr_clear(p_mpfr_tol);
+	mpc_rk1_clear(p_roots, *vdeg+1);
+	delete[] p_roots;
+	mpfr_rk1_clear(p_tols, *vdeg+1);
+	delete[] p_tols;
 }
 
 
