@@ -1693,10 +1693,6 @@ void pf_to_Fuchsian_global(
         }
       }
 
-      if (num_it > 0) {
-        del_rk2_tens(sb_sys_mat, big_dim);
-        del_rk2_tens(sb_sys_inv_mat, big_dim);
-      }
       delete[] matsb;
     }
   }
