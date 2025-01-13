@@ -1001,8 +1001,6 @@ void sys_block_info(
   //////
   int **nrem_roots;
   // ex num_den, gnc_expr;
-  mpc_t tmpc;
-  mpc_init3(tmpc, wp2, wp2);
   int ***rem_mults;
   int count;
   int *lcm_mults;

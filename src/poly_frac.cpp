@@ -3233,7 +3233,7 @@ void mpc_rk2_mul_poly_frac_rk2(
   }
 
   if (to_be_del) {
-    del_rk2_poly_frac(pf_tens, dim, dim);
+    poly_frac_rk2_free(pf_tens, dim, dim);
   }
 }
 
@@ -3300,7 +3300,7 @@ void poly_frac_rk2_mul_mpc_rk2(
 
   if (to_be_del) {
     // cout << "trying to delete" << endl;
-    del_rk2_poly_frac(pf_tens, dim, dim);
+    poly_frac_rk2_free(pf_tens, dim, dim);
     // cout << "done" << endl;
   }
 }
@@ -3434,11 +3434,11 @@ void poly_frac_rk2_mul_pf_rk2(
 
   if (to_be_del == 1) {
     // cout << "trying to delete" << endl;
-    del_rk2_poly_frac(pf_tens1, dim1, dim);
+    poly_frac_rk2_free(pf_tens1, dim1, dim);
     // cout << "done" << endl;
   } else if (to_be_del == 2) {
     // cout << "trying to delete" << endl;
-    del_rk2_poly_frac(pf_tens2, dim, dim2);
+    poly_frac_rk2_free(pf_tens2, dim, dim2);
     // cout << "done" << endl;
   }
 }
@@ -5222,11 +5222,11 @@ void rel_err_poly_frac_rk2_mul_pf_rk2(
 
   if (to_be_del == 1) {
     // cout << "trying to delete" << endl;
-    del_rk2_poly_frac(pf_tens1, dim1, dim);
+    poly_frac_rk2_free(pf_tens1, dim1, dim);
     // cout << "done" << endl;
   } else if (to_be_del == 2) {
     // cout << "trying to delete" << endl;
-    del_rk2_poly_frac(pf_tens2, dim, dim2);
+    poly_frac_rk2_free(pf_tens2, dim, dim2);
     // cout << "done" << endl;
   }
 }
@@ -5298,7 +5298,7 @@ void rel_err_poly_frac_rk2_mul_mpc_rk2(
 
   if (to_be_del) {
     // cout << "trying to delete" << endl;
-    del_rk2_poly_frac(pf_tens, dim, dim);
+    poly_frac_rk2_free(pf_tens, dim, dim);
     // cout << "done" << endl;
   }
 }
@@ -5350,7 +5350,7 @@ void rel_err_mpc_rk2_mul_poly_frac_rk2(
   }
 
   if (to_be_del) {
-    del_rk2_poly_frac(pf_tens, dim, dim);
+    poly_frac_rk2_free(pf_tens, dim, dim);
   }
 }
 

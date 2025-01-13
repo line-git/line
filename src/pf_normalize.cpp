@@ -359,10 +359,10 @@ void pf_to_Fuchsian(
   delete[] A0i;
   del_rk2_tens(A1, b_len);
   del_rk2_tens(proj, b_len);
-  del_rk2_poly_frac(proj_mat, b_len, b_len);
-  del_rk2_poly_frac(mat_proj, b_len, b_len);
-  del_rk2_poly_frac(proj_mat_proj, b_len, b_len);
-  del_rk2_poly_frac(der_contr, b_len, b_len);
+  poly_frac_rk2_free(proj_mat, b_len, b_len);
+  poly_frac_rk2_free(mat_proj, b_len, b_len);
+  poly_frac_rk2_free(proj_mat_proj, b_len, b_len);
+  poly_frac_rk2_free(der_contr, b_len, b_len);
 
   // cout << "TRANSFORMED MATRIX" << endl;
   // poly_frac_rk2_print(matb, b_len, b_len);
@@ -1163,6 +1163,20 @@ void pf_NormalizeDiagonal(
     mpc_set((*eig_list)[i], eigenvalues[class_min[i]], MPFR_RNDN);
   }
 
+  // FREE
+  for (int b=0; b<nblocks; b++) {
+    b_len = prof[b][1] - prof[b][0] + 1;
+    mpc_rk2_clear(jor[b], b_len, b_len);
+    del_rk2_tens(jor[b], b_len);
+    mpc_rk2_clear(jor_tmat[b], b_len, b_len);
+    del_rk2_tens(jor_tmat[b], b_len);
+    mpc_rk2_clear(jor_inv_tmat[b], b_len, b_len);
+    del_rk2_tens(jor_inv_tmat[b], b_len);
+  }
+  delete[] jor;
+  delete[] jor_tmat;
+  delete[] jor_inv_tmat;
+
   if (print) cout << endl << "TRANSFORM SUB-DIAGONAL BLOCKS" << endl;
   // TRANSFORM SUB-DIAGONAL BLOCK
   // poly_frac_rk2_print(mat_ep, dim, dim);
@@ -1661,6 +1675,16 @@ void pf_to_Fuchsian_global(
             );
           }
         }
+
+        // FREE
+        mpc_rk2_clear(sb_sys_mat, big_dim, big_dim);
+        del_rk2_tens(sb_sys_mat, big_dim);
+        mpc_rk2_clear(sb_sys_inv_mat, big_dim, big_dim);
+        del_rk2_tens(sb_sys_inv_mat, big_dim);
+        mpc_rk1_clear(sb_sys_RHS, big_dim);
+        mpc_rk1_clear(sb_sys_sol, big_dim);
+        delete[] sb_sys_sol;
+
         num_it++;
         // if (num_it > 10000) {
         if (num_it > 10) {
@@ -1888,8 +1912,12 @@ void pf_NormalizeMat(
   // cout << "FINAL INV TMAT:" << endl;
   // poly_frac_rk2_print(inv_tmat, dim, dim);
 
-  del_rk2_poly_frac(tmatsb, dim, dim);
-  del_rk2_poly_frac(inv_tmatsb, dim, dim);
+  // FREE
+  poly_frac_rk2_free(tmatsb, dim, dim);
+  del_rk2_tens(tmatsb, dim);
+  poly_frac_rk2_free(inv_tmatsb, dim, dim);
+  del_rk2_tens(inv_tmatsb, dim);
+  poly_frac_free(&pf_tmp);
 
   fprintf(terminal, "\033[11D\033[K"); fflush(terminal);
   usleep(sleep_time);

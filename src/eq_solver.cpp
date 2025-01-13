@@ -448,6 +448,7 @@ void zero_solve_block(mpc_t *****solutions,
       }
     }
     // cout << "hit new return 2" << endl;
+    goto goto_return;
     return;
   }
   for (int lam, n=0; n<num_cum_eig; n++) {
@@ -781,6 +782,18 @@ void zero_solve_block(mpc_t *****solutions,
       }
     }
   }
+
+  goto_return:
+  // FREE
+  mpc_clear(mpc_tmp);
+  mpc_rk2_clear(mpc_mat, b_len, dim2);
+  del_rk2_tens(mpc_mat, b_len);
+  mpc_rk2_clear(mpc_mat1, b_len, b_len);
+  del_rk2_tens(mpc_mat1, b_len);
+  mpc_rk2_clear(mpc_mat2, b_len, b_len);
+  del_rk2_tens(mpc_mat2, b_len);
+  
+  return;
 }
 
 
@@ -987,11 +1000,13 @@ void propagate_regular(
   del_rk2_tens(lcm_mat_ep, dim);
   
   for (int b=0; b<nblocks; b++) {
-    mpc_rk1_clear(lcm_orig[b], lcm_deg[b]);
+    mpc_rk1_clear(lcm_orig[b], lcm_deg[b]+1);
     delete[] lcm_orig[b];
+    delete[] lcm_roots[b];
   }
   delete[] lcm;
   delete[] lcm_orig;
+  delete[] lcm_roots;
   del_rk2_tens(const_term, 1);
 
   // print solutions at last eta value

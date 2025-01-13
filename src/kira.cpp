@@ -803,8 +803,8 @@ int pfaclist_split(
   }
 
   if (remove_fac) {
-    cout << "remove factor:" << endl;
-    pfac_print(fac);
+    // cout << "remove factor:" << endl;
+    // pfac_print(fac);
     pfaclist_remove(facs, fac);
   }
 

@@ -479,6 +479,7 @@ int main(int argc, char *argv[])
   if (opt_all_eps == 0) {
     eps_num = 1;
   }
+  eps_num = 3;
 
   //////
   // CHOOSE STARTING POINT
