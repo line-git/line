@@ -1338,6 +1338,19 @@ int make_dir(char* path) {
 }
 
 
+int remove_dir(const char* path) {
+  char command[MAX_PATH_LEN];
+  snprintf(command, sizeof(command), "rm -rf %s", path);
+  int result = system(command);
+
+  if (result) {
+    fprintf(stderr, "failed to delete directory %s\n", path);
+  }
+
+  return result;
+}
+
+
 void log_param(
   char *key, int value,
   char *filepath, const char* mode

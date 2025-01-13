@@ -166,8 +166,8 @@ void propagate_all_eps(
   int gen_bound, char *filepath_bound, mpc_t **bound,
   char *filepath_bound_build, char *filepath_bound_behav,
   // char *filepath_matrix, char *filepath_roots, // char *filepath_branch_sing_lab,
-  char *filepath_path, char *filepath_path_tags, char* filepath_sol,
-  char *file_ext, FILE *logfptr, int opt_write,
+  char *filepath_path, char *filepath_path_tags, char *filepath_sol, char* dir_partial,
+  char *file_ext, FILE *logfptr, int opt_write, int opt_checkpoint,
   FILE *terminal
 );
 

@@ -39,6 +39,7 @@ int wp2;
 int dbg = 0;
 mpfr_t mpfr_tol;
 double sleep_time = 0;
+char *filepath_cache = NULL;
 // double sleep_time = 0.2e6;
 // double sleep_time = 0.01e6;
 // double sleep_time = 0.005e6;
@@ -251,10 +252,11 @@ int main(int argc, char *argv[])
   char *tmp_filepath = (char*) malloc(MAX_PATH_LEN*sizeof(char));
   char *tmp_filepath1 = (char*) malloc(MAX_PATH_LEN*sizeof(char));
   char *tmp_filepath2 = (char*) malloc(MAX_PATH_LEN*sizeof(char));
+  char *filepath = NULL;
 	char *dir_common = NULL;
 	join_path(&dir_common, dir_parent, (char*)"common/");
 	cout << "parent folder: " << dir_parent << endl;
-	cout << "common dir: " << dir_common << endl;
+	cout << "common folder: " << dir_common << endl;
 
   char *filepath_vars = NULL, *filepath_mats = NULL;
   char *filepath_branchcuts = NULL, *filepath_start = NULL;
@@ -262,6 +264,14 @@ int main(int argc, char *argv[])
   join_path(&filepath_vars, dir_common, (char*)"vars.txt");
   join_path(&filepath_branchcuts, dir_common, (char*)"branch_cuts.txt");
   join_path(&filepath_start, dir_common, (char*)"initial_point.txt");
+
+  // CACHE
+  join_path(&filepath, dir_parent, (char*) "cache/");
+  make_dir(filepath);
+  generate_cache_filename(&filepath_cache);
+  join_path(&filepath_cache, filepath, filepath_cache);
+  cout << "cache folder: " << filepath_cache << endl;
+  make_dir(filepath_cache);
 
   //////
   // LOAD SYMBOLS
@@ -662,12 +672,12 @@ int main(int argc, char *argv[])
   } else if (input_bound) {
     join_path(&filepath_bound, dir_common, (char*)"boundary/bound");
     // copy boundary into cache folder
-    join_path(&tmp_filepath, dir_input, (char*)"boundary/");
-    make_dir(tmp_filepath);
-    join_path(&tmp_filepath, tmp_filepath, (char*)"bound");
+    join_path(&filepath, dir_input, (char*)"boundary/");
+    make_dir(filepath);
+    join_path(&filepath, filepath, (char*)"bound");
     for (int ep=0; ep<eps_num; ep++) {
       snprintf(tmp_filepath1, MAX_PATH_LEN, "%s%d%s", filepath_bound, ep, file_ext);
-      snprintf(tmp_filepath2, MAX_PATH_LEN, "%s%d%s", tmp_filepath, ep, file_ext);
+      snprintf(tmp_filepath2, MAX_PATH_LEN, "%s%d%s", filepath, ep, file_ext);
       cout << "source file: " << tmp_filepath1 << endl;
       cout << "destin file: " << tmp_filepath2 << endl;
       copy_file(tmp_filepath2, tmp_filepath1);
@@ -959,7 +969,48 @@ int main(int argc, char *argv[])
   //////
   if (exit_sing == -1) {
   // if (0 && exit_sing == -1) {
-    kira_to_DE_pf(
+
+    int max_num_contr = LI_get_r(&MI_eta[dim-1]);
+    mpz_t ******coeffs_num_den;
+    malloc_rk4_tens(coeffs_num_den, dim, max_num_contr, dim, 2);
+    int ******pows_num_den;
+    malloc_rk4_tens(pows_num_den, dim, max_num_contr, dim, 2);
+    int *****nterms_num_den;
+    malloc_rk4_tens(nterms_num_den, dim, max_num_contr, dim, 2);
+    lnode_pf ***der_ndpf;
+    malloc_rk3_tens(der_ndpf, dim, max_num_contr, dim);
+    // initialize to zero every possible contribution
+    for (int m=0; m<dim; m++) {
+      for (int d=0; d<max_num_contr; d++) {
+        for (int n=0; n<dim; n++) {
+          lnode_pf_build(&der_ndpf[m][d][n]);
+          der_ndpf[m][d][n].info = -1;
+        }
+      }
+    }
+
+    char ****kira_str = NULL;
+    // // uncomment to proceed with poly_frac check
+    // malloc_rk3_tens(kira_str, dim_eta, max_num_contr, dim_eta);
+    // for (int m=0; m<dim_eta; m++) {
+    //   for (int d=0; d<max_num_contr; d++) {
+    //     for (int n=0; n<dim_eta; n++) {
+    //       kira_str[m][d][n] = NULL;
+    //     }
+    //   }
+    // }
+
+    process_kira_IBPs(
+      coeffs_num_den, pows_num_den,
+      nterms_num_den, der_ndpf,
+      kira_str,
+      ninvs, symbols, is_mass,
+      dim, max_num_contr,
+      MI_eta, dir_amflow,
+      terminal
+    );
+
+    kira_IBPs_to_DE_pf(
       pfmat,
       zero_label, nroots, roots, tols,
       nbranch_roots, branch_roots, branch_tols,
@@ -970,6 +1021,10 @@ int main(int argc, char *argv[])
       nbranches, branch_deg,
       eps_num, eps_str,
       MI_eta, dir_amflow,
+      max_num_contr,
+      coeffs_num_den, pows_num_den,
+      nterms_num_den, der_ndpf,
+      kira_str,
       terminal
     );
 
@@ -1062,6 +1117,16 @@ int main(int argc, char *argv[])
     );
   }
 
+  // FREE DE
+  for (int ep=0; ep<eps_num; ep++) {
+    poly_frac_rk2_free(pfmat[ep], dim, dim);
+    del_rk2_tens(pfmat[ep], dim);
+    mpc_rk1_clear(roots[ep], nroots[ep]);
+    delete[] roots[ep];
+    mpfr_rk1_clear(tols[ep], nroots[ep]);
+    delete[] tols[ep];
+  }
+
   goto_checkpoint1:
   switch (opt_checkpoint) {
     case -1:
@@ -1071,24 +1136,16 @@ int main(int argc, char *argv[])
       // LOAD POLY_FRAC DE FROM FILE
       //////
       for (int ep=0; ep<eps_num; ep++) {
-        // MATRIX
-        snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_matrix, ep, file_ext);
-        cout << endl; cout << "reading poly_frac DE from file " << tmp_filepath << endl;
-        poly_frac_rk2_from_file(tmp_filepath, pfmat[ep], dim, dim);
-
-        // ROOTS
-        snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_roots, ep, file_ext);
-        cout << "reading mpc_t roots from file " << tmp_filepath << endl;
-        nroots[ep] = count_lines(tmp_filepath) - 1;
-        // if (roots[ep]) {
-        //   delete[] roots[ep];
-        // }
-        roots[ep] = new mpc_t[nroots[ep]];
-        init_rk1_mpc(roots[ep], nroots[ep]);
-        int_rk0_mpc_rk1_from_file(tmp_filepath, roots[ep], nroots[ep], &zero_label[ep]);
-        // snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_branch_sing_lab, ep, file_ext);
-        // cout << endl; cout << "read branch sing labs from file " << tmp_filepath << endl;
-        // int_rk2_from_file(tmp_filepath, branch_sing_lab, 3, 2);
+        // // MATRIX
+        // snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_matrix, ep, file_ext);
+        // cout << endl; cout << "reading poly_frac DE from file " << tmp_filepath << endl;
+        // poly_frac_rk2_from_file(tmp_filepath, pfmat[ep], dim, dim);
+        // // ROOTS
+        // snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_roots, ep, file_ext);
+        // cout << "reading mpc_t roots from file " << tmp_filepath << endl;
+        // roots[ep] = new mpc_t[nroots[ep]];
+        // init_rk1_mpc(roots[ep], nroots[ep]);
+        // int_rk0_mpc_rk1_from_file(tmp_filepath, roots[ep], nroots[ep], &zero_label[ep]);
 
         // PATH
         // points
@@ -1111,20 +1168,20 @@ int main(int argc, char *argv[])
         int_rk1_from_file(tmp_filepath, sing_lab[ep], nsings[ep]);
       }
 
-      cout << endl; cout << "ROOTS (1st epsilon):" << endl;
-      cout << "zero_label = " << zero_label[0] << endl;
-      cout << nroots[0] << " roots:" << endl;
-      print_poly(roots[0], nroots[0]-1);
+      // cout << endl; cout << "ROOTS (1st epsilon):" << endl;
+      // cout << "zero_label = " << zero_label[0] << endl;
+      // cout << nroots[0] << " roots:" << endl;
+      // print_poly(roots[0], nroots[0]-1);
       // cout << endl; cout << "ROOTS (2nd epsilon):" << endl;
       // cout << "zero_label = " << zero_label[1] << endl;
       // cout << nroots[1] << " roots:" << endl;
       // print_poly(roots[1], nroots[1]-1);
 
-      cout << endl; cout << "SINGULAR POINTS (1st epsilon):" << endl;
-      cout << nsings[0] << " points" << endl;
-      for (int i=0; i<nsings[0]; i++) {
-        cout << "lab: " << sing_lab[0][i] << ", root: "; print_mpc(&roots[0][sing_lab[0][i]]); cout << endl;
-      }
+      // cout << endl; cout << "SINGULAR POINTS (1st epsilon):" << endl;
+      // cout << nsings[0] << " points" << endl;
+      // for (int i=0; i<nsings[0]; i++) {
+      //   cout << "lab: " << sing_lab[0][i] << ", root: "; print_mpc(&roots[0][sing_lab[0][i]]); cout << endl;
+      // }
       cout << endl; cout << "PATH (1st epsilon):" << endl;
       cout << neta_values[0] << " points" << endl;
       for (int i=0; i<neta_values[0]; i++) {
@@ -1231,8 +1288,8 @@ int main(int argc, char *argv[])
     gen_bound, filepath_bound, bound,
     filepath_bound_build, filepath_bound_behav,
     // filepath_matrix, filepath_roots, // filepath_branch_sing_lab,
-    filepath_path, filepath_path_tags, filepath_sol,
-    file_ext, logfptr, opt_write,
+    filepath_path, filepath_path_tags, filepath_sol, dir_partial,
+    file_ext, logfptr, opt_write, opt_checkpoint,
     terminal
   );
 
@@ -1261,8 +1318,8 @@ int main(int argc, char *argv[])
   //////
   if (opt_write > 0 || opt_write == -2) {
     // cache solution
-    join_path(&tmp_filepath, filepath_sol, file_ext);
-    mpc_rk2_to_file(tmp_filepath, sol_at_eps, dim, eps_num);
+    join_path(&filepath, filepath_sol, file_ext);
+    mpc_rk2_to_file(filepath, sol_at_eps, dim, eps_num);
   }
 
   if (opt_write > 0)  {
@@ -1278,8 +1335,8 @@ int main(int argc, char *argv[])
       fclose(sol_fptr);
     }
     // all-epsilon solutions
-    join_path(&tmp_filepath, filepath_outer_sol, file_ext);
-    mpc_rk2_to_file(tmp_filepath, sol_at_eps_wrt_cmp, dim_wrt_cmp, eps_num);
+    join_path(&filepath, filepath_outer_sol, file_ext);
+    mpc_rk2_to_file(filepath, sol_at_eps_wrt_cmp, dim_wrt_cmp, eps_num);
 
   } else if (opt_write != -3) {
     // enlarge tolerance
@@ -1290,13 +1347,13 @@ int main(int argc, char *argv[])
     // cout << endl; cout << "check with enlarged mpfr tol:" << endl;
     // mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
     
-    join_path(&tmp_filepath, filepath_outer_sol, file_ext);
-    cout << endl; cout << "reading from " << tmp_filepath << endl;
-    int bench_eps_num = count_lines(tmp_filepath)/dim_wrt_cmp;
+    join_path(&filepath, filepath_outer_sol, file_ext);
+    cout << endl; cout << "reading from " << filepath << endl;
+    int bench_eps_num = count_lines(filepath)/dim_wrt_cmp;
     mpc_t **bench_sol_at_eps;
     malloc_rk2_tens(bench_sol_at_eps, dim_wrt_cmp, bench_eps_num);
     init_rk2_mpc(bench_sol_at_eps, dim_wrt_cmp, bench_eps_num);
-    mpc_rk2_from_file(tmp_filepath, bench_sol_at_eps, dim_wrt_cmp, bench_eps_num);
+    mpc_rk2_from_file(filepath, bench_sol_at_eps, dim_wrt_cmp, bench_eps_num);
     cout << "CHECK result..." << endl;
     mpc_t **bench_sol_at_eps_sliced;
     malloc_rk2_tens(bench_sol_at_eps_sliced, dim_wrt_cmp, eps_num);
@@ -1326,8 +1383,8 @@ int main(int argc, char *argv[])
       goto goto_exit;
     case 2:
       // LOAD FROM FILE
-      join_path(&tmp_filepath, filepath_sol, file_ext);
-      mpc_rk2_from_file(tmp_filepath, sol_at_eps, dim, eps_num);
+      join_path(&filepath, filepath_sol, file_ext);
+      mpc_rk2_from_file(filepath, sol_at_eps, dim, eps_num);
       cout << "loaded results (# MI) X (# EPS):" << endl;
       print_rk2_mpc(sol_at_eps, dim, eps_num);
       break;
@@ -1520,23 +1577,27 @@ int main(int argc, char *argv[])
   //////
   // EXIT PROGRAM
   //////
+  // CLEAR CACHE
+  remove_dir(filepath_cache);
+
   // FREE
   delete[] zero_label;
-  for (int ep=0; ep<eps_num; ep++) {
-    mpc_rk1_clear(roots[ep], nroots[ep]);
-    delete[] roots[ep];
-    mpfr_rk1_clear(tols[ep], nroots[ep]);
-    delete[] tols[ep];
-  }
+  // for (int ep=0; ep<eps_num; ep++) {
+  //   mpc_rk1_clear(roots[ep], nroots[ep]);
+  //   delete[] roots[ep];
+  //   mpfr_rk1_clear(tols[ep], nroots[ep]);
+  //   delete[] tols[ep];
+  // }
   delete[] roots;
   delete[] tols;
   delete[] nroots;
+  // poly_frac_rk3_free(pfmat, eps_num, dim, dim);
+  // del_rk3_tens(pfmat, eps_num, dim);
+  delete[] pfmat;
   if (MI_eta) {
     LI_rk1_free(MI_eta, dim);
     delete[] MI_eta;
   }
-  poly_frac_rk3_free(pfmat, eps_num, dim, dim);
-  del_rk3_tens(pfmat, eps_num, dim);
   mpc_rk2_clear(*solutions, dim, eta_ord+1);
   del_rk2_tens(*solutions, dim);  
   delete[] solutions;

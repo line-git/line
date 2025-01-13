@@ -1,5 +1,8 @@
 #include <iostream>
 #include <cstring>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 // #include <fstream>
 // #include <sstream>
 // #include <string>
@@ -20,6 +23,43 @@ extern "C" {
   #include "algebra.h"
   #include "rel_err_mpc.h"
 }
+
+
+void generate_cache_filename(
+  char **filename
+) {
+  time_t t;
+  srand((unsigned) time(&t));
+
+  int timestamp = (int)time(NULL);
+  int random_component = rand() % 9000 + 1000; // random number between 1000 and 9999
+
+  if (*filename) free(*filename);
+  *filename = (char*) malloc(30 * sizeof(char));
+  if (*filename == NULL) {
+    perror("Failed to allocate memory for cache file name.");
+    exit(EXIT_FAILURE);
+  }
+
+  snprintf(*filename, 30, "cache_%d_%d/", timestamp, random_component);
+}
+
+
+// void write_to_cache(const char* data) {
+//   char* filename = generate_cache_filename();
+//   FILE* cache_file = fopen(filename, "w");
+//   if (cache_file == NULL) {
+//     perror("Failed to open file");
+//     free(filename);
+//     exit(EXIT_FAILURE);
+//   }
+
+//   fprintf(cache_file, "%s", data);
+//   fclose(cache_file);
+//   printf("Data written to %s\n", filename);
+
+//   free(filename); // Free the allocated memory
+// }
 
 
 int MIN(int a, int b) {

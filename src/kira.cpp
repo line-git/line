@@ -13,10 +13,12 @@ using namespace std;
 #include "codec.h"
 #include "poly_frac.h"
 #include "system_analyzer.h"
+#include "kira.h"
 extern "C" {
   #include "ex_tree.h"
   #include "cpoly.h"
   #include "mp_roots_poly.h"
+  #include "in_out.h"
 }
 
 
@@ -2082,17 +2084,17 @@ void poly_frac_set_rpf(
 }
 
 
-typedef struct lnode_pf {
-  int sign;
-  int info;  // 1: pf is one, -1: pf is zero, 2: other
-  int den_is_one;  // 1: den is one
-  int num_nterms;  // number of terms in the numerator
-  int *num_pows;  // power of terms in the numerator
-  lnode *num_terms;  // term trees in the numerator
-  int den_nterms;  // number of terms in the denominator
-  int *den_pows;  // power of terms in the denominator
-  lnode *den_terms;  // trees in the denominator
-} lnode_pf;
+// typedef struct lnode_pf {
+//   int sign;
+//   int info;  // 1: pf is one, -1: pf is zero, 2: other
+//   int den_is_one;  // 1: den is one
+//   int num_nterms;  // number of terms in the numerator
+//   int *num_pows;  // power of terms in the numerator
+//   lnode *num_terms;  // term trees in the numerator
+//   int den_nterms;  // number of terms in the denominator
+//   int *den_pows;  // power of terms in the denominator
+//   lnode *den_terms;  // trees in the denominator
+// } lnode_pf;
 
 
 void lnode_pf_build(lnode_pf *ndpf) {
@@ -2177,32 +2179,19 @@ void lnode_poly_coeffs_eval(
 }
 
 
-void kira_to_DE_pf(
+void process_kira_IBPs(
   // OUTPUT
-  poly_frac ***pfmat,
-  int *zero_label, int *nroots, mpc_t **roots, mpfr_t **tols,
+  mpz_t ******coeffs_num_den, int ******pows_num_den,
+  int *****nterms_num_den, lnode_pf ***der_ndpf,
+  char ****kira_str,
   // INPUT
-  int nroots_branch, mpc_t *roots_branch, mpfr_t *tols_branch,
   int ninvs, char **symbols, int *is_mass,
-  poly_frac *pspf,
-  int *skip_inv, char ***ep_kin,
-  int dim_eta, char ****mats_str,
-  int nbranches, int *branch_deg,
-  int eps_num, char **eps_str,
+  int dim_eta, int max_num_contr,
   LI* MI_eta, char *dir_amflow,
   FILE *terminal
 ) {
-  // dbg = 1;
   int print = 0;
-
-  double wp2_rel_decr = 0.93;
-
-  poly_frac tmpf;
-  poly_frac_build(&tmpf);
-
-  mpc_t tmpc;
-  mpc_init3(tmpc, wp2, wp2);
-
+  
   char *topo_name = strdup("MIeta");
   char *kira_results_filepath = NULL;
   join_path(&kira_results_filepath, dir_amflow, (char*)"kira/results/");
@@ -2217,63 +2206,11 @@ void kira_to_DE_pf(
   int mi_idx, mi_count, c = 0, line_count = 0;
   int topo_len = strlen(topo_name);
 
-  int max_num_contr = LI_get_r(&MI_eta[dim_eta-1]);
-  // max_num_contr = 7;  // debug
-  // cout << "max_num_contr = " << max_num_contr << endl;
-  lnode_pf ***der_ndpf;
-  malloc_rk3_tens(der_ndpf, dim_eta, max_num_contr, dim_eta);
-  // initialize to zero every possible contribution
-  for (int m=0; m<dim_eta; m++) {
-    for (int d=0; d<max_num_contr; d++) {
-      for (int n=0; n<dim_eta; n++) {
-        lnode_pf_build(&der_ndpf[m][d][n]);
-        der_ndpf[m][d][n].info = -1;
-      }
-    }
-  }
-
-  char ****kira_str = NULL;
-  char *kira_str_cp = NULL;
-  // // uncomment to proceed with poly_frac check
-  // malloc_rk3_tens(kira_str, dim_eta, max_num_contr, dim_eta);
-  // for (int m=0; m<dim_eta; m++) {
-  //   for (int d=0; d<max_num_contr; d++) {
-  //     for (int n=0; n<dim_eta; n++) {
-  //       kira_str[m][d][n] = NULL;
-  //     }
-  //   }
-  // }
-
   lnode ******nd_num_den;
   malloc_rk4_tens(nd_num_den, dim_eta, max_num_contr, dim_eta, 2);
-  // for (int m=0; m<dim_eta; m++) {
-  //   for (int d=0; d<max_num_contr; d++) {
-  //     for (int n=0; n<dim_eta; n++) {
-  //       nd_num_den[m][d][n][0] = NULL;
-  //       nd_num_den[m][d][n][1] = NULL;
-  //     }
-  //   }
-  // }
-  mpz_t ******coeffs_num_den;
-  malloc_rk4_tens(coeffs_num_den, dim_eta, max_num_contr, dim_eta, 2);
-  int ******pows_num_den;
-  malloc_rk4_tens(pows_num_den, dim_eta, max_num_contr, dim_eta, 2);
-  int *****nterms_num_den;
-  malloc_rk4_tens(nterms_num_den, dim_eta, max_num_contr, dim_eta, 2);
   lnode *nd_pointer;
   BitField sign, sign1;
 
-  // int m_stop = 142, d_stop = 0, n_stop = 0;
-  // int m_stop = 126, d_stop = 0, n_stop = 0;
-  // int m_stop = 126, d_stop = 2, n_stop = 0;
-  // int m_stop = 114, d_stop = 0, n_stop = 0;
-  // int m_stop = 105, d_stop = 3, n_stop = 0;
-  // int m_stop = 61, d_stop = 0, n_stop = 0;
-  // int m_stop = 55, d_stop = 0, n_stop = 6;
-  // int m_stop = 55, d_stop = 0, n_stop = 0;
-  // int m_stop = 11, d_stop = 1, n_stop = 1;
-  // int m_stop = 9, d_stop = 2, n_stop = 1;
-  // int m_stop = 3, d_stop = 0, n_stop = 0;
   int m_stop = -2, d_stop = -2, n_stop = -2;
   // int m_pfc_start = 105;
   // int m_pfc_start = 109;
@@ -2599,6 +2536,11 @@ void kira_to_DE_pf(
     if (m == m_stop+1) break;
   }
   fprintf(terminal, "\033[15D\033[K"); fflush(terminal); usleep(sleep_time);
+  fclose(fptr);
+
+  // FREE
+  if (kira_results_filepath) free(kira_results_filepath);
+  if (line) free(line);
   lnode_free(&nd);
   // for (int m=0; m<dim_eta; m++) {
   //   for (int d=0; d<max_num_contr; d++) {
@@ -2611,6 +2553,66 @@ void kira_to_DE_pf(
   del_rk4_tens(nd_num_den, dim_eta, max_num_contr, dim_eta);
   // return;
 
+}
+
+
+void kira_IBPs_to_DE_pf(
+  // OUTPUT
+  poly_frac ***pfmat,
+  int *zero_label, int *nroots, mpc_t **roots, mpfr_t **tols,
+  // INPUT
+  int nroots_branch, mpc_t *roots_branch, mpfr_t *tols_branch,
+  int ninvs, char **symbols, int *is_mass,
+  poly_frac *pspf,
+  int *skip_inv, char ***ep_kin,
+  int dim_eta, char ****mats_str,
+  int nbranches, int *branch_deg,
+  int eps_num, char **eps_str,
+  LI* MI_eta, char *dir_amflow,
+  int max_num_contr,
+  mpz_t ******coeffs_num_den, int ******pows_num_den,
+  int *****nterms_num_den, lnode_pf ***der_ndpf,
+  char ****kira_str,
+  FILE *terminal
+) {
+  // dbg = 1;
+  int print = 0;
+
+  double wp2_rel_decr = 0.93;
+
+  poly_frac tmpf;
+  poly_frac_build(&tmpf);
+
+  mpc_t tmpc;
+  mpc_init3(tmpc, wp2, wp2);
+
+  // // uncomment to proceed with poly_frac check
+  // malloc_rk3_tens(kira_str, dim_eta, max_num_contr, dim_eta);
+  // for (int m=0; m<dim_eta; m++) {
+  //   for (int d=0; d<max_num_contr; d++) {
+  //     for (int n=0; n<dim_eta; n++) {
+  //       kira_str[m][d][n] = NULL;
+  //     }
+  //   }
+  // }
+
+  // int m_stop = 142, d_stop = 0, n_stop = 0;
+  // int m_stop = 126, d_stop = 0, n_stop = 0;
+  // int m_stop = 126, d_stop = 2, n_stop = 0;
+  // int m_stop = 114, d_stop = 0, n_stop = 0;
+  // int m_stop = 105, d_stop = 3, n_stop = 0;
+  // int m_stop = 61, d_stop = 0, n_stop = 0;
+  // int m_stop = 55, d_stop = 0, n_stop = 6;
+  // int m_stop = 55, d_stop = 0, n_stop = 0;
+  // int m_stop = 11, d_stop = 1, n_stop = 1;
+  // int m_stop = 9, d_stop = 2, n_stop = 1;
+  // int m_stop = 3, d_stop = 0, n_stop = 0;
+  int m_stop = -2, d_stop = -2, n_stop = -2;
+  // int m_pfc_start = 105;
+  // int m_pfc_start = 109;
+  int m_pfc_start = 0;
+
+  char *kira_str_cp = NULL;
   dbg = 0;
   for (int ep=0; ep<eps_num; ep++) {
     if (ep > 0) {fprintf(terminal, "\033[22D\033[K");}// fflush(terminal); usleep(sleep_time);}
@@ -3274,6 +3276,27 @@ void kira_to_DE_pf(
       }
     }
 
+    //////
+    // CACHE
+    //////
+    // MATRIX
+    char tmp_filepath[MAX_PATH_LEN];
+    snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%s%d%s", filepath_cache, "pfmat", ep, ".txt");
+    cout << endl; cout << "writing to " << tmp_filepath << endl;
+    poly_frac_rk2_to_file(
+      tmp_filepath,
+      pfmat[ep], dim_eta, dim_eta
+    );
+    // poly_frac_rk2_free(pfmat[ep], dim_eta, dim_eta);
+    // del_rk2_tens(pfmat[ep], dim_eta);
+
+    // ROOTS
+    snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%s%d%s", filepath_cache, "roots", ep, ".txt");
+    cout << "writing to " << tmp_filepath << endl;
+    int_rk0_mpc_rk1_to_file(tmp_filepath, roots[ep], nroots[ep], zero_label[ep]);
+    // mpc_rk1_clear(roots[ep], nroots[ep]);
+    // delete[] roots[ep];
+
     // free memory
     mpc_rk1_clear(roots_bench, nroots_branch);
     delete[] roots_bench;
@@ -3316,10 +3339,9 @@ void kira_to_DE_pf(
     delete[] stdim_den_pows;
   }
   fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
+  fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
 
   // FREE
-  if (kira_results_filepath) free(kira_results_filepath);
-  if (line) free(line);
   if (kira_str) {
     for (int m=0; m<dim_eta; m++) {
       for (int d=0; d<max_num_contr; d++) {
@@ -3375,10 +3397,6 @@ void kira_to_DE_pf(
   del_rk4_tens(pows_num_den, dim_eta, max_num_contr, dim_eta);
   del_rk4_tens(nterms_num_den, dim_eta, max_num_contr, dim_eta);
   del_rk3_tens(der_ndpf, dim_eta, max_num_contr);
-  
-  fclose(fptr);
-
-  fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
 
 }
 

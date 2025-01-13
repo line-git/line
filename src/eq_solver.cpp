@@ -20,6 +20,7 @@ extern "C" {
   // #include "in_out.h"
   #include "jordan.h"
   #include "rel_err_mpc.h"
+  #include "in_out.h"
 }
 
 // needed for csvd
@@ -6244,8 +6245,8 @@ void propagate_all_eps(
   int gen_bound, char *filepath_bound, mpc_t **bound,
   char *filepath_bound_build, char *filepath_bound_behav,
   // char *filepath_matrix, char *filepath_roots, // char *filepath_branch_sing_lab,
-  char *filepath_path, char *filepath_path_tags, char *filepath_sol,
-  char *file_ext, FILE *logfptr, int opt_write,
+  char *filepath_path, char *filepath_path_tags, char *filepath_sol, char* dir_partial,
+  char *file_ext, FILE *logfptr, int opt_write, int opt_checkpoint,
   FILE *terminal
 ) {
   int print = 0;
@@ -6296,6 +6297,30 @@ void propagate_all_eps(
     // progfile << "############################################## epv = " << epv << endl;
 
     //////
+    // LOAD POLY_FRAC DE
+    //////
+    char tmp_filepath_pfmat[MAX_PATH_LEN];
+    char tmp_filepath_roots[MAX_PATH_LEN];
+    if (opt_checkpoint == 1) {
+      snprintf(tmp_filepath_pfmat, sizeof(tmp_filepath), "%s%s%d%s", dir_partial, "pfmat", ep, ".txt");
+      snprintf(tmp_filepath_roots, sizeof(tmp_filepath), "%s%s%d%s", dir_partial, "roots", ep, ".txt");
+    } else {
+      snprintf(tmp_filepath_pfmat, sizeof(tmp_filepath), "%s%s%d%s", filepath_cache, "pfmat", ep, ".txt");
+      snprintf(tmp_filepath_roots, sizeof(tmp_filepath), "%s%s%d%s", filepath_cache, "roots", ep, ".txt");
+    }
+    // MATRIX
+    cout << endl; cout << "reading poly_frac DE from file " << tmp_filepath_pfmat << endl;
+    malloc_rk2_tens(pfmat[ep], dim, dim);
+    poly_frac_rk2_build(pfmat[ep], dim, dim);
+    poly_frac_rk2_from_file(tmp_filepath_pfmat, pfmat[ep], dim, dim);
+    // ROOTS
+    cout << "reading mpc_t roots from file " << tmp_filepath_roots << endl;
+    nroots[ep] = count_lines(tmp_filepath_roots) - 1;
+    roots[ep] = new mpc_t[nroots[ep]];
+    init_rk1_mpc(roots[ep], nroots[ep]);
+    int_rk0_mpc_rk1_from_file(tmp_filepath_roots, roots[ep], nroots[ep], &zero_label[ep]);
+
+    //////
     // LOAD BOUNDARY
     //////
     if (gen_bound == 0) {
@@ -6328,6 +6353,7 @@ void propagate_all_eps(
       //////
       // EXIT SINGULARITY AT INFINITY
       //////
+      cout << endl;
       cout << "EXIT SINGULARITY AT INFINITY" << endl;
       propagate_infty(
         solutions,
@@ -6411,6 +6437,12 @@ void propagate_all_eps(
     // gnc_tol = gnc_tol_orig;  // #uncomment-for-ginac
     // wp2 = wp2_orig;
     // if (ep == 2) exit(0); // #dbg
+
+    // FREE
+    poly_frac_rk2_free(pfmat[ep], dim, dim);
+    del_rk2_tens(pfmat[ep], dim);
+    mpc_rk1_clear(roots[ep], nroots[ep]);
+    delete[] roots[ep];
   }
   // mpc_rk2_to_file((char*)"sol_at_eps.txt", sol_at_eps, dim, eps_num);
   fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);

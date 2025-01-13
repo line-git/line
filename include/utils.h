@@ -1,6 +1,10 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+void generate_cache_filename(
+  char **filename
+);
+
 int MIN(int a, int b);
 
 inline int MAX(int a, int b);

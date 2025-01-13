@@ -532,7 +532,7 @@ void wrt_cmp_DE(
   char *file_ext, char *filepath_matrix, char *filepath_roots,
   int opt_write
 ) {
-  char tmp_filepath[200];
+  char tmp_filepath[MAX_PATH_LEN];
   for (int ep=0; ep<eps_num; ep++) {
     if (opt_write) {
       //////

@@ -134,6 +134,8 @@ int directory_exists(const char *path);
 
 int make_dir(char* path);
 
+int remove_dir(const char* path);
+
 void log_param(
   char *key, int value,
   char *filepath, const char* mode

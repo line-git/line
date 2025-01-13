@@ -8,6 +8,9 @@ extern int wp2;
 // tolerance is used to decide whether something is zero
 extern mpfr_t mpfr_tol;
 
+// used for cache
+extern char* filepath_cache;
+
 // used for debug
 extern int dbg;
 #include <unistd.h>  // just for sleep function (debug)
