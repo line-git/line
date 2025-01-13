@@ -171,11 +171,40 @@ void LI_build(
 
 
 void LI_rk1_build(
-  // IN-OUT
   LI *li, int dim
 ) {
   for (int i=0; i<dim; i++) {
     LI_build(&li[i]);
+  }
+  return;
+}
+
+
+void LI_free(
+  // IN-OUT
+  LI *li
+) {
+  if (li->pows) {
+    delete[] li->pows;
+  }
+  if (li->pows_str) {
+    free(li->pows_str);
+  }
+  if (li->mder_idx) {
+    delete[] li->mder_idx;
+  }
+  if (li->mder_contr) {
+    LI_free(li->mder_contr);
+    delete[] li->mder_contr;
+  }
+}
+
+
+void LI_rk1_free(
+  LI *li, int dim
+) {
+  for (int i=0; i<dim; i++) {
+    LI_free(&li[i]);
   }
   return;
 }
@@ -613,6 +642,15 @@ void LI_rk1_from_file(
     // cout << "copied power list: " << (*li)[m].pows_str << endl;
 
     m++;
+
+    // FREE
+    if (pows_str) {
+      for (int p=0; p<nprop; p++) {
+        if (pows_str[p]) free(pows_str[p]);
+      }
+      delete[] pows_str;
+      pows_str = NULL;
+    }
   }
   fclose(fptr);
 

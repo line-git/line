@@ -1778,6 +1778,7 @@ void poly_frac_perm_roots(
     for (int k=0; k<(*pf).nroots; k++) {
       (*pf).mults[perm[k]] = mults_unperm[k];
     }
+    delete[] mults_unperm;
   }
 }
 

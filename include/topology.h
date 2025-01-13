@@ -58,7 +58,15 @@ void LI_build(
 );
 
 void LI_rk1_build(
+  LI *li, int dim
+);
+
+void LI_free(
   // IN-OUT
+  LI *li
+);
+
+void LI_rk1_free(
   LI *li, int dim
 );
 

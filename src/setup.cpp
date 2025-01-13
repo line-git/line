@@ -297,6 +297,9 @@ void parse_list(
     (*out)[k][c] = '\0';
     i++;
   }
+
+  // FREE
+  free(ns_list);
 }
 
 

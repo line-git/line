@@ -1531,6 +1531,10 @@ int main(int argc, char *argv[])
   delete[] roots;
   delete[] tols;
   delete[] nroots;
+  if (MI_eta) {
+    LI_rk1_free(MI_eta, dim);
+    delete[] MI_eta;
+  }
   poly_frac_rk3_free(pfmat, eps_num, dim, dim);
   del_rk3_tens(pfmat, eps_num, dim);
   mpc_rk2_clear(*solutions, dim, eta_ord+1);
