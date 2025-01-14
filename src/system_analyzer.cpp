@@ -208,11 +208,11 @@ void update_new_roots(
   if (new_root) {
     // cout << "found new root:" << endl;
     // print_mpc(root); cout << endl;
-    mpc_init3(out_roots[*num_out_roots], wp2, wp2);
+    // mpc_init3(out_roots[*num_out_roots], wp2, wp2);
     // cout << "init new root" << endl;
     mpc_set(out_roots[*num_out_roots], *root, MPFR_RNDN);
     // cout << "set new root" << endl;
-    mpfr_init2(out_tols[*num_out_roots], wp2);
+    // mpfr_init2(out_tols[*num_out_roots], wp2);
     mpfr_set(out_tols[*num_out_roots], *tol, MPFR_RNDN);
     // cout << "set new tol" << endl;
     *label = *num_in_roots + *num_out_roots;
@@ -694,9 +694,9 @@ void generate_poly_frac_DE(
         // cout << endl; cout << "input expresion (for parser):" << endl;
         // cout << mats_str[s][i][j] << endl;
         // }
-        struct lnode nd;
         // cout << "parsing expression..." << endl;
         // fflush(stdout);
+        lnode_build(&mats_nd[s][i][j]);
         lnode_parse_expression(&mats_nd[s][i][j], mats_str[s][i][j], (const char**) symbols, ninvs+1, 0);
         // if (s == 0 && i == 26 && j == 22) {
         // cout << "parsed tree:" << endl;
@@ -829,6 +829,7 @@ void generate_poly_frac_DE(
             roots[ep], &pspf[1+s].coeffs[pspf[1+s].num_vdeg],
             wp_bin
           );
+          poly_frac_free(&pfmats[s][i][j]);
         }
       }
     }
@@ -857,9 +858,44 @@ void generate_poly_frac_DE(
         break;
       }
     }
+  
+    //////
+    // CACHE
+    //////
+    // MATRIX
+    char tmp_filepath[MAX_PATH_LEN];
+    snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%s%d%s", filepath_cache, "pfmat", ep, ".txt");
+    cout << endl; cout << "writing to " << tmp_filepath << endl;
+    poly_frac_rk2_to_file(
+      tmp_filepath,
+      pfmat[ep], dim, dim
+    );
+    // poly_frac_rk2_free(pfmat[ep], dim_eta, dim_eta);
+    // del_rk2_tens(pfmat[ep], dim_eta);
+
+    // ROOTS
+    snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%s%d%s", filepath_cache, "roots", ep, ".txt");
+    cout << "writing to " << tmp_filepath << endl;
+    int_rk0_mpc_rk1_to_file(tmp_filepath, roots[ep], nroots[ep], zero_label[ep]);
+    // mpc_rk1_clear(roots[ep], nroots[ep]);
+    // delete[] roots[ep];
   }
   fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
   fprintf(terminal, "\033[13D\033[K"); fflush(terminal); usleep(sleep_time);
+
+  // FREE
+  for (int s=0; s<ninvs; s++) {
+    if (skip_inv[s] == 1) {
+      continue;
+    }
+    for (int i=0; i<dim; i++) {
+      for (int j=0; j<dim; j++) {
+        lnode_free(&mats_nd[s][i][j]);
+      }
+    }
+  }
+  del_rk3_tens(mats_nd, ninvs, dim);
+  del_rk3_tens(pfmats, ninvs, dim);
 
 }
 

@@ -1414,7 +1414,9 @@ int denom_coeffs_to_facs(
   if (dbg) cout << "update list of global roots and find root profile" << endl;
   int num_new_roots = 0;
   mpc_t *new_roots = new mpc_t[num_new_roots_max+1];
+  init_rk1_mpc(new_roots, num_new_roots_max+1);
   mpfr_t *new_tols = new mpfr_t[num_new_roots_max+1];
+  init_rk1_mpfr(new_tols, num_new_roots_max+1);
   // for (int k=1; k<=num_new_roots_max; k++) {
   for (int k=nprev_roots+1; k<=den_vdeg; k++) {
     update_new_roots(
@@ -1471,9 +1473,9 @@ int denom_coeffs_to_facs(
   delete[] den_roots;
   mpfr_rk1_clear(den_tols, den_vdeg+1);
   delete[] den_tols;
-  mpc_rk1_clear(new_roots, num_new_roots);
+  mpc_rk1_clear(new_roots, num_new_roots+1);
   delete[] new_roots;
-  mpfr_rk1_clear(new_tols, num_new_roots);
+  mpfr_rk1_clear(new_tols, num_new_roots+1);
   delete[] new_tols;
 
   return 0;

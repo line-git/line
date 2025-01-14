@@ -921,7 +921,9 @@ int main(int argc, char *argv[])
   int *branch_deg = new int[nbranches];
   mpc_t **branch_poly = new mpc_t*[nbranches];
   mpc_t *branch_roots_tmp = new mpc_t[2*nbranches];
+  init_rk1_mpc(branch_roots_tmp, nbranches*2);
   mpfr_t *branch_tols_tmp = new mpfr_t[2*nbranches];
+  init_rk1_mpfr(branch_tols_tmp, nbranches*2);
 
   process_branch_points(
     &num_branch_roots_tmp, branch_roots_tmp, branch_tols_tmp,
@@ -1367,6 +1369,13 @@ int main(int argc, char *argv[])
 
     // restore original tol
     mpfr_set(mpfr_tol, mpfr_tol_orig, MPFR_RNDN);
+
+    // FREE
+    mpc_rk2_clear(bench_sol_at_eps, dim_wrt_cmp, bench_eps_num);
+    del_rk2_tens(bench_sol_at_eps, dim_wrt_cmp);
+    mpc_rk2_clear(bench_sol_at_eps_sliced, dim_wrt_cmp, eps_num);
+    del_rk2_tens(bench_sol_at_eps_sliced, dim_wrt_cmp);
+    mpfr_clear(mpfr_tol_orig);
   }
 
   if (!opt_all_eps) {
@@ -1581,6 +1590,18 @@ int main(int argc, char *argv[])
   remove_dir(filepath_cache);
 
   // FREE
+  if (mats_str) {
+	  for (int s=0; s<ninvs; s++) {
+      if (skip_inv[s] == 1) {continue;}
+      for (int i=0; i<dim; i++) {
+        for (int j=0; j<dim; j++) {
+          free(mats_str[s][i][j]);
+        }
+      }
+    }
+    delete[] mats_str;
+  }
+
   delete[] zero_label;
   // for (int ep=0; ep<eps_num; ep++) {
   //   mpc_rk1_clear(roots[ep], nroots[ep]);

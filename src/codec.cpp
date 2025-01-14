@@ -1037,6 +1037,12 @@ void poly_frac_numer_roots_from_tree(
 	// 	mpc_set_ui((*roots)[k], 0, MPFR_RNDN);
 	// 	mpfr_set((*tols)[k], mpfr_tol, MPFR_RNDN);
 	// }
+
+	// FREE
+	mpc_rk1_clear(p_roots, *vdeg+1);
+	delete[] p_roots;
+	mpfr_rk1_clear(p_tols, *vdeg+1);
+	delete[] p_tols;
 }
 
 
@@ -1420,8 +1426,10 @@ void decode_tree_pf(
 				// cout << "update global roots and assign labels" << endl;
 				int *root_prof = new int[num_deg];
 				int num_new_roots = 0;
-				mpc_t *new_roots = new mpc_t[num_vdeg];
-				mpfr_t *new_tols = new mpfr_t[num_vdeg];
+				mpc_t *new_roots = new mpc_t[num_vdeg+1];
+				init_rk1_mpc(new_roots, num_vdeg+1);
+				mpfr_t *new_tols = new mpfr_t[num_vdeg+1];
+				init_rk1_mpfr(new_tols, num_vdeg+1);
 				for (int k=0; k<num_ldeg; k++) {
 					root_prof[k] = 0;
 				}
@@ -1502,6 +1510,17 @@ void decode_tree_pf(
 				poly_frac_pow_ui_wp2(wp2, out, out, -pow);
 				// cout << "poly_frac raised to power:" << endl;
 				// poly_frac_print(out);
+
+				// FREE
+				mpc_rk1_clear(num_roots, num_vdeg+1);
+				delete[] num_roots;
+				mpfr_rk1_clear(num_tols, num_vdeg+1);
+				delete[] num_tols;
+				mpc_rk1_clear(new_roots, num_vdeg+1);
+				delete[] new_roots;
+				mpfr_rk1_clear(new_tols, num_vdeg+1);
+				delete[] new_tols;
+
 			} else {
 				for (int i=0; i<n; i++) {
 					if (dbg) cout << "i = " << i << endl;

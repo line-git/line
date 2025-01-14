@@ -29,7 +29,7 @@ void generate_cache_filename(
   char **filename
 ) {
   time_t t;
-  srand((unsigned) time(&t));
+  srand((unsigned) (time(&t) ^ getpid())); // combine time and PID for the seed
 
   int timestamp = (int)time(NULL);
   int random_component = rand() % 9000 + 1000; // random number between 1000 and 9999
