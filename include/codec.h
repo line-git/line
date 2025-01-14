@@ -61,4 +61,16 @@ void decode_tree_pf(
 	int wp2, mpfr_t mpfr_tol, int incr_prec
 );
 
+void lnode_to_pf(
+	// OUTPUT
+	struct poly_frac *out,
+	// IN-OUT
+	int *nroots, mpc_t **roots, mpfr_t **tols,
+	// INPUT
+	struct poly_frac *in,
+	char ***kin, int *skip_inv, int *is_mass,
+	struct lnode *nd,
+	int wp2, mpfr_t mpfr_tol, int incr_prec
+);
+
 #endif

@@ -767,7 +767,7 @@ void generate_poly_frac_DE(
 			for (int i=0; i<dim; i++) {
 				for (int j=0; j<dim; j++) {
           // cout << "i, j = " << i << ", " << j << endl;
-					nd_str = lnode_to_str(&mats_nd[s][i][j], (char*)", ");
+					// nd_str = lnode_to_str(&mats_nd[s][i][j], (char*)", ");
           // if (s == 0 && i == 49 && j == 0) {
           // cout << "i, j = " << i << ", " << j << endl;
 					// printf("%s\n", nd_str);
@@ -779,12 +779,20 @@ void generate_poly_frac_DE(
 					//////
 					// DECODE
 					//////
-					decode_tree_pf(
+					// decode_tree_pf(
+					// 	&pfmats[s][i][j],
+					// 	&nroots[ep], &roots[ep], &tols[ep],
+					// 	pspf,
+					// 	ep_kin, skip_inv-1, is_mass-1,
+					// 	&nd_str, (char*) ", ",
+					// 	wp2, mpfr_tol, 0
+					// );
+					lnode_to_pf(
 						&pfmats[s][i][j],
 						&nroots[ep], &roots[ep], &tols[ep],
 						pspf,
 						ep_kin, skip_inv-1, is_mass-1,
-						&nd_str, (char*) ", ",
+						&mats_nd[s][i][j],
 						wp2, mpfr_tol, 0
 					);
           // dbg = 0;
@@ -793,7 +801,7 @@ void generate_poly_frac_DE(
 					// poly_frac_print(&pfmats[s][i][j]);
           // }
 
-					free(nd_str);
+					// free(nd_str);
 				}
 			}
       // cout << "root results:" << endl;

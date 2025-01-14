@@ -14,6 +14,7 @@ using namespace std;
 extern "C" {
 	#include "mp_roots_poly.h"
 	#include "cpoly.h"
+	#include "ex_tree.h"
 }
 
 
@@ -29,6 +30,18 @@ void decode_tree_pf(
 	struct poly_frac *in,
 	char ***kin, int *skip_inv, int *is_mass,
 	char **s_tree, char *sep,
+	int wp2, mpfr_t mpfr_tol, int incr_prec
+);
+
+void lnode_to_pf(
+	// OUTPUT
+	struct poly_frac *out,
+	// IN-OUT
+	int *nroots, mpc_t **roots, mpfr_t **tols,
+	// INPUT
+	struct poly_frac *in,
+	char ***kin, int *skip_inv, int *is_mass,
+	struct lnode *nd,
 	int wp2, mpfr_t mpfr_tol, int incr_prec
 );
 
@@ -1704,3 +1717,423 @@ void decode_tree_pf(
 	}
 	free(s_tree_copy);
 }
+
+
+
+// #pair: poly_mpq_find_roots
+void poly_frac_numer_roots_from_lnode(
+	// OUTPUT
+	struct poly_frac *pf, mpc_t **roots, mpfr_t **tols,
+	int *vdeg, int *ldeg,
+	// IN-OUT
+	int *in_nroots, mpc_t **in_roots, mpfr_t **in_tols,
+	// INPUT
+	struct lnode *nd,
+	struct poly_frac *in,
+	char ***kin, int *skip_inv, int *is_mass,
+	int wp2, mpfr_t mpfr_tol, int incr_prec, int curr_mul
+) {
+	// cout << endl; cout << "ENTER ROUTINE FOR NUMERATOR ROOTS" << endl;
+	// cout << "INPUT:" << endl;
+	// cout << "string: " << (*s_tree) << endl;
+	// cout << "wp2 = " << wp2 << endl;
+	// cout << "curr_mul = " << curr_mul << endl;
+
+	mpc_t tmpc;
+	mpc_init3(tmpc, wp2, wp2);
+	mpfr_t tmp_mpfr;
+	mpfr_init(tmp_mpfr);
+
+	//////
+	// GET POLY_FRAC TO BE PROCESSED
+	//////
+	// cout << "GET POLY_FRAC TO BE PROCESSED" << endl;
+	// struct poly_frac pfin;
+	// poly_frac_build(&pfin);
+	lnode_to_pf(
+		pf,
+		in_nroots, in_roots, in_tols,
+		in,
+		kin, skip_inv, is_mass,
+		nd,
+		wp2, mpfr_tol, incr_prec
+	);
+	// cout << "pf to be processed:" << endl;
+	// poly_frac_print(pf);
+	// cout << "original tree: " << (*s_tree) << endl;
+	// cout << "residual tree: " << (s_tree_copy) << endl;
+
+	//////
+	// FIRST CALL TO ROOT FINDER
+	//////
+	// #2BD: per polinomi di rango 2 manipolare il tree per salvarsi
+	// il tree delle radici in funzione dei punti di spazio fase,
+	// così da salvare solo quello in libreria e non dover cercare le
+	// radici numeriche al variare dei punti di spazio fase
+	*vdeg = (*pf).num_vdeg;
+	*ldeg = (*pf).num_deg - (*pf).num_vdeg;
+	*roots = new mpc_t[*vdeg+1];
+	// init_rk1_mpc(*roots, *vdeg+1);
+	for (int k=0; k<=*vdeg; k++) {
+		mpc_init3((*roots)[k], wp2, wp2);
+	}
+	*tols = new mpfr_t[*vdeg+1];
+	// init_rk1_mpfr(*tols, *vdeg+1);
+	for (int k=0; k<=*vdeg; k++) {
+		mpfr_init2((*tols)[k], wp2);
+	}
+	int mul;
+	// cout << "call polynomial root finder and read multiplicity" << endl;
+	// cout << "coeffs:" << endl;
+	// print_poly((*pf).coeffs, *vdeg);
+	if (*vdeg > 0) {
+		mp_zroots_impr_out_mul(
+			*roots, *tols, &mul,
+			(*pf).coeffs, *vdeg, NULL,
+			1, wp2, mpfr_tol, curr_mul
+		);
+	} else {
+		mul = 1;
+	}
+	// cout << "mul = " << mul << endl;
+	// cout << "1st attempt roots:" << endl;
+	// print_poly(*roots, *vdeg);
+	// cout << "1st attempt tols:" << endl;
+	// for (int k=1; k<=*vdeg; k++) {
+	// 	mpfr_out_str(stdout, 10, 0, (*tols)[k], MPFR_RNDN); cout << endl;
+	// }
+	// cout << "fake root:" << endl;
+	// print_mpc(&(*roots)[0]); cout << endl;
+
+	//////
+	// ITERATIVE CALLS
+	//////
+	// cout << "ITERATIVE CALLS" << endl;
+	// iteratively call itself with increased precision
+	// if detected multiplicity is greater than the current one,
+	// return otherwise
+	int p_wp2;
+	mpc_t fake_root;
+	if (mul <= curr_mul) {
+		// for (int k=1; k<=ldeg; k++) {
+		//   mpc_set_ui(inroots[k], 0, MPFR_RNDN);
+		//   mpfr_set(intols[k], mpfr_tol, MPFR_RNDN);
+		// }
+		// cout << "mul is enough" << endl;
+		return;
+	} else {
+		// save fake root
+		mpc_init3(fake_root, wp2, wp2);
+		mpc_set(fake_root, (*roots)[0], MPFR_RNDN);
+		// increase precision
+		p_wp2 = ((double) mul * wp2)/curr_mul;
+	}
+
+	mpfr_t p_mpfr_tol;
+	mpfr_init(p_mpfr_tol);
+	mpc_t *p_roots;
+	mpfr_t *p_tols;
+
+	// cout << "wp2 = " << wp2 << endl;
+	// cout << "p_wp2 = " << p_wp2 << endl;
+	mpfr_set_prec(p_mpfr_tol, p_wp2);
+	// cout << "mpfr_tol = "; mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
+	mpfr_rootn_ui(p_mpfr_tol, mpfr_tol, curr_mul, MPFR_RNDN);
+	// cout << "p_mpfr_tol = "; mpfr_out_str(stdout, 10, 0, p_mpfr_tol, MPFR_RNDN); cout << endl;
+	mpfr_pow_si(p_mpfr_tol, p_mpfr_tol, mul, MPFR_RNDN);
+	// cout << "p_mpfr_tol = "; mpfr_out_str(stdout, 10, 0, p_mpfr_tol, MPFR_RNDN); cout << endl;
+
+	// call itself with icreased precision
+	// cout << "call itself with icreased precision" << endl;
+	// if ((*pf).coeffs) {
+	// 	delete[] (*pf).coeffs;
+	// 	(*pf).coeffs = NULL;
+	// }
+	poly_frac_numer_roots_from_lnode(
+		pf, &p_roots, &p_tols, vdeg, ldeg,
+		in_nroots, in_roots, in_tols,
+		nd,
+		in,
+		kin, skip_inv, is_mass,
+		p_wp2, p_mpfr_tol, 1, mul
+	);
+
+	// lower back precision of the output
+	// cout << "lower back precision of the output" << endl;
+	mpfr_t EPSS_red;
+	mpfr_init2(EPSS_red, wp2);
+	mpfr_rootn_ui(EPSS_red, mpfr_tol, mul, MPFR_RNDN);
+	mpfr_mul_d(EPSS_red, EPSS_red, 1e10, MPFR_RNDN);
+	mpfr_set_prec(tmp_mpfr, p_wp2);
+	mpc_set_prec(tmpc, p_wp2);
+	for (int k=1; k<=*vdeg; k++) {
+		mpc_set((*roots)[k], p_roots[k], MPFR_RNDN);
+		mpc_sub(tmpc, (*roots)[k], fake_root, MPFR_RNDN);
+		mpc_abs(tmp_mpfr, tmpc, MPFR_RNDN);
+		// mpfr_sub(tmp_mpfr, tmp_mpfr, mpfr_tol, MPFR_RNDN);
+		// mpfr_abs(tmp_mpfr, tmp_mpfr, MPFR_RNDN);
+		if (0 && mpfr_less_p(tmp_mpfr, EPSS_red)) {
+			mpfr_rootn_ui((*tols)[k], p_tols[k], mul, MPFR_RNDN);
+		} else {
+			mpfr_set((*tols)[k], p_tols[k], MPFR_RNDN);
+		}
+	}
+	// for (int k=1; k<=ldeg; k++) {
+	// 	mpc_set_ui((*roots)[k], 0, MPFR_RNDN);
+	// 	mpfr_set((*tols)[k], mpfr_tol, MPFR_RNDN);
+	// }
+
+	// FREE
+	mpc_clear(fake_root);
+	mpfr_clear(p_mpfr_tol);
+	mpc_rk1_clear(p_roots, *vdeg+1);
+	delete[] p_roots;
+	mpfr_rk1_clear(p_tols, *vdeg+1);
+	delete[] p_tols;
+}
+
+
+// # forward declared above
+void lnode_to_pf(
+	// OUTPUT
+	struct poly_frac *out,
+	// IN-OUT
+	int *nroots, mpc_t **roots, mpfr_t **tols,
+	// INPUT
+	struct poly_frac *in,
+	char ***kin, int *skip_inv, int *is_mass,
+	struct lnode *nd,
+	int wp2, mpfr_t mpfr_tol, int incr_prec
+)  {
+
+	if (nd == NULL) {
+		return;
+	}
+
+	int i, n, pow, idx;
+	struct poly_frac *inner_pf;
+	if (nd->op == 's') {
+		if (!incr_prec) {
+			// cout << "standard prec" << endl;
+			poly_frac_set_pf_wp2(wp2, out, &in[nd->number]);
+		} else {
+			idx = nd->number;
+			// read phase-space from string with increased precision
+			// cout << "increased prec PS" << endl;
+			// cout << "increased wp2 = " << wp2 << endl;
+			// cout << "idx = " << idx << endl;
+			// cout << "skip_inv[idx] = " << skip_inv[idx] << endl;
+			// cout << "is_mass[idx] = " << is_mass[idx] << endl;
+			if (idx == 0) {
+				generate_PS_pf(out, kin, 0, 0, idx, *nroots, wp2);
+			} else if (idx > 0) {
+				generate_PS_pf(out, kin, skip_inv[idx], is_mass[idx], idx, *nroots, wp2);
+			}
+		}
+
+	} else if (nd->op == 'n') {
+		// cout << "SET numeric" << endl;
+		// cout << token << endl;
+		mpc_t number;
+		mpc_init3(number, wp2, wp2);
+		mpc_set_z(number, nd->mpz, MPFR_RNDN);
+		poly_frac_set_mpc_wp2(wp2, out, &number, *nroots);
+		mpc_clear(number);
+		// cpoly_print(out); cout << endl;
+	} else {
+		// cout << "START operation" << endl;
+
+		// for power and division, n=1, otherwise it is written in the string
+		if (nd->op == '^') {
+			n = 1;
+			pow = nd->number;
+		} else if (nd->op == '/') {
+			n = 1;
+			pow = -1;
+		} else if (nd->op == '-') {
+			n = 1;
+		} else {
+			n = nd->n;
+		}
+		// cout << "n = " << n << endl;
+
+		inner_pf = new struct poly_frac[n];
+		if (nd->op == '/' || nd->op == '^' && pow < 0) {
+			//////
+			// INVERSE OF POLY_FRAC
+			//////
+			// cout << "COMPUTE INVERSE OF POLY_FRAC" << endl;
+
+			// OUTPUT DENOMINATOR FROM INPUT NUMERATOR
+			// cout << "OUTPUT DENOMINATOR FROM INPUT NUMERATOR" << endl;
+			// cout << "find numerator roots from tree" << endl;
+			poly_frac_build(&inner_pf[0]);
+			mpc_t *num_roots;
+			mpfr_t *num_tols;
+			int num_deg, num_vdeg, num_ldeg;
+			poly_frac_numer_roots_from_lnode(
+				&inner_pf[0], &num_roots, &num_tols,
+				&num_vdeg, &num_ldeg,
+				nroots, roots, tols,
+				nd->son,
+				in,
+				kin, skip_inv, is_mass,
+				wp2, mpfr_tol, incr_prec, 1
+			);
+			num_deg = inner_pf[0].num_deg;
+			// cout << "inner poly_frac:" << endl;
+			// poly_frac_print(&inner_pf[0]);
+			// cout << "inner nroots = " << inner_pf[0].nroots << endl;
+			// cout << "num vdeg, num ldeg = " << num_vdeg << ", " << num_ldeg << endl;				
+			// cout << "numerator roots:" << endl;
+			// print_poly(num_roots, inner_pf[0].num_vdeg);
+
+			// update global roots and assign labels
+			// cout << "update global roots and assign labels" << endl;
+			int *root_prof = new int[num_deg];
+			int num_new_roots = 0;
+			mpc_t *new_roots = new mpc_t[num_vdeg+1];
+			init_rk1_mpc(new_roots, num_vdeg+1);
+			mpfr_t *new_tols = new mpfr_t[num_vdeg+1];
+			init_rk1_mpfr(new_tols, num_vdeg+1);
+			for (int k=0; k<num_ldeg; k++) {
+				root_prof[k] = 0;
+			}
+			// cout << "old nroots = " << *nroots << endl;
+			// cout << "old roots:" << endl;
+			// print_poly(*roots, *nroots-1);
+
+			// #2BD: replace update_new_roots, and append function in order to
+			// initialize new mpc_t variables at local precision
+			// (needed for denominators in denominators)		
+
+			for (int k=1; k<=num_vdeg; k++) {
+			// cout << "analyze k = " << k << endl;
+			// cout << "tmp root:" << endl;
+			
+			// cout << "tmp tol:" << endl;
+			// mpfr_out_str(stdout, 10, 0, tmp_tols[k], MPFR_RNDN); cout << endl;
+				update_new_roots(
+					&root_prof[num_ldeg + k-1], &num_new_roots, new_roots, new_tols,
+					nroots, *roots, *tols,
+					&num_roots[k] , &num_tols[k]
+				);
+			}
+			// cout << "num new roots = " << num_new_roots << endl;
+			// if (num_new_roots > 0) {
+			// 	cout << "found new roots:" << endl;
+			// 	print_poly(new_roots, num_new_roots-1);
+			// }
+
+			mpc_rk1_append(
+				nroots, roots,
+				num_new_roots, new_roots
+			);
+			mpfr_rk1_append(
+				nroots, tols,
+				num_new_roots, new_tols
+			);
+			*nroots += num_new_roots;
+			(*out).nroots = *nroots;
+			(*out).den_deg = num_deg;
+
+			// assign multiplicities
+			// cout << "assign multiplicities" << endl;
+			root_prof_to_poly_frac_den(
+				out,
+				root_prof, num_deg,
+				*nroots
+			);
+
+			// OUTPUT NUMERATOR FROM INPUT DENOMINATOR
+			// cout << "OUTPUT NUMERATOR FROM INPUT DENOMINATOR" << endl;
+			poly_frac_den_to_num(out, &inner_pf[0], *roots, wp2);
+			// make polynomial monic
+			poly_frac_div_mpc(out, out, &inner_pf[0].coeffs[inner_pf[0].num_vdeg]);
+			// cout << "inverted poly_frac:" << endl;
+			// poly_frac_print(out);
+			// exit(0);
+
+			// cout << "RAISE TO POWER" << endl;
+			poly_frac_pow_ui_wp2(wp2, out, out, -pow);
+			
+			// FREE
+			mpc_rk1_clear(num_roots, num_vdeg+1);
+			delete[] num_roots;
+			mpfr_rk1_clear(num_tols, num_vdeg+1);
+			delete[] num_tols;
+			mpc_rk1_clear(new_roots, num_vdeg+1);
+			delete[] new_roots;
+			mpfr_rk1_clear(new_tols, num_vdeg+1);
+			delete[] new_tols;
+
+		} else {
+			struct lnode *son = nd->son;
+			for (i=0; i<n; i++) {
+				poly_frac_build(&inner_pf[i]);
+				lnode_to_pf(
+					&inner_pf[i],
+					nroots, roots, tols,
+					in,
+					kin, skip_inv, is_mass,
+					son,
+					wp2, mpfr_tol, incr_prec
+				);
+
+				son = son->bro;
+			}
+			
+			// update nroots of inner pf
+			// (nroots could have been changed in the process of getting
+			// inner polynomials, therefore it has to be changed here,
+			// AFTER every inner element is obtained)
+			for (i=0; i<n; i++) {
+				poly_frac_roots_append_zero(&inner_pf[i], *nroots);
+			}
+
+			if (nd->op == '+') {
+				// cout << "adding " << n << " output" << endl;
+				poly_frac_set_zero(out);
+				for (int i=0; i<n; i++) {
+					poly_frac_add_pf_wp2(wp2, out, out, &inner_pf[i], *roots, NULL);
+				}
+				// cpoly_print(out); cout << endl;
+			} else if (nd->op == '-') {
+				poly_frac_set_pf_wp2(wp2, out, &inner_pf[0]);
+				poly_frac_neg(out);
+			} else if (nd->op == '*') {
+				// cout << "multiplying " << n << " output" << endl;
+				poly_frac_set_ui_wp2(wp2, out, 1, *nroots);
+				for (i=0; i<n; i++) {
+					// cout << "mult i = " << i << endl;
+					// cout << "factor 1:" << endl;
+					// poly_frac_print(out);
+					// cout << "nroots = " << (*out).nroots << endl;
+					// cout << "factor 2:" << endl;
+					// poly_frac_print(&inner_pf[i]);
+					// cout << "nroots = " << inner_pf[count].nroots << endl;
+					poly_frac_mul_pf_wp2(wp2, out, out, &inner_pf[i]);
+					// cout << "product:" << endl;
+					// poly_frac_print(out);
+					// cout << "nroots = " << (*out).nroots << endl;
+				}
+				// cpoly_print(out); cout << endl;
+			} else if (nd->op == '^') {
+				// cout << "raising to power" << endl;
+				// int pow = mpfr_get_si(mpc_realref(inner_pf[1].coeffs[0]), MPFR_RNDN);
+				// cout << "pow = " << pow << endl;
+				poly_frac_pow_ui_wp2(wp2, out, &inner_pf[0], pow);
+				// cout << "output:" << endl;
+				// poly_frac_print(out);
+				// cout << *s_tree << endl;
+			}
+		}
+
+		// FREE
+		poly_frac_rk1_free(inner_pf, n);
+		delete[] inner_pf;
+	}
+
+	
+}
+
