@@ -1045,21 +1045,45 @@ int main(int argc, char *argv[])
     );
   }
 
-  if (print) {
-  cout << endl; cout << "DE MATRIX (1st epsilon):" << endl;
-  poly_frac_rk2_print(pfmat[0], dim, dim);
-  }
-  
-  cout << endl; cout << "ROOTS (1st epsilon):" << endl;
-  cout << "zero_label = " << zero_label[0] << endl;
-  cout << nroots[0] << " roots" << endl;
-  print_poly(roots[0], nroots[0]-1);
-
-  //////
-  // BUILD PATH
-  //////
-  cout << endl; cout << "BUILD PATH..." << endl;
   for (int ep=0; ep<eps_num; ep++) {
+    //////
+    // LOAD POLY_FRAC DE
+    //////
+    char tmp_filepath_pfmat[MAX_PATH_LEN];
+    char tmp_filepath_roots[MAX_PATH_LEN];
+    snprintf(tmp_filepath_pfmat, sizeof(tmp_filepath_pfmat), "%s%s%d%s", filepath_cache, "pfmat", ep, ".txt");
+    snprintf(tmp_filepath_roots, sizeof(tmp_filepath_roots), "%s%s%d%s", filepath_cache, "roots", ep, ".txt");
+
+    // MATRIX
+    cout << endl; cout << "reading poly_frac DE from file " << tmp_filepath_pfmat << endl;
+    malloc_rk2_tens(pfmat[ep], dim, dim);
+    poly_frac_rk2_build(pfmat[ep], dim, dim);
+    poly_frac_rk2_from_file(tmp_filepath_pfmat, pfmat[ep], dim, dim);
+    // ROOTS
+    cout << "reading mpc_t roots from file " << tmp_filepath_roots << endl;
+    nroots[ep] = count_lines(tmp_filepath_roots) - 1;
+    roots[ep] = new mpc_t[nroots[ep]];
+    init_rk1_mpc(roots[ep], nroots[ep]);
+    int_rk0_mpc_rk1_from_file(tmp_filepath_roots, roots[ep], nroots[ep], &zero_label[ep]);
+
+
+    if (ep == 0) {
+      if (print) {
+      cout << endl; cout << "DE MATRIX (1st epsilon):" << endl;
+      poly_frac_rk2_print(pfmat[0], dim, dim);
+      }
+      
+      cout << endl; cout << "ROOTS (1st epsilon):" << endl;
+      cout << "zero_label = " << zero_label[0] << endl;
+      cout << nroots[0] << " roots" << endl;
+      print_poly(roots[0], nroots[0]-1);
+    }
+
+
+    //////
+    // BUILD PATH
+    //////
+    cout << endl; cout << "BUILD PATH..." << endl;
     if (exit_sing == -1) {
       get_path_PS_infty_mp(
         &path[ep], &path_tags[ep], &neta_values[ep], &sing_lab[ep], &nsings[ep],
@@ -1071,56 +1095,58 @@ int main(int argc, char *argv[])
         roots[ep], nroots[ep], zero_label[ep]
       );
     }
-  }
 
-  cout << endl; cout << "SINGULAR POINTS (1st epsilon):" << endl;
-  cout << nsings[0] << " points" << endl;
-  for (int i=0; i<nsings[0]; i++) {
-    cout << "lab: " << sing_lab[0][i] << ", root: "; print_mpc(&roots[0][sing_lab[0][i]]); cout << endl;
-  }
-  cout << endl; cout << "PATH (1st epsilon):" << endl;
-  cout << neta_values[0] << " points" << endl;
-  for (int i=0; i<neta_values[0]; i++) {
-    cout << i << ". tag: " << path_tags[0][i] << ", point: ";
-    print_mpc(&path[0][i]); cout << endl;
-  }
+    if (ep == 0) {
+      cout << endl; cout << "SINGULAR POINTS (1st epsilon):" << endl;
+      cout << nsings[0] << " points" << endl;
+      for (int i=0; i<nsings[0]; i++) {
+        cout << "lab: " << sing_lab[0][i] << ", root: "; print_mpc(&roots[0][sing_lab[0][i]]); cout << endl;
+      }
+      cout << endl; cout << "PATH (1st epsilon):" << endl;
+      cout << neta_values[0] << " points" << endl;
+      for (int i=0; i<neta_values[0]; i++) {
+        cout << i << ". tag: " << path_tags[0][i] << ", point: ";
+        print_mpc(&path[0][i]); cout << endl;
+      }
+    }
 
-  //////
-  // CHECKPOINT 1
-  //////
-  int write;
-  switch (opt_write) {
-    case -3:
-    case -1:
-    case 2:
-      write = -1;
-      break;
-    case 0:
-    case 1:
-      write = opt_write;
-      break;
-    case -2:
-      write = 1;
-      break;
-  }
+    //////
+    // CHECKPOINT 1
+    //////
+    int write;
+    switch (opt_write) {
+      case -3:
+      case -1:
+      case 2:
+        write = -1;
+        break;
+      case 0:
+      case 1:
+        write = opt_write;
+        break;
+      case -2:
+        write = 1;
+        break;
+    }
 
-  if (write >= 0) {
-    wrt_cmp_DE(
-      perm,
-      zero_label, nroots, roots,
-      pfmat, eps_num, dim,
-      0.80,
-      file_ext, filepath_matrix, filepath_roots, opt_write
-    );
-    wrt_cmp_path(
-      path, path_tags, eps_num, neta_values,
-      nsings, sing_lab, perm,
-      file_ext, filepath_path, filepath_path_tags, filepath_sing_lab, opt_write
-    );
-  }
+    if (write >= 0) {
+      wrt_cmp_DE(
+        perm,
+        ep, zero_label, nroots, roots,
+        pfmat, eps_num, dim,
+        0.80,
+        file_ext, filepath_matrix, filepath_roots, opt_write
+      );
+      wrt_cmp_path(
+        ep, path, path_tags, eps_num, neta_values,
+        nsings, sing_lab, perm,
+        file_ext, filepath_path, filepath_path_tags, filepath_sing_lab, opt_write
+      );
+    }
 
-  // FREE DE
-  for (int ep=0; ep<eps_num; ep++) {
+    //////
+    // FREE DE
+    //////
     poly_frac_rk2_free(pfmat[ep], dim, dim);
     del_rk2_tens(pfmat[ep], dim);
     mpc_rk1_clear(roots[ep], nroots[ep]);

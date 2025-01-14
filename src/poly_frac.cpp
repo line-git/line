@@ -3349,6 +3349,7 @@ void poly_frac_rk2_mul_pf_rk1(
       );
     }
   }
+  poly_frac_free(&pf_tmp);
 
   if (to_be_del == 2) {
     // cout << "trying to delete" << endl;
@@ -3431,6 +3432,7 @@ void poly_frac_rk2_mul_pf_rk2(
       }
     }
   }
+  poly_frac_free(&pf_tmp);
 
   if (to_be_del == 1) {
     // cout << "trying to delete" << endl;
@@ -5133,6 +5135,7 @@ void rel_err_poly_frac_rk2_mul_pf_rk1(
       );
     }
   }
+  poly_frac_free(&pf_tmp);
 
   if (to_be_del == 2) {
     // cout << "trying to delete" << endl;
@@ -5219,6 +5222,7 @@ void rel_err_poly_frac_rk2_mul_pf_rk2(
       }
     }
   }
+  poly_frac_free(&pf_tmp);
 
   if (to_be_del == 1) {
     // cout << "trying to delete" << endl;

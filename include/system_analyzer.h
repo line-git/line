@@ -54,7 +54,7 @@ void wrt_cmp_DE(
   // OUTPUT
   int **perm,
   // INPUT
-  int *zero_label, int *nroots, mpc_t **roots,
+  int ep, int *zero_label, int *nroots, mpc_t **roots,
   poly_frac ***pfmat, int eps_num, int dim,
   double wp2_rel_decr,
   char *file_ext, char *filepath_matrix, char *filepath_roots,

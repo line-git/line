@@ -965,12 +965,7 @@ void poly_frac_numer_roots_from_tree(
 	// if detected multiplicity is greater than the current one,
 	// return otherwise
 	int p_wp2;
-	mpfr_t p_mpfr_tol;
-	mpfr_init(p_mpfr_tol);
-	mpc_t *p_roots;
-	mpfr_t *p_tols;
 	mpc_t fake_root;
-	mpc_init3(fake_root, wp2, wp2);
 	if (mul <= curr_mul) {
 		// for (int k=1; k<=ldeg; k++) {
 		//   mpc_set_ui(inroots[k], 0, MPFR_RNDN);
@@ -983,10 +978,16 @@ void poly_frac_numer_roots_from_tree(
 		return;
 	} else {
 		// save fake root
+		mpc_init3(fake_root, wp2, wp2);
 		mpc_set(fake_root, (*roots)[0], MPFR_RNDN);
 		// increase precision
 		p_wp2 = ((double) mul * wp2)/curr_mul;
 	}
+
+	mpfr_t p_mpfr_tol;
+	mpfr_init(p_mpfr_tol);
+	mpc_t *p_roots;
+	mpfr_t *p_tols;
 
 	// cout << "wp2 = " << wp2 << endl;
 	// cout << "p_wp2 = " << p_wp2 << endl;
@@ -1039,6 +1040,8 @@ void poly_frac_numer_roots_from_tree(
 	// }
 
 	// FREE
+	mpc_clear(fake_root);
+	mpfr_clear(p_mpfr_tol);
 	mpc_rk1_clear(p_roots, *vdeg+1);
 	delete[] p_roots;
 	mpfr_rk1_clear(p_tols, *vdeg+1);

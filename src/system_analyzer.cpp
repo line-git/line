@@ -526,14 +526,14 @@ void wrt_cmp_DE(
   // OUTPUT
   int **perm,
   // INPUT
-  int *zero_label, int *nroots, mpc_t **roots,
+  int ep, int *zero_label, int *nroots, mpc_t **roots,
   poly_frac ***pfmat, int eps_num, int dim,
   double wp2_rel_decr,
   char *file_ext, char *filepath_matrix, char *filepath_roots,
   int opt_write
 ) {
   char tmp_filepath[MAX_PATH_LEN];
-  for (int ep=0; ep<eps_num; ep++) {
+  // for (int ep=0; ep<eps_num; ep++) {
     if (opt_write) {
       //////
       // WRITE TO FILE
@@ -624,7 +624,7 @@ void wrt_cmp_DE(
       poly_frac_rk2_free(bench_pfmat, dim, dim);
       del_rk2_tens(bench_pfmat, dim);
     }
-  }
+  // }
 }
 
 
@@ -870,15 +870,15 @@ void generate_poly_frac_DE(
       tmp_filepath,
       pfmat[ep], dim, dim
     );
-    // poly_frac_rk2_free(pfmat[ep], dim_eta, dim_eta);
-    // del_rk2_tens(pfmat[ep], dim_eta);
+    poly_frac_rk2_free(pfmat[ep], dim, dim);
+    del_rk2_tens(pfmat[ep], dim);
 
     // ROOTS
     snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%s%d%s", filepath_cache, "roots", ep, ".txt");
     cout << "writing to " << tmp_filepath << endl;
     int_rk0_mpc_rk1_to_file(tmp_filepath, roots[ep], nroots[ep], zero_label[ep]);
-    // mpc_rk1_clear(roots[ep], nroots[ep]);
-    // delete[] roots[ep];
+    mpc_rk1_clear(roots[ep], nroots[ep]);
+    delete[] roots[ep];
   }
   fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
   fprintf(terminal, "\033[13D\033[K"); fflush(terminal); usleep(sleep_time);

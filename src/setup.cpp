@@ -3489,13 +3489,13 @@ void path_to_math(
 
 
 void wrt_cmp_path(
-  mpc_t **path, int **path_tags, int eps_num, int *neta_values,
+  int ep, mpc_t **path, int **path_tags, int eps_num, int *neta_values,
   int *nsings, int **sing_lab, int **perm,
   char *file_ext, char *filepath_path, char *filepath_path_tags, char* filepath_sing_lab,
   int opt_write
 ) {
   char tmp_filepath[200];
-  for (int ep=0; ep<eps_num; ep++) {
+  // for (int ep=0; ep<eps_num; ep++) {
     if (opt_write) {
       // WRITE TO FILE
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_path, ep, file_ext);
@@ -3550,7 +3550,7 @@ void wrt_cmp_path(
       cout << "CHECK sing labs..." << endl;
       int_rk1_compare_perm(perm[ep], bench_sing_lab, sing_lab[ep], nsings[ep]);
     }
-  }
+  // }
 }
 
 
