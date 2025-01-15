@@ -4349,7 +4349,7 @@ void solve_zero(
   int num_classes, mpc_t *eig_list, int *eq_class, int *eig_grid,
   mpc_t *roots, int nroots,
   int cross, mpc_t *eta_target, int analytic_cont,
-  int **depmat, int *is_mass, int *skip_inv, int ninvs, mpc_t *PS_ini, mpc_t *PS_fin, char *eps_str,
+  int *is_mass, int *skip_inv, int ninvs, mpc_t *PS_ini, mpc_t *PS_fin, char *eps_str,
   int try_analytic,
   int **bound_behav, int **mi_eig, int *mi_eig_num,
   FILE *terminal
@@ -4700,6 +4700,18 @@ void solve_zero(
     // if (try_analytic == 1 && b_len == 1 && (sb_len == 0 || sb_len == 2)){
     // if (try_analytic == 1 && b_len == 1 && (sb_len == 0)){
     if (try_analytic == 1 && b == 0){
+      //////
+      // DEPENDENCY MATRIX
+      //////
+      int **depmat;
+      malloc_rk2_tens(depmat, dim, ninvs);
+      // manually set depmat
+      for (int i=0; i<dim; i++) {
+        for (int s=0; s<ninvs; s++) {
+          depmat[i][s] = 0;
+        }
+      }
+
       // gnc_to_mpc(&eps, (ex) *epv *1.);
       mpc_set_str_rat(&eps, eps_str);
       // cout << "epv = " << (ex) *epv << endl;
@@ -5746,7 +5758,7 @@ void propagate_infty(
     num_classes, eig_list, eq_class, eig_grid,
     roots_infty, nroots,
     1, &target_pt, 1,
-    NULL, is_mass, skip_inv, ninvs, PS_ini, PS_fin, eps_str,
+    is_mass, skip_inv, ninvs, PS_ini, PS_fin, eps_str,
     0,
     bound_behav_reg, mi_eig, mi_eig_num,
     terminal
@@ -5810,7 +5822,7 @@ void propagate_along_path(
   int nblocks, int **prof, int **sb_grid,
   int nbranches, int *branch_deg, mpc_t **branch_poly, int **branch_sing_lab,
   int ninvs, mpc_t *PS_ini, mpc_t *PS_fin, char **symbols,
-  int *is_mass, int *skip_inv, int **depmat,
+  int *is_mass, int *skip_inv,
   int **bound_behav, int **mi_eig, int *mi_eig_num,
   FILE *logfptr, FILE *terminal
 ) {
@@ -6185,7 +6197,7 @@ void propagate_along_path(
         num_classes, eig_list, eq_class, eig_grid,
         sh_roots, nroots,
         crossr, &target_pt, analytic_cont[count_sings],
-        depmat, is_mass, skip_inv, ninvs, PS_ini, PS_fin, eps_str,
+        is_mass, skip_inv, ninvs, PS_ini, PS_fin, eps_str,
         try_analytic,
         bound_behav, mi_eig, mi_eig_num,
         terminal
@@ -6289,18 +6301,6 @@ void propagate_all_eps(
       &bound_behav, &mi_eig, &mi_eig_num, &num_region_classes,
       dim
     );
-  }
-
-  //////
-  // DEPENDENCY MATRIX
-  //////
-  int **depmat;
-  malloc_rk2_tens(depmat, dim, ninvs);
-  // manually set depmat
-  for (int i=0; i<dim; i++) {
-    for (int s=0; s<ninvs; s++) {
-      depmat[i][s] = 0;
-    }
   }
 
   fprintf(terminal, "propagate: "); fflush(terminal); usleep(sleep_time);
@@ -6428,7 +6428,7 @@ void propagate_all_eps(
       nblocks, prof, sb_grid,
       nbranches, branch_deg, branch_poly, branch_sing_lab,
       ninvs, PS_ini, PS_fin, symbols,
-      is_mass, skip_inv, depmat,
+      is_mass, skip_inv,
       bound_behav, mi_eig, mi_eig_num,
       logfptr, terminal
     );

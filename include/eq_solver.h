@@ -109,7 +109,7 @@ void solve_zero(
   int num_classes, mpc_t *eig_list, int *eq_class, int *eig_grid,
   mpc_t *roots, int nroots,
   int cross, mpc_t *eta_target, int analytic_cont,
-  int **depmat, int *is_mass, int *skip_inv, int ninvs, mpc_t *PS_ini, mpc_t *PS_fin, char *eps_str,
+  int *is_mass, int *skip_inv, int ninvs, mpc_t *PS_ini, mpc_t *PS_fin, char *eps_str,
   int try_analytic,
   int **bound_behav, int **mi_eig, int *mi_eig_num,
   FILE *terminal
@@ -144,7 +144,7 @@ void propagate_along_path(
   int nblocks, int **prof, int **sb_grid,
   int nbranches, int *branch_deg, mpc_t **branch_poly, int **branch_sing_lab,
   int ninvs, mpc_t *PS_ini, mpc_t *PS_fin, char **symbols,
-  int *is_mass, int *skip_inv, int **depmat,
+  int *is_mass, int *skip_inv,
   int **bound_behav, int **mi_eig, int *mi_eig_num,
   FILE *logfptr, FILE *terminal
 );
