@@ -237,8 +237,9 @@ A typical example of an input card looks as follows:
     ]
 
 To use the **LINE** implementation of the AMFlow method (only
-real-valued kinematics), there is no need to specify a starting point,
-while the options `exit sing: -1` and `gen-bound 1` must be used:
+real-valued kinematics, up to two loops), there is no need to specify a
+starting point, while the options `exit sing: -1` and `gen-bound: 1`
+must be used:
 
     work-dir: 1L-triangle-full
     loops: 1
@@ -260,6 +261,14 @@ You can run with:
 ``` bash
 ./line -i path/to/input/card -r path/to/result/file > out.log
 ```
+
+**LINE** will call Kira to generate **Integrations by Parts** (IBPs)
+relations that are used to build the DE with respect to the auxiliary
+mass. To make Kira use N CPU cores, run with the option
+`--kira-parallel N`. By default, when re-launching the same run,
+**LINE** detects that IBPs are already present and the call to Kira is
+skipped. If instead you want the IBPs to be generated from scratch, use
+`--kira-redo 1`.
 
 To write the computed results to the cache folders (so that they can be
 used as a boundary for later propagations) use `--write 1` (`-w 1` for
@@ -322,14 +331,32 @@ runs processing the files in `check/1L-triangle-full/common/`.
 
 ### More examples
 
-Further tests will be made available soon. At present, these files have
-not been included in this repository because the DE matrices and the
-validation files used to verify the correctness of intermediate
-calculation results require significant storage space. To address this,
-a separate Git repository will be created to host these files. Users
-will be able to download the repository and integrate it as a Git
-submodule into their local setup. Stay tuned for updates on this
-resource.
+Further tests are available in the separate
+[line-app](https://github.com/line-git/line-app) repository, which
+contains DE matrices and the other necessary input files for several
+examples. Validation files are also provided to verify the intermediate
+results of the computations. To run these tests:
+
+-   Clone the [line-app](https://github.com/line-git/line-app)
+    repository with `git clone` in the desired destination
+    `path/to/line-app`.
+
+-   Go to the **LINE** directory and create a symbolic link named `app`
+    with:
+
+    ``` bash
+    cd /path/to/line
+    ln -s path/to/line-app app
+    ```
+
+    You can replace `app` with any other `link-name`. However, if you do
+    so, ensure to include the `--parent-dir link-name` option when
+    running `line` (the default value for `--parent-dir` is indeed
+    `app`). Similarly, you can avoid creating a symbolic link as long as
+    you use `--parent-dir path/to/line-app`.
+
+-   Run `line` using the input cards in the `cards/` folder of the
+    `line-app` directory.
 
 ## Alpha version and future improvements
 
