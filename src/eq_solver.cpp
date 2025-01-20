@@ -6318,8 +6318,7 @@ void propagate_all_eps(
     char tmp_filepath_roots[MAX_PATH_LEN];
     if (opt_checkpoint == 1) {
       snprintf(tmp_filepath_pfmat, sizeof(tmp_filepath_pfmat), "%s%s%d%s", dir_partial, "pfmat", ep, ".txt");
-      snprintf(tmp_filepath_roots, sizeof(tmp_filepath_roots), "%s%s%d%s", dir_partial, "pfmat", ep, ".txt");
-      snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%s%d%s", dir_partial, "roots", ep, ".txt");
+      snprintf(tmp_filepath_roots, sizeof(tmp_filepath_roots), "%s%s%d%s", dir_partial, "roots", ep, ".txt");
     } else {
       snprintf(tmp_filepath_pfmat, sizeof(tmp_filepath_pfmat), "%s%s%d%s", filepath_cache, "pfmat", ep, ".txt");
       snprintf(tmp_filepath_roots, sizeof(tmp_filepath_roots), "%s%s%d%s", filepath_cache, "roots", ep, ".txt");
