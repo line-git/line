@@ -946,6 +946,15 @@ int main(int argc, char *argv[])
   // cout << endl; cout << nbranch_roots << " roots:" << endl;
   // print_poly(branch_roots, nbranch_roots-1);
 
+  // needed to preprocess DE
+  int max_num_contr;
+  mpz_t ******coeffs_num_den;
+  int ******pows_num_den;
+  int *****nterms_num_den;
+  lnode_pf ***der_ndpf;
+  char ****kira_str;
+  struct lnode ***mats_nd;
+
   //////
   // GO TO CHECKPOINT
   //////
@@ -965,65 +974,58 @@ int main(int argc, char *argv[])
   //////
   // PREPROCESSING FOR DE
   //////
-  int max_num_contr;
-  mpz_t ******coeffs_num_den;
-  int ******pows_num_den;
-  int *****nterms_num_den;
-  lnode_pf ***der_ndpf;
-  char ****kira_str;
-
-  struct lnode ***mats_nd;
-
-  if (exit_sing == -1) {
-    //////
-    // PROCESS IBPs FROM KIRA
-    //////
-    max_num_contr = LI_get_r(&MI_eta[dim-1]);
-    malloc_rk4_tens(coeffs_num_den, dim, max_num_contr, dim, 2);
-    malloc_rk4_tens(pows_num_den, dim, max_num_contr, dim, 2);
-    malloc_rk4_tens(nterms_num_den, dim, max_num_contr, dim, 2);
-    malloc_rk3_tens(der_ndpf, dim, max_num_contr, dim);
-    kira_str = NULL;
-    // // uncomment to proceed with poly_frac check
-    // malloc_rk3_tens(kira_str, dim_eta, max_num_contr, dim_eta);
-    // for (int m=0; m<dim_eta; m++) {
-    //   for (int d=0; d<max_num_contr; d++) {
-    //     for (int n=0; n<dim_eta; n++) {
-    //       kira_str[m][d][n] = NULL;
-    //     }
-    //   }
-    // }
-    
-    // initialize to zero every possible contribution
-    for (int m=0; m<dim; m++) {
-      for (int d=0; d<max_num_contr; d++) {
-        for (int n=0; n<dim; n++) {
-          lnode_pf_build(&der_ndpf[m][d][n]);
-          der_ndpf[m][d][n].info = -1;
+  if (opt_checkpoint < 1) {
+    if (exit_sing == -1) {
+      //////
+      // PROCESS IBPs FROM KIRA
+      //////
+      max_num_contr = LI_get_r(&MI_eta[dim-1]);
+      malloc_rk4_tens(coeffs_num_den, dim, max_num_contr, dim, 2);
+      malloc_rk4_tens(pows_num_den, dim, max_num_contr, dim, 2);
+      malloc_rk4_tens(nterms_num_den, dim, max_num_contr, dim, 2);
+      malloc_rk3_tens(der_ndpf, dim, max_num_contr, dim);
+      kira_str = NULL;
+      // // uncomment to proceed with poly_frac check
+      // malloc_rk3_tens(kira_str, dim_eta, max_num_contr, dim_eta);
+      // for (int m=0; m<dim_eta; m++) {
+      //   for (int d=0; d<max_num_contr; d++) {
+      //     for (int n=0; n<dim_eta; n++) {
+      //       kira_str[m][d][n] = NULL;
+      //     }
+      //   }
+      // }
+      
+      // initialize to zero every possible contribution
+      for (int m=0; m<dim; m++) {
+        for (int d=0; d<max_num_contr; d++) {
+          for (int n=0; n<dim; n++) {
+            lnode_pf_build(&der_ndpf[m][d][n]);
+            der_ndpf[m][d][n].info = -1;
+          }
         }
       }
+
+      process_kira_IBPs(
+        coeffs_num_den, pows_num_den,
+        nterms_num_den, der_ndpf,
+        kira_str,
+        ninvs, symbols, is_mass,
+        dim, max_num_contr,
+        MI_eta, dir_amflow,
+        terminal
+      );
+    } else {
+      //////
+      // PARSE DE MATRICES
+      //////
+      malloc_rk3_tens(mats_nd, ninvs, dim, dim);
+
+      parse_DE_str(
+        mats_nd,
+        ninvs, symbols, is_mass, skip_inv,
+        dim, mats_str
+      );
     }
-
-    process_kira_IBPs(
-      coeffs_num_den, pows_num_den,
-      nterms_num_den, der_ndpf,
-      kira_str,
-      ninvs, symbols, is_mass,
-      dim, max_num_contr,
-      MI_eta, dir_amflow,
-      terminal
-    );
-  } else {
-    //////
-    // PARSE DE MATRICES
-    //////
-    malloc_rk3_tens(mats_nd, ninvs, dim, dim);
-
-    parse_DE_str(
-      mats_nd,
-      ninvs, symbols, is_mass, skip_inv,
-      dim, mats_str
-    );
   }
 
   //////
@@ -1038,6 +1040,9 @@ int main(int argc, char *argv[])
       goto goto_eps_loop_checkpoint;
     }
 
+    //////
+    // BUILD DE
+    //////
     if (exit_sing == -1) {
       //////
       // BUILD AMF DE
@@ -1161,6 +1166,12 @@ int main(int argc, char *argv[])
       );
     }
 
+    // cache path info
+    if (opt_write > 0 || opt_write == -2) {
+      log_param((char*)"num-propag", neta_values[0]-1, filepath_run_info, "a");
+      log_param((char*)"num-sing-propag", nsings[0], filepath_run_info, "a");
+    }
+
     // //////
     // // CACHE
     // //////
@@ -1261,85 +1272,81 @@ int main(int argc, char *argv[])
   }
   fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
 
-  // FREE
-  if (exit_sing == -1) {
-    if (kira_str) {
-      for (int m=0; m<dim; m++) {
-        for (int d=0; d<max_num_contr; d++) {
-          for (int n=0; n<dim; n++) {
-            if (kira_str[m][d][n]) {
-              free(kira_str[m][d][n]);
+  if (opt_checkpoint < 1) {
+    // FREE
+    if (exit_sing == -1) {
+      if (kira_str) {
+        for (int m=0; m<dim; m++) {
+          for (int d=0; d<max_num_contr; d++) {
+            for (int n=0; n<dim; n++) {
+              if (kira_str[m][d][n]) {
+                free(kira_str[m][d][n]);
+              }
             }
           }
         }
+        del_rk3_tens(kira_str, dim, max_num_contr);
       }
-      del_rk3_tens(kira_str, dim, max_num_contr);
-    }
 
-    for (int m=0; m<dim; m++) {
-      for (int d=0; d<MI_eta[m].nmass; d++) {
-        for (int n=0; n<dim; n++) {
-          if (der_ndpf[m][d][n].info == -1) {
-            continue;
-          } else if (der_ndpf[m][d][n].info == 1) {
-            continue;
-          }
-
-          if (der_ndpf[m][d][n].info == 2) {
-            free(der_ndpf[m][d][n].num_pows);
-            free(der_ndpf[m][d][n].den_pows);
-
-            for (int nt=0; nt<der_ndpf[m][d][n].num_nterms; nt++) {
-              mpz_rk1_clear(coeffs_num_den[m][d][n][0][nt], nterms_num_den[m][d][n][0][nt]);
-              delete[] coeffs_num_den[m][d][n][0][nt];
-              free(pows_num_den[m][d][n][0][nt]);
-            }
-            delete[] coeffs_num_den[m][d][n][0];
-            delete[] pows_num_den[m][d][n][0];
-            delete[] nterms_num_den[m][d][n][0];
-
-            if (der_ndpf[m][d][n].den_is_one) {
+      for (int m=0; m<dim; m++) {
+        for (int d=0; d<MI_eta[m].nmass; d++) {
+          for (int n=0; n<dim; n++) {
+            if (der_ndpf[m][d][n].info == -1) {
+              continue;
+            } else if (der_ndpf[m][d][n].info == 1) {
               continue;
             }
 
-            for (int nt=0; nt<der_ndpf[m][d][n].den_nterms; nt++) {
-              mpz_rk1_clear(coeffs_num_den[m][d][n][1][nt], nterms_num_den[m][d][n][1][nt]);
-              delete[] coeffs_num_den[m][d][n][1][nt];
-              free(pows_num_den[m][d][n][1][nt]);
+            if (der_ndpf[m][d][n].info == 2) {
+              free(der_ndpf[m][d][n].num_pows);
+              free(der_ndpf[m][d][n].den_pows);
+
+              for (int nt=0; nt<der_ndpf[m][d][n].num_nterms; nt++) {
+                mpz_rk1_clear(coeffs_num_den[m][d][n][0][nt], nterms_num_den[m][d][n][0][nt]);
+                delete[] coeffs_num_den[m][d][n][0][nt];
+                free(pows_num_den[m][d][n][0][nt]);
+              }
+              delete[] coeffs_num_den[m][d][n][0];
+              delete[] pows_num_den[m][d][n][0];
+              delete[] nterms_num_den[m][d][n][0];
+
+              if (der_ndpf[m][d][n].den_is_one) {
+                continue;
+              }
+
+              for (int nt=0; nt<der_ndpf[m][d][n].den_nterms; nt++) {
+                mpz_rk1_clear(coeffs_num_den[m][d][n][1][nt], nterms_num_den[m][d][n][1][nt]);
+                delete[] coeffs_num_den[m][d][n][1][nt];
+                free(pows_num_den[m][d][n][1][nt]);
+              }
+              delete[] coeffs_num_den[m][d][n][1];
+              delete[] pows_num_den[m][d][n][1];
+              delete[] nterms_num_den[m][d][n][1];
             }
-            delete[] coeffs_num_den[m][d][n][1];
-            delete[] pows_num_den[m][d][n][1];
-            delete[] nterms_num_den[m][d][n][1];
           }
         }
       }
-    }
-    del_rk4_tens(coeffs_num_den, dim, max_num_contr, dim);
-    del_rk4_tens(pows_num_den, dim, max_num_contr, dim);
-    del_rk4_tens(nterms_num_den, dim, max_num_contr, dim);
-    del_rk3_tens(der_ndpf, dim, max_num_contr);
-  } else {
-    for (int s=0; s<ninvs; s++) {
-      if (skip_inv[s] == 1) {
-        continue;
-      }
-      for (int i=0; i<dim; i++) {
-        for (int j=0; j<dim; j++) {
-          lnode_free(&mats_nd[s][i][j]);
+      del_rk4_tens(coeffs_num_den, dim, max_num_contr, dim);
+      del_rk4_tens(pows_num_den, dim, max_num_contr, dim);
+      del_rk4_tens(nterms_num_den, dim, max_num_contr, dim);
+      del_rk3_tens(der_ndpf, dim, max_num_contr);
+    } else {
+      for (int s=0; s<ninvs; s++) {
+        if (skip_inv[s] == 1) {
+          continue;
+        }
+        for (int i=0; i<dim; i++) {
+          for (int j=0; j<dim; j++) {
+            lnode_free(&mats_nd[s][i][j]);
+          }
         }
       }
+      del_rk3_tens(mats_nd, ninvs, dim);
     }
-    del_rk3_tens(mats_nd, ninvs, dim);
   }
 
   if (opt_checkpoint == -1) {
     goto goto_exit;
-  }
-
-  // cache path info
-  if (opt_write > 0 || opt_write == -2) {
-    log_param((char*)"num-propag", neta_values[0]-1, filepath_run_info, "a");
-    log_param((char*)"num-sing-propag", nsings[0], filepath_run_info, "a");
   }
 
   if (exit_sing == -1) {
