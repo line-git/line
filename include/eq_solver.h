@@ -153,7 +153,7 @@ void propagate_all_eps(
   // OUTPUT
   mpc_t **sol_at_eps,
   // INPUT
-  int exit_sing, int nloops,
+  int ep, int exit_sing, int nloops,
   poly_frac ***pfmat,
   int *zero_label, int *nroots, mpc_t **roots,
   int *neta_values, mpc_t **path, int **path_tags, int *nsings, int **sing_lab,

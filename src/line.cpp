@@ -31,6 +31,7 @@ extern "C" {
   #include "cpoly.h"
   #include "in_out.h"
   // #include "mp_roots_poly.h"
+  #include "ex_tree.h"
 }
 
 // global variables
@@ -1012,37 +1013,144 @@ int main(int argc, char *argv[])
       terminal
     );
 
-    kira_IBPs_to_DE_pf(
-      pfmat,
-      zero_label, nroots, roots, tols,
-      nbranch_roots, branch_roots, branch_tols,
-      ninvs, symbols, is_mass,
-      pspf,
-      skip_inv, ep_kin,
-      dim, mats_str,
-      nbranches, branch_deg,
-      eps_num, eps_str,
-      MI_eta, dir_amflow,
-      max_num_contr,
-      coeffs_num_den, pows_num_den,
-      nterms_num_den, der_ndpf,
-      kira_str,
-      terminal
-    );
+    fprintf(terminal, "build AM DE: "); fflush(terminal); usleep(sleep_time);
+    for (int ep=0; ep<eps_num; ep++) {
+      if (ep > 0) {fprintf(terminal, "\033[22D\033[K");}// fflush(terminal); usleep(sleep_time);}
+      fprintf(terminal, "eps value %3d /%3d... ", ep, eps_num-1); fflush(terminal); usleep(sleep_time);
+      fprintf(stdout, "\n############################################## ep = %d\n", ep);
+
+      kira_IBPs_to_DE_pf(
+        pfmat,
+        zero_label, nroots, roots, tols,
+        ep, nbranch_roots, branch_roots, branch_tols,
+        ninvs, symbols, is_mass,
+        pspf,
+        skip_inv, ep_kin,
+        dim, mats_str,
+        nbranches, branch_deg,
+        eps_str,
+        MI_eta, dir_amflow,
+        max_num_contr,
+        coeffs_num_den, pows_num_den,
+        nterms_num_den, der_ndpf,
+        kira_str,
+        terminal
+      );
+    }
+    fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
+    fprintf(terminal, "\033[13D\033[K"); fflush(terminal); usleep(sleep_time);
+
+    // FREE
+    if (kira_str) {
+      for (int m=0; m<dim; m++) {
+        for (int d=0; d<max_num_contr; d++) {
+          for (int n=0; n<dim; n++) {
+            if (kira_str[m][d][n]) {
+              free(kira_str[m][d][n]);
+            }
+          }
+        }
+      }
+      del_rk3_tens(kira_str, dim, max_num_contr);
+    }
+
+    for (int m=0; m<dim; m++) {
+      for (int d=0; d<MI_eta[m].nmass; d++) {
+        for (int n=0; n<dim; n++) {
+          if (der_ndpf[m][d][n].info == -1) {
+            continue;
+          } else if (der_ndpf[m][d][n].info == 1) {
+            continue;
+          }
+
+          if (der_ndpf[m][d][n].info == 2) {
+            free(der_ndpf[m][d][n].num_pows);
+            free(der_ndpf[m][d][n].den_pows);
+
+            for (int nt=0; nt<der_ndpf[m][d][n].num_nterms; nt++) {
+              mpz_rk1_clear(coeffs_num_den[m][d][n][0][nt], nterms_num_den[m][d][n][0][nt]);
+              delete[] coeffs_num_den[m][d][n][0][nt];
+              free(pows_num_den[m][d][n][0][nt]);
+            }
+            delete[] coeffs_num_den[m][d][n][0];
+            delete[] pows_num_den[m][d][n][0];
+            delete[] nterms_num_den[m][d][n][0];
+
+            if (der_ndpf[m][d][n].den_is_one) {
+              continue;
+            }
+
+            for (int nt=0; nt<der_ndpf[m][d][n].den_nterms; nt++) {
+              mpz_rk1_clear(coeffs_num_den[m][d][n][1][nt], nterms_num_den[m][d][n][1][nt]);
+              delete[] coeffs_num_den[m][d][n][1][nt];
+              free(pows_num_den[m][d][n][1][nt]);
+            }
+            delete[] coeffs_num_den[m][d][n][1];
+            delete[] pows_num_den[m][d][n][1];
+            delete[] nterms_num_den[m][d][n][1];
+          }
+        }
+      }
+    }
+    del_rk4_tens(coeffs_num_den, dim, max_num_contr, dim);
+    del_rk4_tens(pows_num_den, dim, max_num_contr, dim);
+    del_rk4_tens(nterms_num_den, dim, max_num_contr, dim);
+    del_rk3_tens(der_ndpf, dim, max_num_contr);
+
 
   } else {
-    generate_poly_frac_DE(
-      pfmat,
-      zero_label, nroots, roots, tols,
-      nbranch_roots, branch_roots, branch_tols,
-      ninvs, symbols, is_mass,
-      pspf,
-      skip_inv, ep_kin,
-      dim, mats_str,
-      nbranches, branch_deg,
-      eps_num, eps_str,
-      terminal
+
+    //////
+    // PARSE
+    //////
+    struct lnode ***mats_nd;
+    malloc_rk3_tens(mats_nd, ninvs, dim, dim);
+
+    parse_DE_str(
+      mats_nd,
+      ninvs, symbols, is_mass, skip_inv,
+      dim, mats_str
     );
+
+    fprintf(terminal, "process mat: "); fflush(terminal); usleep(sleep_time);
+    for (int ep=0; ep<eps_num; ep++) {
+      if (ep > 0) {fprintf(terminal, "\033[22D\033[K");}// fflush(terminal); usleep(sleep_time);}
+      fprintf(terminal, "eps value %3d /%3d... ", ep, eps_num-1); fflush(terminal); usleep(sleep_time);
+      fprintf(stdout, "\n############################################## ep = %d\n", ep);
+
+      //////
+      // DECODE
+      //////
+      generate_poly_frac_DE(
+        pfmat,
+        zero_label, nroots, roots, tols,
+        ep, mats_nd,
+        nbranch_roots, branch_roots, branch_tols,
+        ninvs, is_mass,
+        pspf,
+        skip_inv, ep_kin,
+        dim,
+        nbranches, branch_deg,
+        eps_str,
+        terminal
+      );
+    }
+    fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
+    fprintf(terminal, "\033[13D\033[K"); fflush(terminal); usleep(sleep_time);
+
+    // FREE
+    for (int s=0; s<ninvs; s++) {
+      if (skip_inv[s] == 1) {
+        continue;
+      }
+      for (int i=0; i<dim; i++) {
+        for (int j=0; j<dim; j++) {
+          lnode_free(&mats_nd[s][i][j]);
+        }
+      }
+    }
+    del_rk3_tens(mats_nd, ninvs, dim);
+
   }
 
   for (int ep=0; ep<eps_num; ep++) {
@@ -1066,7 +1174,6 @@ int main(int argc, char *argv[])
     init_rk1_mpc(roots[ep], nroots[ep]);
     int_rk0_mpc_rk1_from_file(tmp_filepath_roots, roots[ep], nroots[ep], &zero_label[ep]);
 
-
     if (ep == 0) {
       if (print) {
       cout << endl; cout << "DE MATRIX (1st epsilon):" << endl;
@@ -1078,7 +1185,6 @@ int main(int argc, char *argv[])
       cout << nroots[0] << " roots" << endl;
       print_poly(roots[0], nroots[0]-1);
     }
-
 
     //////
     // BUILD PATH
@@ -1164,17 +1270,6 @@ int main(int argc, char *argv[])
       // LOAD POLY_FRAC DE FROM FILE
       //////
       for (int ep=0; ep<eps_num; ep++) {
-        // // MATRIX
-        // snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_matrix, ep, file_ext);
-        // cout << endl; cout << "reading poly_frac DE from file " << tmp_filepath << endl;
-        // poly_frac_rk2_from_file(tmp_filepath, pfmat[ep], dim, dim);
-        // // ROOTS
-        // snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_roots, ep, file_ext);
-        // cout << "reading mpc_t roots from file " << tmp_filepath << endl;
-        // roots[ep] = new mpc_t[nroots[ep]];
-        // init_rk1_mpc(roots[ep], nroots[ep]);
-        // int_rk0_mpc_rk1_from_file(tmp_filepath, roots[ep], nroots[ep], &zero_label[ep]);
-
         // PATH
         // points
         snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_path, ep, file_ext);
@@ -1196,20 +1291,6 @@ int main(int argc, char *argv[])
         int_rk1_from_file(tmp_filepath, sing_lab[ep], nsings[ep]);
       }
 
-      // cout << endl; cout << "ROOTS (1st epsilon):" << endl;
-      // cout << "zero_label = " << zero_label[0] << endl;
-      // cout << nroots[0] << " roots:" << endl;
-      // print_poly(roots[0], nroots[0]-1);
-      // cout << endl; cout << "ROOTS (2nd epsilon):" << endl;
-      // cout << "zero_label = " << zero_label[1] << endl;
-      // cout << nroots[1] << " roots:" << endl;
-      // print_poly(roots[1], nroots[1]-1);
-
-      // cout << endl; cout << "SINGULAR POINTS (1st epsilon):" << endl;
-      // cout << nsings[0] << " points" << endl;
-      // for (int i=0; i<nsings[0]; i++) {
-      //   cout << "lab: " << sing_lab[0][i] << ", root: "; print_mpc(&roots[0][sing_lab[0][i]]); cout << endl;
-      // }
       cout << endl; cout << "PATH (1st epsilon):" << endl;
       cout << neta_values[0] << " points" << endl;
       for (int i=0; i<neta_values[0]; i++) {
@@ -1217,61 +1298,6 @@ int main(int argc, char *argv[])
         print_mpc(&path[0][i]); cout << endl;
       }
 
-      // // MP PATH
-      // cout << endl; cout << "BUILD PATH..." << endl;
-      // for (int ep=0; ep<eps_num; ep++) {
-      //   if (exit_sing == -1) {
-      //     get_path_PS_infty_mp(
-      //       &path_mp[ep], &path_tags_mp[ep], &neta_values_mp[ep], &sing_lab_mp[ep], &nsings_mp[ep],
-      //       roots[ep], nroots[ep], zero_label[ep]
-      //     );
-      //   } else {
-      //     get_path_PS_mp(
-      //       &path_mp[ep], &path_tags_mp[ep], &neta_values_mp[ep], &sing_lab_mp[ep], &nsings_mp[ep],
-      //       roots[ep], nroots[ep], zero_label[ep]
-      //     );
-      //   }
-      // }
-      // MP PATH
-      // cout << endl; cout << "BUILD PATH..." << endl;
-      // for (int ep=0; ep<eps_num; ep++) {
-      //   if (exit_sing == -1) {
-      //     get_path_PS_infty_mp(
-      //       &path[ep], &path_tags[ep], &neta_values[ep], &sing_lab[ep], &nsings[ep],
-      //       roots[ep], nroots[ep], zero_label[ep]
-      //     );
-      //   } else {
-      //     get_path_PS(
-      //       &path[ep], &path_tags[ep], &neta_values[ep], &sing_lab[ep], &nsings[ep],
-      //       roots[ep], nroots[ep], zero_label[ep]
-      //     );
-      //   }
-      // }
-
-      // cout << endl; cout << "SINGULAR POINTS MP (1st epsilon):" << endl;
-      // cout << nsings_mp[0] << " points" << endl;
-      // for (int i=0; i<nsings_mp[0]; i++) {
-      //   cout << "lab: " << sing_lab_mp[0][i] << ", root: "; print_mpc(&roots[0][sing_lab_mp[0][i]]); cout << endl;
-      // }
-      // cout << endl; cout << "PATH MP (1st epsilon):" << endl;
-      // cout << neta_values_mp[0] << " points" << endl;
-      // for (int i=0; i<neta_values_mp[0]; i++) {
-      //   cout << i << ". tag: " << path_tags_mp[0][i] << ", point: ";
-      //   print_mpc(&path_mp[0][i]); cout << endl;
-      // }
-
-      // wrt_cmp_DE(
-      //   perm,
-      //   zero_label, nroots, roots,
-      //   pfmat, eps_num, dim,
-      //   0.80,
-      //   file_ext, filepath_matrix, filepath_roots, 0
-      // );
-      // wrt_cmp_path(
-      //   path_mp, path_tags_mp, eps_num, neta_values_mp,
-      //   nsings_mp, sing_lab_mp, perm,
-      //   file_ext, filepath_path, filepath_path_tags, filepath_sing_lab, 1
-      // );
       break;
   
     case -2:
@@ -1299,27 +1325,41 @@ int main(int argc, char *argv[])
   if (opt_all_eps == 0) {
     eps_num = 1;
   }
-  propagate_all_eps(
-    // OUTPUT
-    sol_at_eps,
-    // INPUT
-    exit_sing, nloops,
-    pfmat,
-    zero_label, nroots, roots,
-    neta_values, path, path_tags, nsings, sing_lab,
-    solutions, dim, eta_ord,
-    eps_num, eps_str,
-    ninvs, PS_ini, PS_fin, symbols,
-    is_mass, skip_inv,
-    nbranches, branch_deg, branch_poly, branch_sing_lab,
-    // bound_behav, mi_eig, mi_eig_num,
-    gen_bound, filepath_bound, bound,
-    filepath_bound_build, filepath_bound_behav,
-    // filepath_matrix, filepath_roots, // filepath_branch_sing_lab,
-    filepath_path, filepath_path_tags, filepath_sol, dir_partial,
-    file_ext, logfptr, opt_write, opt_checkpoint,
-    terminal
-  );
+  
+  fprintf(terminal, "propagate: "); fflush(terminal); usleep(sleep_time);
+  for (int ep=0; ep<eps_num; ep++) {
+    if (ep > 0) {fprintf(terminal, "\033[22D\033[K");}// fflush(terminal); usleep(sleep_time);}
+    fprintf(terminal, "eps value %3d /%3d... ", ep, eps_num-1); fflush(terminal); usleep(sleep_time);
+    // epv = (numeric) eps_str[ep];
+    fprintf(logfptr, "\n############################################## ep =  %d\n", ep);
+    // progfile << "############################################## epv = " << epv << endl;
+    propagate_all_eps(
+      // OUTPUT
+      sol_at_eps,
+      // INPUT
+      ep, exit_sing, nloops,
+      pfmat,
+      zero_label, nroots, roots,
+      neta_values, path, path_tags, nsings, sing_lab,
+      solutions, dim, eta_ord,
+      eps_num, eps_str,
+      ninvs, PS_ini, PS_fin, symbols,
+      is_mass, skip_inv,
+      nbranches, branch_deg, branch_poly, branch_sing_lab,
+      // bound_behav, mi_eig, mi_eig_num,
+      gen_bound, filepath_bound, bound,
+      filepath_bound_build, filepath_bound_behav,
+      // filepath_matrix, filepath_roots, // filepath_branch_sing_lab,
+      filepath_path, filepath_path_tags, filepath_sol, dir_partial,
+      file_ext, logfptr, opt_write, opt_checkpoint,
+      terminal
+    );
+
+  }
+  // mpc_rk2_to_file((char*)"sol_at_eps.txt", sol_at_eps, dim, eps_num);
+  fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
+  fprintf(terminal, "\033[11D\033[K"); fflush(terminal); usleep(sleep_time);
+
 
   if (exit_sing == -1) {
     malloc_rk2_tens(sol_at_eps_wrt_cmp, dim_eta_less, eps_num);

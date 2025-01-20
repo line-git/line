@@ -6259,7 +6259,7 @@ void propagate_all_eps(
   // OUTPUT
   mpc_t **sol_at_eps,
   // INPUT
-  int exit_sing, int nloops,
+  int ep, int exit_sing, int nloops,
   poly_frac ***pfmat,
   int *zero_label, int *nroots, mpc_t **roots,
   int *neta_values, mpc_t **path, int **path_tags, int *nsings, int **sing_lab,
@@ -6303,165 +6303,153 @@ void propagate_all_eps(
     );
   }
 
-  fprintf(terminal, "propagate: "); fflush(terminal); usleep(sleep_time);
-  for (int ep=0; ep<eps_num; ep++) {
-    if (ep > 0) {fprintf(terminal, "\033[22D\033[K");}// fflush(terminal); usleep(sleep_time);}
-    fprintf(terminal, "eps value %3d /%3d... ", ep, eps_num-1); fflush(terminal); usleep(sleep_time);
-    // epv = (numeric) eps_str[ep];
-    fprintf(logfptr, "\n############################################## ep =  %d\n", ep);
-    // progfile << "############################################## epv = " << epv << endl;
+  //////
+  // LOAD POLY_FRAC DE
+  //////
+  char tmp_filepath_pfmat[MAX_PATH_LEN];
+  char tmp_filepath_roots[MAX_PATH_LEN];
+  if (opt_checkpoint == 1) {
+    snprintf(tmp_filepath_pfmat, sizeof(tmp_filepath_pfmat), "%s%s%d%s", dir_partial, "pfmat", ep, ".txt");
+    snprintf(tmp_filepath_roots, sizeof(tmp_filepath_roots), "%s%s%d%s", dir_partial, "roots", ep, ".txt");
+  } else {
+    snprintf(tmp_filepath_pfmat, sizeof(tmp_filepath_pfmat), "%s%s%d%s", filepath_cache, "pfmat", ep, ".txt");
+    snprintf(tmp_filepath_roots, sizeof(tmp_filepath_roots), "%s%s%d%s", filepath_cache, "roots", ep, ".txt");
+  }
+  // MATRIX
+  cout << endl; cout << "reading poly_frac DE from file " << tmp_filepath_pfmat << endl;
+  malloc_rk2_tens(pfmat[ep], dim, dim);
+  poly_frac_rk2_build(pfmat[ep], dim, dim);
+  poly_frac_rk2_from_file(tmp_filepath_pfmat, pfmat[ep], dim, dim);
+  // ROOTS
+  cout << "reading mpc_t roots from file " << tmp_filepath_roots << endl;
+  nroots[ep] = count_lines(tmp_filepath_roots) - 1;
+  roots[ep] = new mpc_t[nroots[ep]];
+  init_rk1_mpc(roots[ep], nroots[ep]);
+  int_rk0_mpc_rk1_from_file(tmp_filepath_roots, roots[ep], nroots[ep], &zero_label[ep]);
 
-    //////
-    // LOAD POLY_FRAC DE
-    //////
-    char tmp_filepath_pfmat[MAX_PATH_LEN];
-    char tmp_filepath_roots[MAX_PATH_LEN];
-    if (opt_checkpoint == 1) {
-      snprintf(tmp_filepath_pfmat, sizeof(tmp_filepath_pfmat), "%s%s%d%s", dir_partial, "pfmat", ep, ".txt");
-      snprintf(tmp_filepath_roots, sizeof(tmp_filepath_roots), "%s%s%d%s", dir_partial, "roots", ep, ".txt");
-    } else {
-      snprintf(tmp_filepath_pfmat, sizeof(tmp_filepath_pfmat), "%s%s%d%s", filepath_cache, "pfmat", ep, ".txt");
-      snprintf(tmp_filepath_roots, sizeof(tmp_filepath_roots), "%s%s%d%s", filepath_cache, "roots", ep, ".txt");
+  //////
+  // LOAD BOUNDARY
+  //////
+  if (gen_bound == 0) {
+    snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_bound, ep, file_ext);
+    cout << "loading boundary from " << tmp_filepath << endl;
+    boundfptr = fopen(tmp_filepath, "r");
+    if (boundfptr == NULL) {
+      printf("Could not open file %s\n", tmp_filepath);
+      exit(1);
     }
-    // MATRIX
-    cout << endl; cout << "reading poly_frac DE from file " << tmp_filepath_pfmat << endl;
-    malloc_rk2_tens(pfmat[ep], dim, dim);
-    poly_frac_rk2_build(pfmat[ep], dim, dim);
-    poly_frac_rk2_from_file(tmp_filepath_pfmat, pfmat[ep], dim, dim);
-    // ROOTS
-    cout << "reading mpc_t roots from file " << tmp_filepath_roots << endl;
-    nroots[ep] = count_lines(tmp_filepath_roots) - 1;
-    roots[ep] = new mpc_t[nroots[ep]];
-    init_rk1_mpc(roots[ep], nroots[ep]);
-    int_rk0_mpc_rk1_from_file(tmp_filepath_roots, roots[ep], nroots[ep], &zero_label[ep]);
-
-    //////
-    // LOAD BOUNDARY
-    //////
-    if (gen_bound == 0) {
-      snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_bound, ep, file_ext);
-      cout << "loading boundary from " << tmp_filepath << endl;
-      boundfptr = fopen(tmp_filepath, "r");
-      if (boundfptr == NULL) {
-        printf("Could not open file %s\n", tmp_filepath);
-        exit(1);
-      }
-      for (int i=0; i<dim; i++) {
-        // mpc_init3(solutions[0][i][0], wp2, wp2);
-        mpc_inp_str(solutions[0][i][0], boundfptr, 0, 10, MPFR_RNDN);
-      }
-      fclose(boundfptr);
-    } else {
-      for (int i=0; i<dim; i++) {
-        // mpc_init3(solutions[0][i][0], wp2, wp2);
-        mpc_set(solutions[0][i][0], bound[ep][i], MPFR_RNDN);
-      }
-    }
-    if (print) {
-    cout << "BOUNDARY:" << endl;
     for (int i=0; i<dim; i++) {
-      cout << "BC n." << i << ": "; print_mpc(&solutions[0][i][0]); cout << endl;
+      // mpc_init3(solutions[0][i][0], wp2, wp2);
+      mpc_inp_str(solutions[0][i][0], boundfptr, 0, 10, MPFR_RNDN);
     }
+    fclose(boundfptr);
+  } else {
+    for (int i=0; i<dim; i++) {
+      // mpc_init3(solutions[0][i][0], wp2, wp2);
+      mpc_set(solutions[0][i][0], bound[ep][i], MPFR_RNDN);
     }
+  }
+  if (print) {
+  cout << "BOUNDARY:" << endl;
+  for (int i=0; i<dim; i++) {
+    cout << "BC n." << i << ": "; print_mpc(&solutions[0][i][0]); cout << endl;
+  }
+  }
 
-    if (exit_sing == -1) {
-      //////
-      // EXIT SINGULARITY AT INFINITY
-      //////
-      cout << endl;
-      cout << "EXIT SINGULARITY AT INFINITY" << endl;
-      propagate_infty(
-        solutions,
-        eps_str[ep],
-        bound[ep], path[ep],
-        dim, pfmat[ep],
-        nroots[ep], roots[ep],
-        bound_behav, mi_eig, mi_eig_num,
-        nloops, eta_ord,
-        logfptr, terminal
-      );
-    }
-
+  if (exit_sing == -1) {
     //////
-    // FIND BLOCK-PROFILE
+    // EXIT SINGULARITY AT INFINITY
     //////
-    int nblocks, **prof, **sb_grid;   
-    // cout << endl; cout << "computing block profile..." << endl;
-    poly_frac_rk2_find_profile(
-      &prof, &sb_grid, &nblocks,
-      pfmat[ep], dim
-      );
-    // cout << endl; cout << "BLOCK PROFILE:" << endl;
-    // int tmp_offset = 0;
-    // for (int b=0; b<nblocks; b++) {
-    //   // select block
-    //   int b_len = prof[b][1] - prof[b][0] + 1;
-    //   // cout << "-------------------------" << endl;
-    //   cout << "b = " << b << ", ";
-    //   cout << "b_len = " << b_len << ", ";
-    //   cout << "offset = " << tmp_offset << endl;
-    //   tmp_offset += b_len;
-    // }
-    if (print) {
-    cout << endl; cout << "BLOCK GRID:" << endl;
-    for (int b=0; b<nblocks; b++) {
-      for (int sb=0; sb<b; sb++) {
-        cout << "b, sb = " << b << ", " << sb << ": ";
-        cout << sb_grid[b][sb] << endl;
-      }
-      cout << endl;
-    }
-    }
-
-    //////
-    // PROPAGATION
-    //////
-    cout << endl; cout << "PROPAGATION..." << endl;
-    // exit(0);
-    propagate_along_path(
-      sol_at_eps,
+    cout << endl;
+    cout << "EXIT SINGULARITY AT INFINITY" << endl;
+    propagate_infty(
       solutions,
-      dim, eta_ord,
-      ep, eps_str[ep],
-      neta_values[ep], path[ep], path_tags[ep], nsings[ep],
-      pfmat[ep], nroots[ep], roots[ep], sing_lab[ep],
-      nblocks, prof, sb_grid,
-      nbranches, branch_deg, branch_poly, branch_sing_lab,
-      ninvs, PS_ini, PS_fin, symbols,
-      is_mass, skip_inv,
+      eps_str[ep],
+      bound[ep], path[ep],
+      dim, pfmat[ep],
+      nroots[ep], roots[ep],
       bound_behav, mi_eig, mi_eig_num,
+      nloops, eta_ord,
       logfptr, terminal
     );
-    fprintf(logfptr, "\nresult of ep = %d\n", ep);
-    for (int i=0; i<dim; i++) {
-      // cout << "i = " << i << ": "; print_mpc(&solutions[0][i][0]); cout << endl;
-      fprintf(logfptr, "i = %d: ", i); mpc_out_str(logfptr, 10, 0, sol_at_eps[i][ep], MPFR_RNDN); fprintf(logfptr, "\n");
-    }
-
-    // SAVE RESULT TO FILE 
-    if (opt_write > 0 || opt_write == -2) {
-      snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_sol, ep, file_ext);
-      FILE *fptr = fopen(tmp_filepath, "w");
-      for (int i=0; i<dim; i++) {
-        mpc_out_str(fptr, 10, 0, sol_at_eps[i][ep], MPFR_RNDN); fprintf(fptr, "\n");
-      }
-      fclose(fptr);
-    }
-
-    mpfr_set(mpfr_tol, mpfr_tol_orig, MPFR_RNDN);
-    // gnc_tol = gnc_tol_orig;  // #uncomment-for-ginac
-    // wp2 = wp2_orig;
-    // if (ep == 2) exit(0); // #dbg
-
-    // FREE
-    poly_frac_rk2_free(pfmat[ep], dim, dim);
-    del_rk2_tens(pfmat[ep], dim);
-    mpc_rk1_clear(roots[ep], nroots[ep]);
-    delete[] roots[ep];
   }
-  // mpc_rk2_to_file((char*)"sol_at_eps.txt", sol_at_eps, dim, eps_num);
-  fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
-  fprintf(terminal, "\033[11D\033[K"); fflush(terminal); usleep(sleep_time);
+
+  //////
+  // FIND BLOCK-PROFILE
+  //////
+  int nblocks, **prof, **sb_grid;   
+  // cout << endl; cout << "computing block profile..." << endl;
+  poly_frac_rk2_find_profile(
+    &prof, &sb_grid, &nblocks,
+    pfmat[ep], dim
+    );
+  // cout << endl; cout << "BLOCK PROFILE:" << endl;
+  // int tmp_offset = 0;
+  // for (int b=0; b<nblocks; b++) {
+  //   // select block
+  //   int b_len = prof[b][1] - prof[b][0] + 1;
+  //   // cout << "-------------------------" << endl;
+  //   cout << "b = " << b << ", ";
+  //   cout << "b_len = " << b_len << ", ";
+  //   cout << "offset = " << tmp_offset << endl;
+  //   tmp_offset += b_len;
+  // }
+  if (print) {
+  cout << endl; cout << "BLOCK GRID:" << endl;
+  for (int b=0; b<nblocks; b++) {
+    for (int sb=0; sb<b; sb++) {
+      cout << "b, sb = " << b << ", " << sb << ": ";
+      cout << sb_grid[b][sb] << endl;
+    }
+    cout << endl;
+  }
+  }
+
+  //////
+  // PROPAGATION
+  //////
+  cout << endl; cout << "PROPAGATION..." << endl;
+  // exit(0);
+  propagate_along_path(
+    sol_at_eps,
+    solutions,
+    dim, eta_ord,
+    ep, eps_str[ep],
+    neta_values[ep], path[ep], path_tags[ep], nsings[ep],
+    pfmat[ep], nroots[ep], roots[ep], sing_lab[ep],
+    nblocks, prof, sb_grid,
+    nbranches, branch_deg, branch_poly, branch_sing_lab,
+    ninvs, PS_ini, PS_fin, symbols,
+    is_mass, skip_inv,
+    bound_behav, mi_eig, mi_eig_num,
+    logfptr, terminal
+  );
+  fprintf(logfptr, "\nresult of ep = %d\n", ep);
+  for (int i=0; i<dim; i++) {
+    // cout << "i = " << i << ": "; print_mpc(&solutions[0][i][0]); cout << endl;
+    fprintf(logfptr, "i = %d: ", i); mpc_out_str(logfptr, 10, 0, sol_at_eps[i][ep], MPFR_RNDN); fprintf(logfptr, "\n");
+  }
+
+  // SAVE RESULT TO FILE 
+  if (opt_write > 0 || opt_write == -2) {
+    snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_sol, ep, file_ext);
+    FILE *fptr = fopen(tmp_filepath, "w");
+    for (int i=0; i<dim; i++) {
+      mpc_out_str(fptr, 10, 0, sol_at_eps[i][ep], MPFR_RNDN); fprintf(fptr, "\n");
+    }
+    fclose(fptr);
+  }
+
+  mpfr_set(mpfr_tol, mpfr_tol_orig, MPFR_RNDN);
+  // gnc_tol = gnc_tol_orig;  // #uncomment-for-ginac
+  // wp2 = wp2_orig;
+  // if (ep == 2) exit(0); // #dbg
+
+  // FREE
+  poly_frac_rk2_free(pfmat[ep], dim, dim);
+  del_rk2_tens(pfmat[ep], dim);
+  mpc_rk1_clear(roots[ep], nroots[ep]);
+  delete[] roots[ep];
 
 }
 

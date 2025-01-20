@@ -61,18 +61,27 @@ void wrt_cmp_DE(
   int opt_write
 );
 
+void parse_DE_str(
+  // OUTPUT
+  lnode ***mats_nd,
+  // INPUT
+  int ninvs, char **symbols, int *is_mass, int *skip_inv,
+  int dim, char ****mats_str
+);
+
 void generate_poly_frac_DE(
   // OUTPUT
   poly_frac ***pfmat,
   int *zero_label, int *nroots, mpc_t **roots, mpfr_t **tols,
   // INPUT
+  int ep, lnode ***mats_nd,
   int nroots_branch, mpc_t *roots_branch, mpfr_t *tols_branch,
-  int ninvs, char **symbols, int *is_mass,
+  int ninvs, int *is_mass,
   poly_frac *pspf,
   int *skip_inv, char ***ep_kin,
-  int dim, char ****mats_str,
+  int dim,
   int nbranches, int *branch_deg,
-  int eps_num, char **eps_str,
+  char **eps_str,
   FILE *terminal
 );
 

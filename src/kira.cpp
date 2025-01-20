@@ -2538,6 +2538,8 @@ void process_kira_IBPs(
     if (m == m_stop+1) break;
   }
   fprintf(terminal, "\033[15D\033[K"); fflush(terminal); usleep(sleep_time);
+  fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
+
   fclose(fptr);
 
   // FREE
@@ -2563,13 +2565,13 @@ void kira_IBPs_to_DE_pf(
   poly_frac ***pfmat,
   int *zero_label, int *nroots, mpc_t **roots, mpfr_t **tols,
   // INPUT
-  int nroots_branch, mpc_t *roots_branch, mpfr_t *tols_branch,
+  int ep, int nroots_branch, mpc_t *roots_branch, mpfr_t *tols_branch,
   int ninvs, char **symbols, int *is_mass,
   poly_frac *pspf,
   int *skip_inv, char ***ep_kin,
   int dim_eta, char ****mats_str,
   int nbranches, int *branch_deg,
-  int eps_num, char **eps_str,
+  char **eps_str,
   LI* MI_eta, char *dir_amflow,
   int max_num_contr,
   mpz_t ******coeffs_num_den, int ******pows_num_den,
@@ -2615,11 +2617,6 @@ void kira_IBPs_to_DE_pf(
   int m_pfc_start = 0;
 
   char *kira_str_cp = NULL;
-  dbg = 0;
-  for (int ep=0; ep<eps_num; ep++) {
-    if (ep > 0) {fprintf(terminal, "\033[22D\033[K");}// fflush(terminal); usleep(sleep_time);}
-    fprintf(terminal, "eps value %3d /%3d... ", ep, eps_num-1); fflush(terminal); usleep(sleep_time);
-    fprintf(stdout, "\n############################################## ep = %d\n", ep);
 
 		ep_kin[0][0] = strdup(eps_str[ep]);
 		// cout << "eps = " << ep_kin[0][0] << endl;
@@ -3339,66 +3336,6 @@ void kira_IBPs_to_DE_pf(
     delete[] stdim_num_pows;
     mpz_rk1_clear(stdim_den_pows, stdim_npows);
     delete[] stdim_den_pows;
-  }
-  fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
-  fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
-
-  // FREE
-  if (kira_str) {
-    for (int m=0; m<dim_eta; m++) {
-      for (int d=0; d<max_num_contr; d++) {
-        for (int n=0; n<dim_eta; n++) {
-          if (kira_str[m][d][n]) {
-            free(kira_str[m][d][n]);
-          }
-        }
-      }
-    }
-    del_rk3_tens(kira_str, dim_eta, max_num_contr);
-  }
-
-  for (int m=0; m<dim_eta; m++) {
-    for (int d=0; d<MI_eta[m].nmass; d++) {
-      for (int n=0; n<dim_eta; n++) {
-        if (der_ndpf[m][d][n].info == -1) {
-          continue;
-        } else if (der_ndpf[m][d][n].info == 1) {
-          continue;
-        }
-
-        if (der_ndpf[m][d][n].info == 2) {
-          free(der_ndpf[m][d][n].num_pows);
-          free(der_ndpf[m][d][n].den_pows);
-
-          for (int nt=0; nt<der_ndpf[m][d][n].num_nterms; nt++) {
-            mpz_rk1_clear(coeffs_num_den[m][d][n][0][nt], nterms_num_den[m][d][n][0][nt]);
-            delete[] coeffs_num_den[m][d][n][0][nt];
-            free(pows_num_den[m][d][n][0][nt]);
-          }
-          delete[] coeffs_num_den[m][d][n][0];
-          delete[] pows_num_den[m][d][n][0];
-          delete[] nterms_num_den[m][d][n][0];
-
-          if (der_ndpf[m][d][n].den_is_one) {
-            continue;
-          }
-
-          for (int nt=0; nt<der_ndpf[m][d][n].den_nterms; nt++) {
-            mpz_rk1_clear(coeffs_num_den[m][d][n][1][nt], nterms_num_den[m][d][n][1][nt]);
-            delete[] coeffs_num_den[m][d][n][1][nt];
-            free(pows_num_den[m][d][n][1][nt]);
-          }
-          delete[] coeffs_num_den[m][d][n][1];
-          delete[] pows_num_den[m][d][n][1];
-          delete[] nterms_num_den[m][d][n][1];
-        }
-      }
-    }
-  }
-  del_rk4_tens(coeffs_num_den, dim_eta, max_num_contr, dim_eta);
-  del_rk4_tens(pows_num_den, dim_eta, max_num_contr, dim_eta);
-  del_rk4_tens(nterms_num_den, dim_eta, max_num_contr, dim_eta);
-  del_rk3_tens(der_ndpf, dim_eta, max_num_contr);
 
 }
 

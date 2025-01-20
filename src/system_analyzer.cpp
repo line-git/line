@@ -628,54 +628,14 @@ void wrt_cmp_DE(
 }
 
 
-// <<generate_poly_frac_DE>>
-void generate_poly_frac_DE(
+void parse_DE_str(
   // OUTPUT
-  poly_frac ***pfmat,
-  int *zero_label, int *nroots, mpc_t **roots, mpfr_t **tols,
+  lnode ***mats_nd,
   // INPUT
-  int nroots_branch, mpc_t *roots_branch, mpfr_t *tols_branch,
-  int ninvs, char **symbols, int *is_mass,
-  poly_frac *pspf,
-  int *skip_inv, char ***ep_kin,
-  int dim, char ****mats_str,
-  int nbranches, int *branch_deg,
-  int eps_num, char **eps_str,
-  FILE *terminal
-  // ,
-  // char *file_ext, char *filepath_matrix, char *filepath_roots,
-  // int opt_write
+  int ninvs, char **symbols, int *is_mass, int *skip_inv,
+  int dim, char ****mats_str
 ) {
-	// int nroots = 1;
-	// mpc_t *roots = new mpc_t[1];
-	// mpc_init3(roots[0], wp2, wp2);
-	// mpc_set_ui(roots[0], 0, MPFR_RNDN);
-	// mpfr_t *tols = new mpfr_t[1];
-	// mpfr_init2(tols[0], wp2);
-	// mpfr_set(tols[0], mpfr_tol, MPFR_RNDN);
-
-  poly_frac ***pfmats;
-  malloc_rk3_tens(pfmats, ninvs, dim, dim);
-
-  // int **branch_sing_lab_ep;
-  // malloc_rk2_tens(branch_sing_lab_ep, nbranches, 3);
-
-	// double wp2_rel_decr = 1.0;
-  double wp2_rel_decr = 0.93;
-  // double wp2_rel_decr = 0.60;
-
-  // // enlarge tolerance for decoding
-  // mpfr_t mpfr_tol_orig;
-  // mpfr_init2(mpfr_tol_orig, wp2);
-  // mpfr_set(mpfr_tol_orig, mpfr_tol, MPFR_RNDN);
-  // mpfr_tol_enlarge(wp2_rel_decr);
-
-  //////
-  // PARSE
-  //////
   cout << endl; cout << "PARSING..." << endl;
-  struct lnode ***mats_nd;
-  malloc_rk3_tens(mats_nd, ninvs, dim, dim);
   for (int s=0; s<ninvs; s++) {
     // cout << "----------------------------------------" << endl;
     // cout << "s = " << s << endl;
@@ -727,17 +687,39 @@ void generate_poly_frac_DE(
     }
   }
 
+}
+
+
+// <<generate_poly_frac_DE>>
+void generate_poly_frac_DE(
+  // OUTPUT
+  poly_frac ***pfmat,
+  int *zero_label, int *nroots, mpc_t **roots, mpfr_t **tols,
+  // INPUT
+  int ep, lnode ***mats_nd,
+  int nroots_branch, mpc_t *roots_branch, mpfr_t *tols_branch,
+  int ninvs, int *is_mass,
+  poly_frac *pspf,
+  int *skip_inv, char ***ep_kin,
+  int dim,
+  int nbranches, int *branch_deg,
+  char **eps_str,
+  FILE *terminal
+  // ,
+  // char *file_ext, char *filepath_matrix, char *filepath_roots,
+  // int opt_write
+) {
+
+
+  poly_frac ***pfmats;
+  malloc_rk3_tens(pfmats, ninvs, dim, dim);
+
+
   //////
   // DECODE
   //////
   cout << "DECODING..." << endl;
   // int nroots_ini = *nroots;
-
-  fprintf(terminal, "process mat: "); fflush(terminal); usleep(sleep_time);
-  for (int ep=0; ep<eps_num; ep++) {
-    if (ep > 0) {fprintf(terminal, "\033[22D\033[K");}// fflush(terminal); usleep(sleep_time);}
-    fprintf(terminal, "eps value %3d /%3d... ", ep, eps_num-1); fflush(terminal); usleep(sleep_time);
-    fprintf(stdout, "\n############################################## ep = %d\n", ep);
 		
 		ep_kin[0][0] = strdup(eps_str[ep]);
 		// cout << "eps = " << ep_kin[0][0] << endl;
@@ -887,22 +869,7 @@ void generate_poly_frac_DE(
     int_rk0_mpc_rk1_to_file(tmp_filepath, roots[ep], nroots[ep], zero_label[ep]);
     mpc_rk1_clear(roots[ep], nroots[ep]);
     delete[] roots[ep];
-  }
-  fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
-  fprintf(terminal, "\033[13D\033[K"); fflush(terminal); usleep(sleep_time);
 
-  // FREE
-  for (int s=0; s<ninvs; s++) {
-    if (skip_inv[s] == 1) {
-      continue;
-    }
-    for (int i=0; i<dim; i++) {
-      for (int j=0; j<dim; j++) {
-        lnode_free(&mats_nd[s][i][j]);
-      }
-    }
-  }
-  del_rk3_tens(mats_nd, ninvs, dim);
   del_rk3_tens(pfmats, ninvs, dim);
 
 }
