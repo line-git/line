@@ -6315,17 +6315,17 @@ void propagate_all_eps(
     snprintf(tmp_filepath_pfmat, sizeof(tmp_filepath_pfmat), "%s%s%d%s", filepath_cache, "pfmat", ep, ".txt");
     snprintf(tmp_filepath_roots, sizeof(tmp_filepath_roots), "%s%s%d%s", filepath_cache, "roots", ep, ".txt");
   }
-  // MATRIX
-  cout << endl; cout << "reading poly_frac DE from file " << tmp_filepath_pfmat << endl;
-  malloc_rk2_tens(pfmat[ep], dim, dim);
-  poly_frac_rk2_build(pfmat[ep], dim, dim);
-  poly_frac_rk2_from_file(tmp_filepath_pfmat, pfmat[ep], dim, dim);
-  // ROOTS
-  cout << "reading mpc_t roots from file " << tmp_filepath_roots << endl;
-  nroots[ep] = count_lines(tmp_filepath_roots) - 1;
-  roots[ep] = new mpc_t[nroots[ep]];
-  init_rk1_mpc(roots[ep], nroots[ep]);
-  int_rk0_mpc_rk1_from_file(tmp_filepath_roots, roots[ep], nroots[ep], &zero_label[ep]);
+  // // MATRIX
+  // cout << endl; cout << "reading poly_frac DE from file " << tmp_filepath_pfmat << endl;
+  // malloc_rk2_tens(pfmat[ep], dim, dim);
+  // poly_frac_rk2_build(pfmat[ep], dim, dim);
+  // poly_frac_rk2_from_file(tmp_filepath_pfmat, pfmat[ep], dim, dim);
+  // // ROOTS
+  // cout << "reading mpc_t roots from file " << tmp_filepath_roots << endl;
+  // nroots[ep] = count_lines(tmp_filepath_roots) - 1;
+  // roots[ep] = new mpc_t[nroots[ep]];
+  // init_rk1_mpc(roots[ep], nroots[ep]);
+  // int_rk0_mpc_rk1_from_file(tmp_filepath_roots, roots[ep], nroots[ep], &zero_label[ep]);
 
   //////
   // LOAD BOUNDARY
@@ -6445,11 +6445,11 @@ void propagate_all_eps(
   // wp2 = wp2_orig;
   // if (ep == 2) exit(0); // #dbg
 
-  // FREE
-  poly_frac_rk2_free(pfmat[ep], dim, dim);
-  del_rk2_tens(pfmat[ep], dim);
-  mpc_rk1_clear(roots[ep], nroots[ep]);
-  delete[] roots[ep];
+  // // FREE
+  // poly_frac_rk2_free(pfmat[ep], dim, dim);
+  // del_rk2_tens(pfmat[ep], dim);
+  // mpc_rk1_clear(roots[ep], nroots[ep]);
+  // delete[] roots[ep];
 
 }
 

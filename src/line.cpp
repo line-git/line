@@ -953,9 +953,8 @@ int main(int argc, char *argv[])
     case -2:
     case -1:
     case 0:
-      break;
     case 1:
-      goto goto_checkpoint1;
+      break;
     case 2:
       goto goto_checkpoint2;
     default:
@@ -1035,6 +1034,10 @@ int main(int argc, char *argv[])
     fprintf(terminal, "eps value %3d /%3d... ", ep, eps_num-1); fflush(terminal); usleep(sleep_time);
     fprintf(stdout, "\n############################################## ep = %d\n", ep);
 
+    if (opt_checkpoint == 1) {
+      goto goto_eps_loop_checkpoint;
+    }
+
     if (exit_sing == -1) {
       //////
       // BUILD AMF DE
@@ -1090,6 +1093,9 @@ int main(int argc, char *argv[])
       cout << nroots[0] << " roots" << endl;
       print_poly(roots[0], nroots[0]-1);
     }
+    
+    mpfr_rk1_clear(tols[ep], nroots[ep]);
+    delete[] tols[ep];
 
     //////
     // BUILD PATH
@@ -1122,7 +1128,7 @@ int main(int argc, char *argv[])
     }
 
     //////
-    // CHECKPOINT 1
+    // WRITE/COMPARE DE AND PATH
     //////
     int write;
     switch (opt_write) {
@@ -1155,30 +1161,103 @@ int main(int argc, char *argv[])
       );
     }
 
+    // //////
+    // // CACHE
+    // //////
+    // // MATRIX
+    // char tmp_filepath[MAX_PATH_LEN];
+    // snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%s%d%s", filepath_cache, "pfmat", ep, ".txt");
+    // cout << endl; cout << "writing to " << tmp_filepath << endl;
+    // poly_frac_rk2_to_file(
+    //   tmp_filepath,
+    //   pfmat[ep], dim, dim
+    // );
+
+    // // ROOTS
+    // snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%s%d%s", filepath_cache, "roots", ep, ".txt");
+    // cout << "writing to " << tmp_filepath << endl;
+    // int_rk0_mpc_rk1_to_file(tmp_filepath, roots[ep], nroots[ep], zero_label[ep]);
+
     //////
-    // CACHE
+    // CHECKPOINT
     //////
-    // MATRIX
-    char tmp_filepath[MAX_PATH_LEN];
-    snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%s%d%s", filepath_cache, "pfmat", ep, ".txt");
-    cout << endl; cout << "writing to " << tmp_filepath << endl;
-    poly_frac_rk2_to_file(
-      tmp_filepath,
-      pfmat[ep], dim, dim
+    goto_eps_loop_checkpoint:
+    if (opt_checkpoint == -1) {
+      goto goto_eps_loop_continue;
+    } else if (opt_checkpoint == 1) {
+      //////
+      // LOAD POLY_FRAC DE
+      //////
+      // MATRIX
+      snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_matrix, ep, file_ext);
+      cout << endl; cout << "reading poly_frac DE from file " << tmp_filepath << endl;
+      malloc_rk2_tens(pfmat[ep], dim, dim);
+      poly_frac_rk2_build(pfmat[ep], dim, dim);
+      poly_frac_rk2_from_file(tmp_filepath, pfmat[ep], dim, dim);
+      // ROOTS
+      snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_roots, ep, file_ext);
+      cout << "reading mpc_t roots from file " << tmp_filepath << endl;
+      nroots[ep] = count_lines(tmp_filepath) - 1;
+      roots[ep] = new mpc_t[nroots[ep]];
+      init_rk1_mpc(roots[ep], nroots[ep]);
+      int_rk0_mpc_rk1_from_file(tmp_filepath, roots[ep], nroots[ep], &zero_label[ep]);
+
+      //////
+      // LOAD PATH
+      //////
+      // points
+      snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_path, ep, file_ext);
+      cout << "reading path points from file " << tmp_filepath << endl;
+      neta_values[ep] = count_lines(tmp_filepath);
+      path[ep] = new mpc_t[neta_values[ep]];
+      init_rk1_mpc(path[ep], neta_values[ep]);
+      mpc_rk1_from_file(tmp_filepath, path[ep], neta_values[ep]);
+      // tags
+      snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_path_tags, ep, file_ext);
+      cout << "reading path tags from file " << tmp_filepath << endl;
+      path_tags[ep] = new int[neta_values[ep]];
+      int_rk1_from_file(tmp_filepath, path_tags[ep], neta_values[ep]);
+      // singular labels
+      snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_sing_lab, ep, file_ext);
+      cout << "reading singular labels from file " << tmp_filepath << endl;
+      nsings[ep] = count_lines(tmp_filepath);
+      sing_lab[ep] = new int[nsings[ep]];
+      int_rk1_from_file(tmp_filepath, sing_lab[ep], nsings[ep]);
+    }
+
+    //////
+    // SOLVE DE
+    //////
+    fprintf(terminal, "propagate: "); fflush(terminal); usleep(sleep_time);
+    propagate_all_eps(
+      // OUTPUT
+      sol_at_eps,
+      // INPUT
+      ep, exit_sing, nloops,
+      pfmat,
+      zero_label, nroots, roots,
+      neta_values, path, path_tags, nsings, sing_lab,
+      solutions, dim, eta_ord,
+      eps_num, eps_str,
+      ninvs, PS_ini, PS_fin, symbols,
+      is_mass, skip_inv,
+      nbranches, branch_deg, branch_poly, branch_sing_lab,
+      // bound_behav, mi_eig, mi_eig_num,
+      gen_bound, filepath_bound, bound,
+      filepath_bound_build, filepath_bound_behav,
+      // filepath_matrix, filepath_roots, // filepath_branch_sing_lab,
+      filepath_path, filepath_path_tags, filepath_sol, dir_partial,
+      file_ext, logfptr, opt_write, opt_checkpoint,
+      terminal
     );
+    fprintf(terminal, "\033[11D\033[K"); fflush(terminal); usleep(sleep_time);
 
-    // ROOTS
-    snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%s%d%s", filepath_cache, "roots", ep, ".txt");
-    cout << "writing to " << tmp_filepath << endl;
-    int_rk0_mpc_rk1_to_file(tmp_filepath, roots[ep], nroots[ep], zero_label[ep]);
-
+    goto_eps_loop_continue:
     // FREE
     poly_frac_rk2_free(pfmat[ep], dim, dim);
     del_rk2_tens(pfmat[ep], dim);
     mpc_rk1_clear(roots[ep], nroots[ep]);
     delete[] roots[ep];
-    mpfr_rk1_clear(tols[ep], nroots[ep]);
-    delete[] tols[ep];
   }
   fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
 
@@ -1253,51 +1332,8 @@ int main(int argc, char *argv[])
     del_rk3_tens(mats_nd, ninvs, dim);
   }
 
-  goto_checkpoint1:
-  switch (opt_checkpoint) {
-    case -1:
-      goto goto_exit;
-    case 1:
-      //////
-      // LOAD PATH
-      //////
-      for (int ep=0; ep<eps_num; ep++) {
-        // PATH
-        // points
-        snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_path, ep, file_ext);
-        cout << "reading path points from file " << tmp_filepath << endl;
-        neta_values[ep] = count_lines(tmp_filepath);
-        path[ep] = new mpc_t[neta_values[ep]];
-        init_rk1_mpc(path[ep], neta_values[ep]);
-        mpc_rk1_from_file(tmp_filepath, path[ep], neta_values[ep]);
-        // tags
-        snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_path_tags, ep, file_ext);
-        cout << "reading path tags from file " << tmp_filepath << endl;
-        path_tags[ep] = new int[neta_values[ep]];
-        int_rk1_from_file(tmp_filepath, path_tags[ep], neta_values[ep]);
-        // singular labels
-        snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_sing_lab, ep, file_ext);
-        cout << "reading singular labels from file " << tmp_filepath << endl;
-        nsings[ep] = count_lines(tmp_filepath);
-        sing_lab[ep] = new int[nsings[ep]];
-        int_rk1_from_file(tmp_filepath, sing_lab[ep], nsings[ep]);
-      }
-
-      cout << endl; cout << "PATH (1st epsilon):" << endl;
-      cout << neta_values[0] << " points" << endl;
-      for (int i=0; i<neta_values[0]; i++) {
-        cout << i << ". tag: " << path_tags[0][i] << ", point: ";
-        print_mpc(&path[0][i]); cout << endl;
-      }
-
-      break;
-  
-    case -2:
-    case 0:
-      break;
-    default:
-      perror("no valid checkpoint option");
-      exit(1);
+  if (opt_checkpoint == -1) {
+    goto goto_exit;
   }
 
   // cache path info
@@ -1305,53 +1341,6 @@ int main(int argc, char *argv[])
     log_param((char*)"num-propag", neta_values[0]-1, filepath_run_info, "a");
     log_param((char*)"num-sing-propag", nsings[0], filepath_run_info, "a");
   }
-
-  //////
-  // SOLVE DE
-  //////
-
-  //////
-  // EPSILON LOOP
-  //////
-  // goto goto_interpolate;
-  if (opt_all_eps == 0) {
-    eps_num = 1;
-  }
-  
-  fprintf(terminal, "propagate: "); fflush(terminal); usleep(sleep_time);
-  for (int ep=0; ep<eps_num; ep++) {
-    if (ep > 0) {fprintf(terminal, "\033[22D\033[K");}// fflush(terminal); usleep(sleep_time);}
-    fprintf(terminal, "eps value %3d /%3d... ", ep, eps_num-1); fflush(terminal); usleep(sleep_time);
-    // epv = (numeric) eps_str[ep];
-    fprintf(logfptr, "\n############################################## ep =  %d\n", ep);
-    // progfile << "############################################## epv = " << epv << endl;
-    propagate_all_eps(
-      // OUTPUT
-      sol_at_eps,
-      // INPUT
-      ep, exit_sing, nloops,
-      pfmat,
-      zero_label, nroots, roots,
-      neta_values, path, path_tags, nsings, sing_lab,
-      solutions, dim, eta_ord,
-      eps_num, eps_str,
-      ninvs, PS_ini, PS_fin, symbols,
-      is_mass, skip_inv,
-      nbranches, branch_deg, branch_poly, branch_sing_lab,
-      // bound_behav, mi_eig, mi_eig_num,
-      gen_bound, filepath_bound, bound,
-      filepath_bound_build, filepath_bound_behav,
-      // filepath_matrix, filepath_roots, // filepath_branch_sing_lab,
-      filepath_path, filepath_path_tags, filepath_sol, dir_partial,
-      file_ext, logfptr, opt_write, opt_checkpoint,
-      terminal
-    );
-
-  }
-  // mpc_rk2_to_file((char*)"sol_at_eps.txt", sol_at_eps, dim, eps_num);
-  fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
-  fprintf(terminal, "\033[11D\033[K"); fflush(terminal); usleep(sleep_time);
-
 
   if (exit_sing == -1) {
     malloc_rk2_tens(sol_at_eps_wrt_cmp, dim_eta_less, eps_num);
@@ -1661,12 +1650,10 @@ int main(int argc, char *argv[])
   }
 
   delete[] zero_label;
-  // for (int ep=0; ep<eps_num; ep++) {
+  for (int ep=0; ep<eps_num; ep++) {
   //   mpc_rk1_clear(roots[ep], nroots[ep]);
   //   delete[] roots[ep];
-  //   mpfr_rk1_clear(tols[ep], nroots[ep]);
-  //   delete[] tols[ep];
-  // }
+  }
   delete[] roots;
   delete[] tols;
   delete[] nroots;
