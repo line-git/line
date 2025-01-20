@@ -3275,26 +3275,26 @@ void kira_IBPs_to_DE_pf(
       }
     }
 
-    //////
-    // CACHE
-    //////
-    // MATRIX
-    char tmp_filepath[MAX_PATH_LEN];
-    snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%s%d%s", filepath_cache, "pfmat", ep, ".txt");
-    cout << endl; cout << "writing to " << tmp_filepath << endl;
-    poly_frac_rk2_to_file(
-      tmp_filepath,
-      pfmat[ep], dim_eta, dim_eta
-    );
-    poly_frac_rk2_free(pfmat[ep], dim_eta, dim_eta);
-    del_rk2_tens(pfmat[ep], dim_eta);
+    // //////
+    // // CACHE
+    // //////
+    // // MATRIX
+    // char tmp_filepath[MAX_PATH_LEN];
+    // snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%s%d%s", filepath_cache, "pfmat", ep, ".txt");
+    // cout << endl; cout << "writing to " << tmp_filepath << endl;
+    // poly_frac_rk2_to_file(
+    //   tmp_filepath,
+    //   pfmat[ep], dim_eta, dim_eta
+    // );
+    // poly_frac_rk2_free(pfmat[ep], dim_eta, dim_eta);
+    // del_rk2_tens(pfmat[ep], dim_eta);
 
-    // ROOTS
-    snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%s%d%s", filepath_cache, "roots", ep, ".txt");
-    cout << "writing to " << tmp_filepath << endl;
-    int_rk0_mpc_rk1_to_file(tmp_filepath, roots[ep], nroots[ep], zero_label[ep]);
-    mpc_rk1_clear(roots[ep], nroots[ep]);
-    delete[] roots[ep];
+    // // ROOTS
+    // snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%s%d%s", filepath_cache, "roots", ep, ".txt");
+    // cout << "writing to " << tmp_filepath << endl;
+    // int_rk0_mpc_rk1_to_file(tmp_filepath, roots[ep], nroots[ep], zero_label[ep]);
+    // mpc_rk1_clear(roots[ep], nroots[ep]);
+    // delete[] roots[ep];
 
     // free memory
     mpc_rk1_clear(roots_bench, nroots_branch);

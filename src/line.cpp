@@ -947,10 +947,6 @@ int main(int argc, char *argv[])
   // print_poly(branch_roots, nbranch_roots-1);
 
   //////
-  // LOAD BOUNDARY
-  //////
-
-  //////
   // GO TO CHECKPOINT
   //////
   switch (opt_checkpoint) {
@@ -968,20 +964,37 @@ int main(int argc, char *argv[])
   }
 
   //////
-  // GENERATE DE
+  // PREPROCESSING FOR DE
   //////
-  if (exit_sing == -1) {
-  // if (0 && exit_sing == -1) {
+  int max_num_contr;
+  mpz_t ******coeffs_num_den;
+  int ******pows_num_den;
+  int *****nterms_num_den;
+  lnode_pf ***der_ndpf;
+  char ****kira_str;
 
-    int max_num_contr = LI_get_r(&MI_eta[dim-1]);
-    mpz_t ******coeffs_num_den;
+  struct lnode ***mats_nd;
+
+  if (exit_sing == -1) {
+    //////
+    // PROCESS IBPs FROM KIRA
+    //////
+    max_num_contr = LI_get_r(&MI_eta[dim-1]);
     malloc_rk4_tens(coeffs_num_den, dim, max_num_contr, dim, 2);
-    int ******pows_num_den;
     malloc_rk4_tens(pows_num_den, dim, max_num_contr, dim, 2);
-    int *****nterms_num_den;
     malloc_rk4_tens(nterms_num_den, dim, max_num_contr, dim, 2);
-    lnode_pf ***der_ndpf;
     malloc_rk3_tens(der_ndpf, dim, max_num_contr, dim);
+    kira_str = NULL;
+    // // uncomment to proceed with poly_frac check
+    // malloc_rk3_tens(kira_str, dim_eta, max_num_contr, dim_eta);
+    // for (int m=0; m<dim_eta; m++) {
+    //   for (int d=0; d<max_num_contr; d++) {
+    //     for (int n=0; n<dim_eta; n++) {
+    //       kira_str[m][d][n] = NULL;
+    //     }
+    //   }
+    // }
+    
     // initialize to zero every possible contribution
     for (int m=0; m<dim; m++) {
       for (int d=0; d<max_num_contr; d++) {
@@ -992,17 +1005,6 @@ int main(int argc, char *argv[])
       }
     }
 
-    char ****kira_str = NULL;
-    // // uncomment to proceed with poly_frac check
-    // malloc_rk3_tens(kira_str, dim_eta, max_num_contr, dim_eta);
-    // for (int m=0; m<dim_eta; m++) {
-    //   for (int d=0; d<max_num_contr; d++) {
-    //     for (int n=0; n<dim_eta; n++) {
-    //       kira_str[m][d][n] = NULL;
-    //     }
-    //   }
-    // }
-
     process_kira_IBPs(
       coeffs_num_den, pows_num_den,
       nterms_num_den, der_ndpf,
@@ -1012,13 +1014,32 @@ int main(int argc, char *argv[])
       MI_eta, dir_amflow,
       terminal
     );
+  } else {
+    //////
+    // PARSE DE MATRICES
+    //////
+    malloc_rk3_tens(mats_nd, ninvs, dim, dim);
 
-    fprintf(terminal, "build AM DE: "); fflush(terminal); usleep(sleep_time);
-    for (int ep=0; ep<eps_num; ep++) {
-      if (ep > 0) {fprintf(terminal, "\033[22D\033[K");}// fflush(terminal); usleep(sleep_time);}
-      fprintf(terminal, "eps value %3d /%3d... ", ep, eps_num-1); fflush(terminal); usleep(sleep_time);
-      fprintf(stdout, "\n############################################## ep = %d\n", ep);
+    parse_DE_str(
+      mats_nd,
+      ninvs, symbols, is_mass, skip_inv,
+      dim, mats_str
+    );
+  }
 
+  //////
+  // EPSILON LOOP
+  //////
+  for (int ep=0; ep<eps_num; ep++) {
+    if (ep > 0) {fprintf(terminal, "\033[22D\033[K");}// fflush(terminal); usleep(sleep_time);}
+    fprintf(terminal, "eps value %3d /%3d... ", ep, eps_num-1); fflush(terminal); usleep(sleep_time);
+    fprintf(stdout, "\n############################################## ep = %d\n", ep);
+
+    if (exit_sing == -1) {
+      //////
+      // BUILD AMF DE
+      //////
+      fprintf(terminal, "build AM DE: "); fflush(terminal); usleep(sleep_time);
       kira_IBPs_to_DE_pf(
         pfmat,
         zero_label, nroots, roots, tols,
@@ -1036,91 +1057,12 @@ int main(int argc, char *argv[])
         kira_str,
         terminal
       );
-    }
-    fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
-    fprintf(terminal, "\033[13D\033[K"); fflush(terminal); usleep(sleep_time);
-
-    // FREE
-    if (kira_str) {
-      for (int m=0; m<dim; m++) {
-        for (int d=0; d<max_num_contr; d++) {
-          for (int n=0; n<dim; n++) {
-            if (kira_str[m][d][n]) {
-              free(kira_str[m][d][n]);
-            }
-          }
-        }
-      }
-      del_rk3_tens(kira_str, dim, max_num_contr);
-    }
-
-    for (int m=0; m<dim; m++) {
-      for (int d=0; d<MI_eta[m].nmass; d++) {
-        for (int n=0; n<dim; n++) {
-          if (der_ndpf[m][d][n].info == -1) {
-            continue;
-          } else if (der_ndpf[m][d][n].info == 1) {
-            continue;
-          }
-
-          if (der_ndpf[m][d][n].info == 2) {
-            free(der_ndpf[m][d][n].num_pows);
-            free(der_ndpf[m][d][n].den_pows);
-
-            for (int nt=0; nt<der_ndpf[m][d][n].num_nterms; nt++) {
-              mpz_rk1_clear(coeffs_num_den[m][d][n][0][nt], nterms_num_den[m][d][n][0][nt]);
-              delete[] coeffs_num_den[m][d][n][0][nt];
-              free(pows_num_den[m][d][n][0][nt]);
-            }
-            delete[] coeffs_num_den[m][d][n][0];
-            delete[] pows_num_den[m][d][n][0];
-            delete[] nterms_num_den[m][d][n][0];
-
-            if (der_ndpf[m][d][n].den_is_one) {
-              continue;
-            }
-
-            for (int nt=0; nt<der_ndpf[m][d][n].den_nterms; nt++) {
-              mpz_rk1_clear(coeffs_num_den[m][d][n][1][nt], nterms_num_den[m][d][n][1][nt]);
-              delete[] coeffs_num_den[m][d][n][1][nt];
-              free(pows_num_den[m][d][n][1][nt]);
-            }
-            delete[] coeffs_num_den[m][d][n][1];
-            delete[] pows_num_den[m][d][n][1];
-            delete[] nterms_num_den[m][d][n][1];
-          }
-        }
-      }
-    }
-    del_rk4_tens(coeffs_num_den, dim, max_num_contr, dim);
-    del_rk4_tens(pows_num_den, dim, max_num_contr, dim);
-    del_rk4_tens(nterms_num_den, dim, max_num_contr, dim);
-    del_rk3_tens(der_ndpf, dim, max_num_contr);
-
-
-  } else {
-
-    //////
-    // PARSE
-    //////
-    struct lnode ***mats_nd;
-    malloc_rk3_tens(mats_nd, ninvs, dim, dim);
-
-    parse_DE_str(
-      mats_nd,
-      ninvs, symbols, is_mass, skip_inv,
-      dim, mats_str
-    );
-
-    fprintf(terminal, "process mat: "); fflush(terminal); usleep(sleep_time);
-    for (int ep=0; ep<eps_num; ep++) {
-      if (ep > 0) {fprintf(terminal, "\033[22D\033[K");}// fflush(terminal); usleep(sleep_time);}
-      fprintf(terminal, "eps value %3d /%3d... ", ep, eps_num-1); fflush(terminal); usleep(sleep_time);
-      fprintf(stdout, "\n############################################## ep = %d\n", ep);
-
+      fprintf(terminal, "\033[13D\033[K"); fflush(terminal); usleep(sleep_time);
+    } else {
       //////
-      // DECODE
+      // DECODE DE MATRICES
       //////
+      fprintf(terminal, "process mat: "); fflush(terminal); usleep(sleep_time);
       generate_poly_frac_DE(
         pfmat,
         zero_label, nroots, roots, tols,
@@ -1134,45 +1076,8 @@ int main(int argc, char *argv[])
         eps_str,
         terminal
       );
+      fprintf(terminal, "\033[13D\033[K"); fflush(terminal); usleep(sleep_time);
     }
-    fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
-    fprintf(terminal, "\033[13D\033[K"); fflush(terminal); usleep(sleep_time);
-
-    // FREE
-    for (int s=0; s<ninvs; s++) {
-      if (skip_inv[s] == 1) {
-        continue;
-      }
-      for (int i=0; i<dim; i++) {
-        for (int j=0; j<dim; j++) {
-          lnode_free(&mats_nd[s][i][j]);
-        }
-      }
-    }
-    del_rk3_tens(mats_nd, ninvs, dim);
-
-  }
-
-  for (int ep=0; ep<eps_num; ep++) {
-    //////
-    // LOAD POLY_FRAC DE
-    //////
-    char tmp_filepath_pfmat[MAX_PATH_LEN];
-    char tmp_filepath_roots[MAX_PATH_LEN];
-    snprintf(tmp_filepath_pfmat, sizeof(tmp_filepath_pfmat), "%s%s%d%s", filepath_cache, "pfmat", ep, ".txt");
-    snprintf(tmp_filepath_roots, sizeof(tmp_filepath_roots), "%s%s%d%s", filepath_cache, "roots", ep, ".txt");
-
-    // MATRIX
-    cout << endl; cout << "reading poly_frac DE from file " << tmp_filepath_pfmat << endl;
-    malloc_rk2_tens(pfmat[ep], dim, dim);
-    poly_frac_rk2_build(pfmat[ep], dim, dim);
-    poly_frac_rk2_from_file(tmp_filepath_pfmat, pfmat[ep], dim, dim);
-    // ROOTS
-    cout << "reading mpc_t roots from file " << tmp_filepath_roots << endl;
-    nroots[ep] = count_lines(tmp_filepath_roots) - 1;
-    roots[ep] = new mpc_t[nroots[ep]];
-    init_rk1_mpc(roots[ep], nroots[ep]);
-    int_rk0_mpc_rk1_from_file(tmp_filepath_roots, roots[ep], nroots[ep], &zero_label[ep]);
 
     if (ep == 0) {
       if (print) {
@@ -1251,14 +1156,101 @@ int main(int argc, char *argv[])
     }
 
     //////
-    // FREE DE
+    // CACHE
     //////
+    // MATRIX
+    char tmp_filepath[MAX_PATH_LEN];
+    snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%s%d%s", filepath_cache, "pfmat", ep, ".txt");
+    cout << endl; cout << "writing to " << tmp_filepath << endl;
+    poly_frac_rk2_to_file(
+      tmp_filepath,
+      pfmat[ep], dim, dim
+    );
+
+    // ROOTS
+    snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%s%d%s", filepath_cache, "roots", ep, ".txt");
+    cout << "writing to " << tmp_filepath << endl;
+    int_rk0_mpc_rk1_to_file(tmp_filepath, roots[ep], nroots[ep], zero_label[ep]);
+
+    // FREE
     poly_frac_rk2_free(pfmat[ep], dim, dim);
     del_rk2_tens(pfmat[ep], dim);
     mpc_rk1_clear(roots[ep], nroots[ep]);
     delete[] roots[ep];
     mpfr_rk1_clear(tols[ep], nroots[ep]);
     delete[] tols[ep];
+  }
+  fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
+
+  // FREE
+  if (exit_sing == -1) {
+    if (kira_str) {
+      for (int m=0; m<dim; m++) {
+        for (int d=0; d<max_num_contr; d++) {
+          for (int n=0; n<dim; n++) {
+            if (kira_str[m][d][n]) {
+              free(kira_str[m][d][n]);
+            }
+          }
+        }
+      }
+      del_rk3_tens(kira_str, dim, max_num_contr);
+    }
+
+    for (int m=0; m<dim; m++) {
+      for (int d=0; d<MI_eta[m].nmass; d++) {
+        for (int n=0; n<dim; n++) {
+          if (der_ndpf[m][d][n].info == -1) {
+            continue;
+          } else if (der_ndpf[m][d][n].info == 1) {
+            continue;
+          }
+
+          if (der_ndpf[m][d][n].info == 2) {
+            free(der_ndpf[m][d][n].num_pows);
+            free(der_ndpf[m][d][n].den_pows);
+
+            for (int nt=0; nt<der_ndpf[m][d][n].num_nterms; nt++) {
+              mpz_rk1_clear(coeffs_num_den[m][d][n][0][nt], nterms_num_den[m][d][n][0][nt]);
+              delete[] coeffs_num_den[m][d][n][0][nt];
+              free(pows_num_den[m][d][n][0][nt]);
+            }
+            delete[] coeffs_num_den[m][d][n][0];
+            delete[] pows_num_den[m][d][n][0];
+            delete[] nterms_num_den[m][d][n][0];
+
+            if (der_ndpf[m][d][n].den_is_one) {
+              continue;
+            }
+
+            for (int nt=0; nt<der_ndpf[m][d][n].den_nterms; nt++) {
+              mpz_rk1_clear(coeffs_num_den[m][d][n][1][nt], nterms_num_den[m][d][n][1][nt]);
+              delete[] coeffs_num_den[m][d][n][1][nt];
+              free(pows_num_den[m][d][n][1][nt]);
+            }
+            delete[] coeffs_num_den[m][d][n][1];
+            delete[] pows_num_den[m][d][n][1];
+            delete[] nterms_num_den[m][d][n][1];
+          }
+        }
+      }
+    }
+    del_rk4_tens(coeffs_num_den, dim, max_num_contr, dim);
+    del_rk4_tens(pows_num_den, dim, max_num_contr, dim);
+    del_rk4_tens(nterms_num_den, dim, max_num_contr, dim);
+    del_rk3_tens(der_ndpf, dim, max_num_contr);
+  } else {
+    for (int s=0; s<ninvs; s++) {
+      if (skip_inv[s] == 1) {
+        continue;
+      }
+      for (int i=0; i<dim; i++) {
+        for (int j=0; j<dim; j++) {
+          lnode_free(&mats_nd[s][i][j]);
+        }
+      }
+    }
+    del_rk3_tens(mats_nd, ninvs, dim);
   }
 
   goto_checkpoint1:
@@ -1267,7 +1259,7 @@ int main(int argc, char *argv[])
       goto goto_exit;
     case 1:
       //////
-      // LOAD POLY_FRAC DE FROM FILE
+      // LOAD PATH
       //////
       for (int ep=0; ep<eps_num; ep++) {
         // PATH
