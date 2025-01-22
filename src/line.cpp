@@ -6,6 +6,7 @@
 // #include <string>
 // #include <cmath>
 // #include <complex>
+#include <omp.h>
 #include "mpc.h"
 
 using namespace std;
@@ -468,7 +469,7 @@ int main(int argc, char *argv[])
   cout << "binary workprec = " << wp2 << endl;
   cout << "mpfr tolerance = "; mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
   
-  cout << endl; cout << "EPSILON VALUES: " << endl;
+  cout << endl; cout << eps_num << " EPSILON VALUES: " << endl;
   for (int ep=0 ; ep<eps_num ; ep++) {
     cout << eps_str[ep] << endl;
   }
@@ -857,10 +858,6 @@ int main(int argc, char *argv[])
   int *nsings_mp = new int[eps_num];
 
   // SOLUTIONS
-  mpc_t ***solutions;
-  solutions = new mpc_t**[1];
-  malloc_rk2_tens(*solutions, dim, eta_ord+1);
-  init_rk2_mpc(*solutions, dim, eta_ord+1);
   mpc_t **sol_at_eps;
   malloc_rk2_tens(sol_at_eps, dim, eps_num);
   init_rk2_mpc(sol_at_eps, dim, eps_num);
@@ -1031,10 +1028,26 @@ int main(int argc, char *argv[])
   //////
   // EPSILON LOOP
   //////
+  poly_frac **pspf_ep;
+  malloc_rk2_tens(pspf_ep, eps_num, ninvs+1);
+  poly_frac_rk2_build(pspf_ep, eps_num, ninvs+1);
+  #pragma omp parallel for num_threads(17)
   for (int ep=0; ep<eps_num; ep++) {
     if (ep > 0) {fprintf(terminal, "\033[22D\033[K");}// fflush(terminal); usleep(sleep_time);}
     fprintf(terminal, "eps value %3d /%3d... ", ep, eps_num-1); fflush(terminal); usleep(sleep_time);
     fprintf(stdout, "\n############################################## ep = %d\n", ep);
+    
+    // set private variables
+    mpfr_tol_set();
+    for (int s=1; s<=ninvs; s++) {
+      poly_frac_set_pf(&pspf_ep[ep][s], &pspf[s]);
+    }
+
+    // SOLUTIONS
+    mpc_t ***solutions;
+    solutions = new mpc_t**[1];
+    malloc_rk2_tens(*solutions, dim, eta_ord+1);
+    init_rk2_mpc(*solutions, dim, eta_ord+1);
 
     if (opt_checkpoint == 1) {
       goto goto_eps_loop_checkpoint;
@@ -1053,7 +1066,7 @@ int main(int argc, char *argv[])
         zero_label, nroots, roots, tols,
         ep, nbranch_roots, branch_roots, branch_tols,
         ninvs, symbols, is_mass,
-        pspf,
+        pspf_ep[ep],
         skip_inv, ep_kin,
         dim, mats_str,
         nbranches, branch_deg,
@@ -1077,7 +1090,7 @@ int main(int argc, char *argv[])
         ep, mats_nd,
         nbranch_roots, branch_roots, branch_tols,
         ninvs, is_mass,
-        pspf,
+        pspf_ep[ep],
         skip_inv, ep_kin,
         dim,
         nbranches, branch_deg,
@@ -1086,6 +1099,13 @@ int main(int argc, char *argv[])
       );
       fprintf(terminal, "\033[13D\033[K"); fflush(terminal); usleep(sleep_time);
     }
+
+    // #pragma omp critical
+    // {
+    //   cout << "matrix for ep = " << ep << endl;
+    //   poly_frac_rk2_print(pfmat[ep], dim, dim);
+    // }
+    // continue;
 
     if (ep == 0) {
       if (print) {
@@ -1269,8 +1289,12 @@ int main(int argc, char *argv[])
     del_rk2_tens(pfmat[ep], dim);
     mpc_rk1_clear(roots[ep], nroots[ep]);
     delete[] roots[ep];
+    mpc_rk2_clear(*solutions, dim, eta_ord+1);
+    del_rk2_tens(*solutions, dim);  
+    delete[] solutions;
   }
   fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
+  // exit(0);
 
   if (opt_checkpoint < 1) {
     // FREE
@@ -1671,9 +1695,6 @@ int main(int argc, char *argv[])
     LI_rk1_free(MI_eta, dim);
     delete[] MI_eta;
   }
-  mpc_rk2_clear(*solutions, dim, eta_ord+1);
-  del_rk2_tens(*solutions, dim);  
-  delete[] solutions;
   mpc_rk2_clear(sol_at_eps, dim, eps_num);
   del_rk2_tens(sol_at_eps, dim);
 

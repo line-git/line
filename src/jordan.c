@@ -2,6 +2,7 @@
 // #include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <omp.h>
 
 #include "mpc.h"
 // #include "rel_err_mpc.h"
@@ -34,23 +35,33 @@ int cbal_(int *nm, int *n, mpfr_t *ar, mpfr_t *ai, int *low, int *igh, mpfr_t *s
     mpfr_init2(r__2, wp2);
 
     /* Local variables */
-    static mpfr_t c__;
-    mpfr_init2(c__, wp2);
-    static mpfr_t f;
-    mpfr_init2(f, wp2);
-    static mpfr_t g;
-    mpfr_init2(g, wp2);
-    static int i__, j, k, l, m;
-    static mpfr_t r__;
-    mpfr_init2(r__, wp2);
-    static mpfr_t s;
-    mpfr_init2(s, wp2);
-    static mpfr_t b2;
-    mpfr_init2(b2, wp2);
-    static int jj, iexc;
-    static mpfr_t radix;
-    mpfr_init2(radix, wp2);
-    static bool noconv;
+		static mpfr_t c__;
+		#pragma omp threadprivate(c__)
+		mpfr_init2(c__, wp2);
+		static mpfr_t f;
+		#pragma omp threadprivate(f)
+		mpfr_init2(f, wp2);
+		static mpfr_t g;
+		#pragma omp threadprivate(g)
+		mpfr_init2(g, wp2);
+		static int i__, j, k, l, m;
+		#pragma omp threadprivate(i__, j, k, l, m)
+		static mpfr_t r__;
+		#pragma omp threadprivate(r__)
+		mpfr_init2(r__, wp2);
+		static mpfr_t s;
+		#pragma omp threadprivate(s)
+		mpfr_init2(s, wp2);
+		static mpfr_t b2;
+		#pragma omp threadprivate(b2)
+		mpfr_init2(b2, wp2);
+		static int jj, iexc;
+		#pragma omp threadprivate(jj, iexc)
+		static mpfr_t radix;
+		#pragma omp threadprivate(radix)
+		mpfr_init2(radix, wp2);
+		static bool noconv;
+		#pragma omp threadprivate(noconv)
 
 	mpfr_t cmp0;
 	mpfr_init2(cmp0, wp2);
@@ -409,6 +420,7 @@ int comhes_(int *nm, int *n, int *low, int *igh, mpfr_t *ar, mpfr_t *ai, int *in
     mpc_t q__1;
     mpc_init3(q__1, wp2, wp2);
     static mpc_t *equiv_1 = NULL;
+		#pragma omp threadprivate(equiv_1)
     if (!equiv_1) {
     	equiv_1 = (mpc_t*) malloc(1*sizeof(mpc_t));
     	for (int i=0; i<1; i++) {
@@ -416,6 +428,7 @@ int comhes_(int *nm, int *n, int *low, int *igh, mpfr_t *ar, mpfr_t *ai, int *in
     	}
     }
     	static mpc_t *equiv_3 = NULL;
+			#pragma omp threadprivate(equiv_3)
     	if (!equiv_3) {
     		equiv_3 = (mpc_t*) malloc(1*sizeof(mpc_t));
     		for (int i=0; i<1; i++) {
@@ -427,9 +440,12 @@ int comhes_(int *nm, int *n, int *low, int *igh, mpfr_t *ar, mpfr_t *ai, int *in
     
 
     /* Local variables */
-    static int i__, j, m;
-    static int la;
-    static int mm1, kp1, mp1;
+		static int i__, j, m;
+		#pragma omp threadprivate(i__, j, m)
+		static int la;
+		#pragma omp threadprivate(la)
+		static int mm1, kp1, mp1;
+		#pragma omp threadprivate(mm1, kp1, mp1)
 
 	mpc_t *x = equiv_1;
 	mpc_t *y = equiv_3;
@@ -686,6 +702,7 @@ int comlr2_(int *nm, int *n, int *low, int *igh, int *int__, mpfr_t *hr, mpfr_t 
     mpc_t q__2;
     mpc_init3(q__2, wp2, wp2);
     static mpc_t *equiv_1 = NULL;
+		#pragma omp threadprivate(equiv_1)
     if (!equiv_1) {
     	equiv_1 = (mpc_t*) malloc(1*sizeof(mpc_t));
     	for (int i=0; i<1; i++) {
@@ -693,6 +710,7 @@ int comlr2_(int *nm, int *n, int *low, int *igh, int *int__, mpfr_t *hr, mpfr_t 
     	}
     }
     	static mpc_t *equiv_3 = NULL;
+			#pragma omp threadprivate(equiv_3)
     	if (!equiv_3) {
     		equiv_3 = (mpc_t*) malloc(1*sizeof(mpc_t));
     		for (int i=0; i<1; i++) {
@@ -700,6 +718,7 @@ int comlr2_(int *nm, int *n, int *low, int *igh, int *int__, mpfr_t *hr, mpfr_t 
     		}
     	}
     		static mpc_t *equiv_5 = NULL;
+				#pragma omp threadprivate(equiv_5)
     		if (!equiv_5) {
     			equiv_5 = (mpc_t*) malloc(1*sizeof(mpc_t));
     			for (int i=0; i<1; i++) {
@@ -710,22 +729,32 @@ int comlr2_(int *nm, int *n, int *low, int *igh, int *int__, mpfr_t *hr, mpfr_t 
     /* Builtin functions */
 
     /* Local variables */
-    static int i__, j, k, l, m;
-    static int ii, en, jj, ll, mm, nn;
-    static mpfr_t si;
-    mpfr_init2(si, wp2);
-    static mpfr_t ti;
-    mpfr_init2(ti, wp2);
-    static mpfr_t sr;
-    mpfr_init2(sr, wp2);
-    static mpfr_t tr;
-    mpfr_init2(tr, wp2);
-    static int im1, ip1, mp1, its;
-    static int enm1, iend;
-    static mpfr_t norm;
-    mpfr_init2(norm, wp2);
-    static mpfr_t machep;
-    mpfr_init2(machep, wp2);
+		static int i__, j, k, l, m;
+		#pragma omp threadprivate(i__, j, k, l, m)
+		static int ii, en, jj, ll, mm, nn;
+		#pragma omp threadprivate(ii, en, jj, ll, mm, nn)
+		static mpfr_t si;
+		#pragma omp threadprivate(si)
+		mpfr_init2(si, wp2);
+		static mpfr_t ti;
+		#pragma omp threadprivate(ti)
+		mpfr_init2(ti, wp2);		
+		static mpfr_t sr;
+		#pragma omp threadprivate(sr)
+		mpfr_init2(sr, wp2);
+		static mpfr_t tr;
+		#pragma omp threadprivate(tr)
+		mpfr_init2(tr, wp2);
+		static int im1, ip1, mp1, its;
+		#pragma omp threadprivate(im1, ip1, mp1, its)
+		static int enm1, iend;
+		#pragma omp threadprivate(enm1, iend)
+		static mpfr_t norm;
+		#pragma omp threadprivate(norm)
+		mpfr_init2(norm, wp2);
+		static mpfr_t machep;
+		#pragma omp threadprivate(machep)
+		mpfr_init2(machep, wp2);
 
 	mpc_t *x = equiv_1;
 	mpc_t *y = equiv_3;
@@ -1475,9 +1504,12 @@ int cbabk2_(int *nm, int *n, int *low, int *igh, mpfr_t *scale, int *m, mpfr_t *
 
     /* Local variables */
     static int i__, j, k;
+		#pragma omp threadprivate(i__, j, k)
     static mpfr_t s;
+		#pragma omp threadprivate(s)
     mpfr_init2(s, wp2);
     static int ii;
+		#pragma omp threadprivate(ii)
 
 
 
@@ -1621,7 +1653,8 @@ int decide_(int *nm, int *n, int *ndel, mpfr_t *cshtr, mpfr_t *cshti, int *nbloc
     
 
     /* Local variables */
-    static int k, mult;
+		static int k, mult;
+		#pragma omp threadprivate(k, mult)
 
 
 
@@ -1691,6 +1724,7 @@ int csvd1_(mpc_t *a, int *mmax, int *nmax, int *m, int *n, int *p, int *nu, int 
     /* Initialized data */
 
     static mpfr_t eta;
+		#pragma omp threadprivate(eta)
     mpfr_init2(eta, wp2);
 	mpfr_set_d(eta, 2, MPFR_RNDN);
     // mpfr_set_d(eta, 10, MPFR_RNDN);
@@ -1716,6 +1750,7 @@ int csvd1_(mpc_t *a, int *mmax, int *nmax, int *m, int *n, int *p, int *nu, int 
 
     /* Local variables */
     static mpfr_t *b = NULL;
+		#pragma omp threadprivate(b)
 		if (reallc) {
 			// printf("reallc option activated\n");
 			if (b) {
@@ -1732,6 +1767,7 @@ int csvd1_(mpc_t *a, int *mmax, int *nmax, int *m, int *n, int *p, int *nu, int 
 			}
 		}
 		static mpfr_t *c__ = NULL;
+		#pragma omp threadprivate(c__)
 		if (reallc) {
 			// printf("reallc option activated\n");
 			if (c__) {
@@ -1748,6 +1784,7 @@ int csvd1_(mpc_t *a, int *mmax, int *nmax, int *m, int *n, int *p, int *nu, int 
 			}
 		}
 		static mpfr_t *t = NULL;
+		#pragma omp threadprivate(t)
 		if (reallc) {
 			// printf("reallc option activated\n");
 			if (t) {
@@ -1764,35 +1801,51 @@ int csvd1_(mpc_t *a, int *mmax, int *nmax, int *m, int *n, int *p, int *nu, int 
 			}
 		}
 
-    static mpfr_t f;
-    mpfr_init2(f, wp2);
-    static mpfr_t g;
-    mpfr_init2(g, wp2);
-    static mpfr_t h__;
-    mpfr_init2(h__, wp2);
-    static int i__, j, k, l;
-    static mpc_t q;
-    mpc_init3(q, wp2, wp2);
-    static mpc_t r__;
-    mpc_init3(r__, wp2, wp2);
-    static mpfr_t w;
-    mpfr_init2(w, wp2);
-    static mpfr_t x;
-    mpfr_init2(x, wp2);
-    static mpfr_t y;
-    mpfr_init2(y, wp2);
-    static mpfr_t z__;
-    mpfr_init2(z__, wp2);
-    static int k1, l1, n1, kk;
-    static mpfr_t cs;
-    mpfr_init2(cs, wp2);
-    static int ll, np;
-    static mpfr_t sn;
-    mpfr_init2(sn, wp2);
-    static mpfr_t eps;
-    mpfr_init2(eps, wp2);
-    static mpfr_t tol;
-    mpfr_init2(tol, wp2);
+		static mpfr_t f;
+		#pragma omp threadprivate(f)
+		mpfr_init2(f, wp2);
+		static mpfr_t g;
+		#pragma omp threadprivate(g)
+		mpfr_init2(g, wp2);
+		static mpfr_t h__;
+		#pragma omp threadprivate(h__)
+		mpfr_init2(h__, wp2);
+		static int i__, j, k, l;
+		#pragma omp threadprivate(i__, j, k, l)
+		static mpc_t q;
+		#pragma omp threadprivate(q)
+		mpc_init3(q, wp2, wp2);
+		static mpc_t r__;
+		#pragma omp threadprivate(r__)
+		mpc_init3(r__, wp2, wp2);
+		static mpfr_t w;
+		#pragma omp threadprivate(w)
+		mpfr_init2(w, wp2);
+		static mpfr_t x;
+		#pragma omp threadprivate(x)
+		mpfr_init2(x, wp2);
+		static mpfr_t y;
+		#pragma omp threadprivate(y)
+		mpfr_init2(y, wp2);
+		static mpfr_t z__;
+		#pragma omp threadprivate(z__)
+		mpfr_init2(z__, wp2);
+		static int k1, l1, n1, kk;
+		#pragma omp threadprivate(k1, l1, n1, kk)
+		static mpfr_t cs;
+		#pragma omp threadprivate(cs)
+		mpfr_init2(cs, wp2);
+		static int ll, np;
+		#pragma omp threadprivate(ll, np)
+		static mpfr_t sn;
+		#pragma omp threadprivate(sn)
+		mpfr_init2(sn, wp2);
+		static mpfr_t eps;
+		#pragma omp threadprivate(eps)
+		mpfr_init2(eps, wp2);
+		static mpfr_t tol;
+		#pragma omp threadprivate(tol)
+		mpfr_init2(tol, wp2);
 
 	/* *********************************************************************** */
 
@@ -2805,9 +2858,13 @@ int rdefl_(int *nm, int *n, int *kb, int *ndef, mpfr_t *hr, mpfr_t *hi, mpfr_t *
     /* Local variables */
 	/* was [20][20] */
     static mpc_t *h__ = NULL;
+	#pragma omp threadprivate(h__)
 	static mpfr_t *s = NULL;
+	#pragma omp threadprivate(s)
 	static mpc_t *u = NULL;
+	#pragma omp threadprivate(u)
 	static mpc_t *v = NULL;
+	#pragma omp threadprivate(v)
 
 	// if (first_call) {
 	// 	h__ = NULL;
@@ -2833,6 +2890,7 @@ int rdefl_(int *nm, int *n, int *kb, int *ndef, mpfr_t *hr, mpfr_t *hi, mpfr_t *
 	}
 	 
     static int i__, j, k;
+		#pragma omp threadprivate(i__, j, k)
     
 	if (reallc) {
 		// printf("reallc option activated\n");
@@ -2884,16 +2942,22 @@ int rdefl_(int *nm, int *n, int *kb, int *ndef, mpfr_t *hr, mpfr_t *hi, mpfr_t *
 		}
 	}
 
-    static mpfr_t t1;
-    mpfr_init2(t1, wp2);
-    static mpfr_t t2;
-    mpfr_init2(t2, wp2);
-    static int id;
-    static mpc_t hij;
-    mpc_init3(hij, wp2, wp2);
-    static mpc_t zij;
-    mpc_init3(zij, wp2, wp2);
-    static int mmax;
+		static mpfr_t t1;
+		#pragma omp threadprivate(t1)
+		mpfr_init2(t1, wp2);
+		static mpfr_t t2;
+		#pragma omp threadprivate(t2)
+		mpfr_init2(t2, wp2);
+		static int id;
+		#pragma omp threadprivate(id)
+		static mpc_t hij;
+		#pragma omp threadprivate(hij)
+		mpc_init3(hij, wp2, wp2);
+		static mpc_t zij;
+		#pragma omp threadprivate(zij)
+		mpc_init3(zij, wp2, wp2);
+		static int mmax;
+		#pragma omp threadprivate(mmax)
 
     /* Fortran I/O blocks */
 
@@ -3262,6 +3326,7 @@ void jordan(mpc_t **jor, mpc_t **t_mat, int **ein_pos, int *num_ein, mpfr_t *ar,
     int low = 0, igh = 0;
 
     static int nblock;
+		#pragma omp threadprivate(nblock)
     int hr_dim1, hr_offset, hi_dim1, hi_offset, zr_dim1, zr_offset, zi_dim1, zi_offset, i__1, i__2, i__3, i__4, i__5, i__6, i__7, i__8, i__9, i__10, i__11;
     mpfr_t r__1;
     mpfr_init2(r__1, wp2);
@@ -3273,8 +3338,10 @@ void jordan(mpc_t **jor, mpc_t **t_mat, int **ein_pos, int *num_ein, mpfr_t *ar,
     mpfr_init2(r__4, wp2);
     // static int i__, j, k, l;
     static mpfr_t fn;
+		#pragma omp threadprivate(fn)
     mpfr_init2(fn, wp2);
     static mpfr_t told;
+		#pragma omp threadprivate(told)
     mpfr_init2(told, wp2);
     int int__[N];
     int ierr;
@@ -3339,8 +3406,10 @@ void jordan(mpc_t **jor, mpc_t **t_mat, int **ein_pos, int *num_ein, mpfr_t *ar,
 
     /*   *  MAIN      MACHEP    RELATIVE MACHINE PRECISION (F.P.) */
     static mpfr_t pc1;
+		#pragma omp threadprivate(pc1)
     mpfr_init2(pc1, wp2);
     static mpfr_t pc2;
+		#pragma omp threadprivate(pc2)
     mpfr_init2(pc2, wp2);
 // mpfr_set_d(pc1, 10, MPFR_RNDN);
 // mpfr_pow_si(pc1, pc1, 2, MPFR_RNDN);
@@ -3368,6 +3437,7 @@ void jordan(mpc_t **jor, mpc_t **t_mat, int **ein_pos, int *num_ein, mpfr_t *ar,
 
 	/* pc1; */
     static mpfr_t machep;
+		#pragma omp threadprivate(machep)
     mpfr_init2(machep, wp2);
     mpfr_set_d(machep, 2, MPFR_RNDN);
 	mpfr_pow_si(machep, machep, - ((int) wp2), MPFR_RNDN);
@@ -3408,6 +3478,7 @@ mpfr_mul(tol, pc2, machep, MPFR_RNDN);
     mpfr_t shti;
     mpfr_init2(shti, wp2);
 	static mpfr_t rsum;
+	#pragma omp threadprivate(rsum)
 	mpfr_init2(rsum, wp2);
     mpfr_t *dt = (mpfr_t*) malloc(N*sizeof(mpfr_t));
     for (int i=0; i<N; i++) {
@@ -3458,6 +3529,7 @@ mpfr_mul(tol, pc2, machep, MPFR_RNDN);
     mpfr_init2(t2, wp2);
 
 	static int noback;
+	#pragma omp threadprivate(noback)
 
 
     // shift pointers

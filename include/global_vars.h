@@ -7,6 +7,8 @@ extern int workprec;
 extern int wp2;
 // tolerance is used to decide whether something is zero
 extern mpfr_t mpfr_tol;
+// privatize global variables for parallelization
+#pragma omp threadprivate(mpfr_tol)
 
 // used for cache
 extern char* filepath_cache;
