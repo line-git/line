@@ -5490,7 +5490,7 @@ void propagate_infty(
   // TRANSFORM eta -> 1/eta
   //////
   // dbg = 1;
-  cout << "TRANSFORM eta -> 1/eta" << endl;
+  // fprintf(logfptr, "transform eta -> 1/eta\n"); fflush(logfptr);
   poly_frac **pfmat_infty;
   malloc_rk2_tens(pfmat_infty, dim, dim);
   poly_frac_rk2_build(pfmat_infty, dim, dim);
@@ -5514,7 +5514,7 @@ void propagate_infty(
   //////
   // FACTOR OUT BEHAVIOR (DEs FOR REGULAR SERIES)
   //////
-  cout << "FACTOR OUT BEHAVIOR (DE FOR REGULAR SERIES)" << endl;
+  // fprintf(logfptr, "factor out behavior (DE for regular series)\n"); fflush(logfptr);
   mpc_t *pow_infty = new mpc_t[dim];
   init_rk1_mpc(pow_infty, dim);
   poly_frac pftmp;
@@ -5655,7 +5655,7 @@ void propagate_infty(
   mpc_t *eig_list;
   int *eq_class = new int[dim];
   int *eig_grid = new int[dim];
-  cout << endl; cout << "normalize at infinity..." << endl;
+  fprintf(logfptr, "\nnormalize at infinity...\n");
   pf_NormalizeMat(
     tmat, inv_tmat,
     &num_classes, eq_class, &eig_list, eig_grid,
@@ -5747,7 +5747,7 @@ void propagate_infty(
   mpc_t *PS_fin = new mpc_t[1];
   mpc_init3(PS_fin[0], wp2, wp2);
   mpc_set_ui(PS_fin[0], 1, MPFR_RNDN);
-  cout << "singular propagation at infinity..." << endl;
+  fprintf(logfptr, "singular propagation at infinity...\n");
   solve_zero(
     solutions,
     dim, pfmat_infty,
@@ -6361,8 +6361,7 @@ void propagate_all_eps(
     //////
     // EXIT SINGULARITY AT INFINITY
     //////
-    cout << endl;
-    cout << "EXIT SINGULARITY AT INFINITY" << endl;
+    fprintf(logfptr, "\nEXIT SINGULARITY AT INFINITY...\n"); fflush(logfptr);
     propagate_infty(
       solutions,
       eps_str[ep],

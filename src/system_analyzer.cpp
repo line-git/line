@@ -541,7 +541,7 @@ void wrt_cmp_DE(
       
       // matrix
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_matrix, ep, file_ext);
-      cout << endl; cout << "writing to " << tmp_filepath << endl;
+      fprintf(logfptr, "\nwriting to %s\n", tmp_filepath);
       poly_frac_rk2_to_file(
         tmp_filepath,
         pfmat[ep], dim, dim
@@ -549,7 +549,7 @@ void wrt_cmp_DE(
       
       // roots
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_roots, ep, file_ext);
-      cout << "writing to " << tmp_filepath << endl;
+      fprintf(logfptr, "writing to %s\n", tmp_filepath);
       // mpc_rk1_to_file(tmp_filepath, roots, nroots);
       int_rk0_mpc_rk1_to_file(tmp_filepath, roots[ep], nroots[ep], zero_label[ep]);
       // branch sing labs
@@ -574,7 +574,7 @@ void wrt_cmp_DE(
       mpc_t *bench_roots;
       int bench_nroots, bench_zero_label;
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_roots, ep, file_ext);
-      fprintf(logfptr, "\nreading mpc_t roots from file %s\n", tmp_filepath);
+      fprintf(logfptr, "\nreading mpc_t roots from file %s\n", tmp_filepath); fflush(logfptr);
       bench_nroots = count_lines(tmp_filepath) - 1;
       bench_roots = new mpc_t[bench_nroots];
       init_rk1_mpc(bench_roots, bench_nroots);
@@ -612,7 +612,7 @@ void wrt_cmp_DE(
       malloc_rk2_tens(bench_pfmat, dim, dim);
       poly_frac_rk2_build(bench_pfmat, dim, dim);
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_matrix, ep, file_ext);
-      fprintf(logfptr, "\nreading poly_frac DE from file %s\n", tmp_filepath);
+      fprintf(logfptr, "\nreading poly_frac DE from file %s\n", tmp_filepath); fflush(logfptr);
       poly_frac_rk2_from_file(tmp_filepath, bench_pfmat, dim, dim);
       fprintf(logfptr, "CHECK pfmat...\n");
       poly_frac_rk2_perm_roots(bench_pfmat, perm[ep], dim, dim);

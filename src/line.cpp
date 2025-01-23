@@ -134,8 +134,8 @@ int main(int argc, char *argv[])
 			case 'n':
 				printf("Option --nthreads (-n) has arg: %s\n", optarg);
 				opt_nthreads = atoi(optarg);
-        if (opt_nthreads < 1) {
-          fprintf(stderr, "Invalid value for --nthreads: %s. Must be postive integer.\n", optarg);
+        if (opt_nthreads < 0) {
+          fprintf(stderr, "Invalid value for --nthreads: %s. Must be non-negative integer.\n", optarg);
           return 1;
         }
 				break;
@@ -1040,6 +1040,7 @@ int main(int argc, char *argv[])
   //////
   // EPSILON LOOP
   //////
+  cout << endl; cout << "EPSILON LOOP" << endl;
   poly_frac **pspf_ep;
   malloc_rk2_tens(pspf_ep, eps_num, ninvs+1);
   poly_frac_rk2_build(pspf_ep, eps_num, ninvs+1);
@@ -1047,8 +1048,12 @@ int main(int argc, char *argv[])
   malloc_rk3_tens(ep_kin_ep, eps_num, 2, ninvs+1);
   // calculate number of threads
   int nthreads;
-  nthreads = 1 + (eps_num-1)/opt_nthreads;
-  nthreads = 1 + (eps_num-1)/nthreads;
+  if (opt_nthreads == 0) {
+    nthreads = omp_get_max_threads() > eps_num ? eps_num : omp_get_max_threads();
+  } else {
+    nthreads = 1 + (eps_num-1)/opt_nthreads;
+    nthreads = 1 + (eps_num-1)/nthreads;
+  }
   cout << "nthreads = " << nthreads << endl;
   #pragma omp parallel for num_threads(nthreads)
   for (int ep=0; ep<eps_num; ep++) {
@@ -1254,20 +1259,20 @@ int main(int argc, char *argv[])
     if (opt_checkpoint == -1) {
       goto goto_eps_loop_continue;
     } else if (opt_checkpoint == 1) {
+      char tmp_filepath[MAX_PATH_LEN];
+
       //////
       // LOAD POLY_FRAC DE
       //////
       // MATRIX
       snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_matrix, ep, file_ext);
-      fprintf(stdout, "\nreading poly_frac DE from file %s\n", tmp_filepath);
-      // cout << endl; cout << "reading poly_frac DE from file " << tmp_filepath << endl;
+      fprintf(logfptr, "\nreading poly_frac DE from file %s\n", tmp_filepath); fflush(logfptr);
       malloc_rk2_tens(pfmat[ep], dim, dim);
       poly_frac_rk2_build(pfmat[ep], dim, dim);
       poly_frac_rk2_from_file(tmp_filepath, pfmat[ep], dim, dim);
       // ROOTS
       snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_roots, ep, file_ext);
-      fprintf(stdout, "reading mpc_t roots from file %s\n", tmp_filepath);
-      // cout << "reading mpc_t roots from file " << tmp_filepath << endl;
+      fprintf(logfptr, "reading mpc_t roots from file %s\n", tmp_filepath); fflush(logfptr);
       nroots[ep] = count_lines(tmp_filepath) - 1;
       roots[ep] = new mpc_t[nroots[ep]];
       init_rk1_mpc(roots[ep], nroots[ep]);
@@ -1278,22 +1283,19 @@ int main(int argc, char *argv[])
       //////
       // points
       snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_path, ep, file_ext);
-      fprintf(stdout, "reading path points from file %s\n", tmp_filepath);
-      // cout << "reading path points from file " << tmp_filepath << endl;
+      fprintf(logfptr, "reading path points from file %s\n", tmp_filepath); fflush(logfptr);
       neta_values[ep] = count_lines(tmp_filepath);
       path[ep] = new mpc_t[neta_values[ep]];
       init_rk1_mpc(path[ep], neta_values[ep]);
       mpc_rk1_from_file(tmp_filepath, path[ep], neta_values[ep]);
       // tags
       snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_path_tags, ep, file_ext);
-      fprintf(stdout, "reading path tags from file %s\n", tmp_filepath);
-      // cout << "reading path tags from file " << tmp_filepath << endl;
+      fprintf(logfptr, "reading path tags from file %s\n", tmp_filepath); fflush(logfptr);
       path_tags[ep] = new int[neta_values[ep]];
       int_rk1_from_file(tmp_filepath, path_tags[ep], neta_values[ep]);
       // singular labels
       snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_sing_lab, ep, file_ext);
-      fprintf(stdout, "\reading singular labels from file %s\n", tmp_filepath);
-      // cout << "reading singular labels from file " << tmp_filepath << endl;
+      fprintf(logfptr, "reading singular labels from file %s\n", tmp_filepath); fflush(logfptr);
       nsings[ep] = count_lines(tmp_filepath);
       sing_lab[ep] = new int[nsings[ep]];
       int_rk1_from_file(tmp_filepath, sing_lab[ep], nsings[ep]);

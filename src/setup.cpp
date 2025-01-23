@@ -3499,18 +3499,18 @@ void wrt_cmp_path(
     if (opt_write) {
       // WRITE TO FILE
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_path, ep, file_ext);
-      cout << endl; cout << "writing to " << tmp_filepath << endl;
+      fprintf(logfptr, "\nwriting to %s\n", tmp_filepath);
       mpc_rk1_to_file(tmp_filepath, path[ep], neta_values[ep]);
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_path_tags, ep, file_ext);
-      cout << "writing to " << tmp_filepath << endl;
+      fprintf(logfptr, "writing to %s\n", tmp_filepath);
       int_rk1_to_file(tmp_filepath, path_tags[ep], neta_values[ep]);
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_sing_lab, ep, file_ext);
-      cout << "writing to " << tmp_filepath << endl;
+      fprintf(logfptr, "writing to %s\n", tmp_filepath);
       int_rk1_to_file(tmp_filepath, sing_lab[ep], nsings[ep]);
     } else {
       // COMPARE PATH POINTS      
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_path, ep, file_ext);
-      fprintf(logfptr, "\nreading path points from file %s\n", tmp_filepath);
+      fprintf(logfptr, "\nreading path points from file %s\n", tmp_filepath); fflush(logfptr);
       mpc_t *bench_path;
       int bench_neta_values = count_lines(tmp_filepath);
       if (bench_neta_values != neta_values[ep]) {
@@ -3533,7 +3533,7 @@ void wrt_cmp_path(
 
       // COMPARE PATH TAGS
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_path_tags, ep, file_ext);
-      fprintf(logfptr, "reading path tags from file %s\n", tmp_filepath);
+      fprintf(logfptr, "reading path tags from file %s\n", tmp_filepath); fflush(logfptr);
       int *bench_path_tags = new int[neta_values[ep]];
       int_rk1_from_file(tmp_filepath, bench_path_tags, neta_values[ep]);
       fprintf(logfptr, "CHECK path tags...\n");
@@ -3548,7 +3548,7 @@ void wrt_cmp_path(
       // COMPARE SINGULAR LABELS
       // permutation of roots is needed in order to compare singular labels
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_sing_lab, ep, file_ext);
-      fprintf(logfptr, "reading sing labs from file %s\n", tmp_filepath);
+      fprintf(logfptr, "reading sing labs from file %s\n", tmp_filepath); fflush(logfptr);
       int bench_nsings, *bench_sing_lab;
       bench_nsings = count_lines(tmp_filepath);
       if (bench_nsings != nsings[ep]) {

@@ -237,13 +237,8 @@ int int_rk1_compare(int *tens1, int *tens2, int dim) {
 
   if (!found_diff) {
     return 0;
-    // cout << "CHECK: PASS" << endl;
-    // cout << endl;
   } else {
     return 1;
-    // cout << "CHECK: FAIL" << endl;
-    // cout << endl;
-    // exit(1);
   }
 }
 
@@ -268,11 +263,8 @@ int int_rk1_compare_perm(
 
   if (!found_diff) {
     return 0;
-    // cout << "CHECK: PASS" << endl;
   } else {
     return 1;
-    // cout << "CHECK: FAIL" << endl;
-    // exit(1);
   }
 }
 
@@ -349,13 +341,8 @@ int mpc_rk1_compare_double(mpc_t *tens1, mpc_t *tens2, int dim) {
 
   if (!found_diff) {
     return 0;
-    // cout << "CHECK: PASS" << endl;
-    // cout << endl;
   } else {
     return 1;
-    // cout << "CHECK: FAIL" << endl;
-    // cout << endl;
-    // exit(1);
   }
 }
 
@@ -391,11 +378,8 @@ int mpc_rk1_compare_perm(
 
   if (!found_diff) {
     return 0;
-    // cout << "CHECK: PASS" << endl;
   } else {
     return 1;
-    // cout << "CHECK: FAIL" << endl;
-    // exit(1);
   }
 }
 
@@ -549,11 +533,8 @@ int poly_frac_rk2_compare(
 
   if (!found_diff) {
     return 0;
-    // cout << "CHECK: PASS" << endl;
   } else {
     return 1;
-    // cout << "CHECK: FAIL" << endl;
-    // exit(1);
   }
 }
 
