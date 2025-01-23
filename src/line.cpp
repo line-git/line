@@ -1049,11 +1049,10 @@ int main(int argc, char *argv[])
   // calculate number of threads
   int nthreads;
   if (opt_nthreads == 0) {
-    nthreads = omp_get_max_threads() > eps_num ? eps_num : omp_get_max_threads();
-  } else {
-    nthreads = 1 + (eps_num-1)/opt_nthreads;
-    nthreads = 1 + (eps_num-1)/nthreads;
+    opt_nthreads = omp_get_max_threads() > eps_num ? eps_num : omp_get_max_threads();
   }
+  nthreads = 1 + (eps_num-1)/opt_nthreads;
+  nthreads = 1 + (eps_num-1)/nthreads;
   cout << "nthreads = " << nthreads << endl;
   #pragma omp parallel for num_threads(nthreads)
   for (int ep=0; ep<eps_num; ep++) {
