@@ -74,17 +74,17 @@ void copy_rk2_mpc(mpc_t **copy, mpc_t **tens, int dim1, int dim2);
 //////
 // COMPARE
 //////
-void int_rk1_compare(int *tens1, int *tens2, int dim);
+int int_rk1_compare(int *tens1, int *tens2, int dim);
 
-void int_rk1_compare_perm(
+int int_rk1_compare_perm(
   int *perm, int *tens1, int *tens2, int dim
 );
 
 void mpc_rk1_compare(mpc_t *tens1, mpc_t *tens2, int dim);
 
-void mpc_rk1_compare_double(mpc_t *tens1, mpc_t *tens2, int dim);
+int mpc_rk1_compare_double(mpc_t *tens1, mpc_t *tens2, int dim);
 
-void mpc_rk1_compare_perm(
+int mpc_rk1_compare_perm(
 	// OUTPUT
 	int *perm,
 	// INPUT
@@ -101,7 +101,7 @@ int mpc_rk1_prop(
 
 void mpc_rk2_compare(mpc_t **tens1, mpc_t **tens2, int dim1, int dim2);
 
-void poly_frac_rk2_compare(
+int poly_frac_rk2_compare(
   struct poly_frac **tens1,
   struct poly_frac **tens2,
   int dim1, int dim2,

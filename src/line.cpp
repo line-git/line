@@ -68,6 +68,7 @@ int main(int argc, char *argv[])
 	int opt_eps_list = 0;
 	int opt_checkpoint = 0;
 	int opt_write = -3;
+	int opt_nthreads = 1;
 	int opt_kira_parallel = 1;
   int opt_kira_redo = -1;
   double opt_incr_prec = 1;
@@ -86,6 +87,7 @@ int main(int argc, char *argv[])
 		{"eps-list", no_argument, NULL, 0},
 		{"write", required_argument, NULL, 'w'},
 		{"checkpoint", required_argument, NULL, 'c'},
+		{"nthreads", required_argument, NULL, 'n'},
 		{"kira-parallel", required_argument, NULL, 0},
 		{"kira-redo", required_argument, NULL, 0},
 		{"incr-prec", required_argument, NULL, 0},
@@ -94,7 +96,7 @@ int main(int argc, char *argv[])
 		{0, 0, 0, 0} // terminator
 	};
 
-	while ((opt = getopt_long(argc, argv, "i:p:r:bw:c:", long_options, &long_index)) != -1) {
+	while ((opt = getopt_long(argc, argv, "i:p:r:bw:c:n:", long_options, &long_index)) != -1) {
 		switch (opt) {
 			case 'i':
 				printf("Option --input (-i) has arg: %s\n", optarg);
@@ -126,6 +128,14 @@ int main(int argc, char *argv[])
 				opt_checkpoint = atoi(optarg);
         if (opt_checkpoint < -1 || opt_checkpoint > 2) {
           fprintf(stderr, "Invalid value for --checkpoint: %s. Must be integer in [-1, 2].\n", optarg);
+          return 1;
+        }
+				break;
+			case 'n':
+				printf("Option --nthreads (-n) has arg: %s\n", optarg);
+				opt_nthreads = atoi(optarg);
+        if (opt_nthreads < 1) {
+          fprintf(stderr, "Invalid value for --nthreads: %s. Must be postive integer.\n", optarg);
           return 1;
         }
 				break;
@@ -228,6 +238,7 @@ int main(int argc, char *argv[])
   int opt_all_eps = 1;
   if (opt_one_eps) {
     opt_all_eps = 0;
+    opt_nthreads = 1;
   }
 
   //////
@@ -715,7 +726,8 @@ int main(int argc, char *argv[])
   join_path(&filepath_outer_sol, dir_outer_sol, (char*)"sol");
   join_path(&filepath_outer_sol_interp, dir_outer_sol, (char*)"sol_interp.txt");
 
-  FILE* logfptr = stdout;
+  static FILE* logfptr = stdout;
+  #pragma omp threadprivate(logfptr)
 
   // CACHE INFO
   if (opt_write > 0 || opt_write == -2) {
@@ -1033,11 +1045,29 @@ int main(int argc, char *argv[])
   poly_frac_rk2_build(pspf_ep, eps_num, ninvs+1);
   char ****ep_kin_ep;
   malloc_rk3_tens(ep_kin_ep, eps_num, 2, ninvs+1);
-  #pragma omp parallel for num_threads(10)
+  // calculate number of threads
+  int nthreads;
+  nthreads = 1 + (eps_num-1)/opt_nthreads;
+  nthreads = 1 + (eps_num-1)/nthreads;
+  cout << "nthreads = " << nthreads << endl;
+  #pragma omp parallel for num_threads(nthreads)
   for (int ep=0; ep<eps_num; ep++) {
+    if (ep == 0) {
+      logfptr = stdout;
+    } else {
+      logfptr = fopen("/dev/null", "w");
+      if (logfptr == NULL) {
+        if (terminal != stderr) {
+          logfptr = terminal;
+        } else {
+          perror("error while opening /dev/null.");
+          exit(1);
+        }
+      }
+    }
     if (ep > 0) {fprintf(terminal, "\033[22D\033[K");}// fflush(terminal); usleep(sleep_time);}
     fprintf(terminal, "eps value %3d /%3d... ", ep, eps_num-1); fflush(terminal); usleep(sleep_time);
-    fprintf(stdout, "\n############################################## ep = %d\n", ep);
+    fprintf(logfptr, "\n############################################## ep = %d\n", ep);
     
     // set private variables
     mpfr_tol_set();
@@ -1101,7 +1131,7 @@ int main(int argc, char *argv[])
         dim,
         nbranches, branch_deg,
         eps_str,
-        terminal
+        logfptr, terminal
       );
       fprintf(terminal, "\033[13D\033[K"); fflush(terminal); usleep(sleep_time);
     }
@@ -1131,7 +1161,7 @@ int main(int argc, char *argv[])
     //////
     // BUILD PATH
     //////
-    cout << endl; cout << "BUILD PATH..." << endl;
+    fprintf(logfptr, "\nBUILD PATH...\n");
     if (exit_sing == -1) {
       get_path_PS_infty_mp(
         &path[ep], &path_tags[ep], &neta_values[ep], &sing_lab[ep], &nsings[ep],
@@ -1183,12 +1213,14 @@ int main(int argc, char *argv[])
         ep, zero_label, nroots, roots,
         pfmat, eps_num, dim,
         0.80,
-        file_ext, filepath_matrix, filepath_roots, opt_write
+        file_ext, filepath_matrix, filepath_roots,
+        logfptr, opt_write
       );
       wrt_cmp_path(
         ep, path, path_tags, eps_num, neta_values,
         nsings, sing_lab, perm,
-        file_ext, filepath_path, filepath_path_tags, filepath_sing_lab, opt_write
+        file_ext, filepath_path, filepath_path_tags, filepath_sing_lab,
+        logfptr, opt_write
       );
     }
 
@@ -1227,13 +1259,15 @@ int main(int argc, char *argv[])
       //////
       // MATRIX
       snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_matrix, ep, file_ext);
-      cout << endl; cout << "reading poly_frac DE from file " << tmp_filepath << endl;
+      fprintf(stdout, "\nreading poly_frac DE from file %s\n", tmp_filepath);
+      // cout << endl; cout << "reading poly_frac DE from file " << tmp_filepath << endl;
       malloc_rk2_tens(pfmat[ep], dim, dim);
       poly_frac_rk2_build(pfmat[ep], dim, dim);
       poly_frac_rk2_from_file(tmp_filepath, pfmat[ep], dim, dim);
       // ROOTS
       snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_roots, ep, file_ext);
-      cout << "reading mpc_t roots from file " << tmp_filepath << endl;
+      fprintf(stdout, "reading mpc_t roots from file %s\n", tmp_filepath);
+      // cout << "reading mpc_t roots from file " << tmp_filepath << endl;
       nroots[ep] = count_lines(tmp_filepath) - 1;
       roots[ep] = new mpc_t[nroots[ep]];
       init_rk1_mpc(roots[ep], nroots[ep]);
@@ -1244,19 +1278,22 @@ int main(int argc, char *argv[])
       //////
       // points
       snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_path, ep, file_ext);
-      cout << "reading path points from file " << tmp_filepath << endl;
+      fprintf(stdout, "reading path points from file %s\n", tmp_filepath);
+      // cout << "reading path points from file " << tmp_filepath << endl;
       neta_values[ep] = count_lines(tmp_filepath);
       path[ep] = new mpc_t[neta_values[ep]];
       init_rk1_mpc(path[ep], neta_values[ep]);
       mpc_rk1_from_file(tmp_filepath, path[ep], neta_values[ep]);
       // tags
       snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_path_tags, ep, file_ext);
-      cout << "reading path tags from file " << tmp_filepath << endl;
+      fprintf(stdout, "reading path tags from file %s\n", tmp_filepath);
+      // cout << "reading path tags from file " << tmp_filepath << endl;
       path_tags[ep] = new int[neta_values[ep]];
       int_rk1_from_file(tmp_filepath, path_tags[ep], neta_values[ep]);
       // singular labels
       snprintf(tmp_filepath, MAX_PATH_LEN, "%s%d%s", filepath_sing_lab, ep, file_ext);
-      cout << "reading singular labels from file " << tmp_filepath << endl;
+      fprintf(stdout, "\reading singular labels from file %s\n", tmp_filepath);
+      // cout << "reading singular labels from file " << tmp_filepath << endl;
       nsings[ep] = count_lines(tmp_filepath);
       sing_lab[ep] = new int[nsings[ep]];
       int_rk1_from_file(tmp_filepath, sing_lab[ep], nsings[ep]);
@@ -1300,6 +1337,7 @@ int main(int argc, char *argv[])
     delete[] solutions;
   }
   fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
+  logfptr = stdout;
   // exit(0);
 
   if (opt_checkpoint < 1) {

@@ -530,7 +530,7 @@ void wrt_cmp_DE(
   poly_frac ***pfmat, int eps_num, int dim,
   double wp2_rel_decr,
   char *file_ext, char *filepath_matrix, char *filepath_roots,
-  int opt_write
+  FILE *logfptr, int opt_write
 ) {
   char tmp_filepath[MAX_PATH_LEN];
   // for (int ep=0; ep<eps_num; ep++) {
@@ -574,12 +574,12 @@ void wrt_cmp_DE(
       mpc_t *bench_roots;
       int bench_nroots, bench_zero_label;
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_roots, ep, file_ext);
-      cout << endl; cout << "reading mpc_t roots from file " << tmp_filepath << endl;
+      fprintf(logfptr, "\nreading mpc_t roots from file %s\n", tmp_filepath);
       bench_nroots = count_lines(tmp_filepath) - 1;
       bench_roots = new mpc_t[bench_nroots];
       init_rk1_mpc(bench_roots, bench_nroots);
       int_rk0_mpc_rk1_from_file(tmp_filepath, bench_roots, bench_nroots, &bench_zero_label);
-      cout << "CHECK roots..." << endl;
+      fprintf(logfptr, "CHECK roots...\n");
       if (bench_nroots != nroots[ep]) {
         cout << "CHECK: FAIL" << endl;
         cout << "nroots = " << nroots[ep] << endl;
@@ -595,7 +595,13 @@ void wrt_cmp_DE(
         exit(1);
       }
       perm[ep] = new int[nroots[ep]];
-      mpc_rk1_compare_perm(perm[ep], bench_nroots, bench_roots, roots[ep]);
+      fprintf(logfptr, "CHECK: ");
+      if (mpc_rk1_compare_perm(perm[ep], bench_nroots, bench_roots, roots[ep])) {
+        fprintf(logfptr, "FAIL\n");
+        exit(1);
+      } else {
+        fprintf(logfptr, "PASS\n");
+      }
       // cout << "permutation:" << endl;
       // for (int k=0; k<bench_nroots; k++) {
       //   cout << "k[" << k << "] = " << perm[k] << endl;
@@ -606,13 +612,19 @@ void wrt_cmp_DE(
       malloc_rk2_tens(bench_pfmat, dim, dim);
       poly_frac_rk2_build(bench_pfmat, dim, dim);
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_matrix, ep, file_ext);
-      cout << endl; cout << "reading poly_frac DE from file " << tmp_filepath << endl;
+      fprintf(logfptr, "\nreading poly_frac DE from file %s\n", tmp_filepath);
       poly_frac_rk2_from_file(tmp_filepath, bench_pfmat, dim, dim);
-      cout << "CHECK pfmat..." << endl;
+      fprintf(logfptr, "CHECK pfmat...\n");
       poly_frac_rk2_perm_roots(bench_pfmat, perm[ep], dim, dim);
       poly_frac_rk2_prune(bench_pfmat, dim, dim, wp2_rel_decr);
       poly_frac_rk2_normal(bench_pfmat, dim, dim);
-      poly_frac_rk2_compare(bench_pfmat, pfmat[ep], dim, dim, roots[ep]);
+      fprintf(logfptr, "CHECK: ");
+      if (poly_frac_rk2_compare(bench_pfmat, pfmat[ep], dim, dim, roots[ep])) {
+        fprintf(logfptr, "FAIL\n");
+        exit(1);
+      } else {
+        fprintf(logfptr, "PASS\n");
+      }
 
       // restore original tolerance
       mpfr_set(mpfr_tol, mpfr_tol_orig, MPFR_RNDN);
@@ -704,7 +716,7 @@ void generate_poly_frac_DE(
   int dim,
   int nbranches, int *branch_deg,
   char **eps_str,
-  FILE *terminal
+  FILE *logfptr, FILE *terminal
   // ,
   // char *file_ext, char *filepath_matrix, char *filepath_roots,
   // int opt_write
@@ -718,7 +730,7 @@ void generate_poly_frac_DE(
   //////
   // DECODE
   //////
-  cout << "DECODING..." << endl;
+  fprintf(logfptr, "DECODING...\n");
   // int nroots_ini = *nroots;
 		
 		ep_kin[0][0] = strdup(eps_str[ep]);

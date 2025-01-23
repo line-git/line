@@ -300,7 +300,7 @@ void wrt_cmp_path(
   int ep, mpc_t **path, int **path_tags, int eps_num, int *neta_values,
   int *nsings, int **sing_lab, int **perm,
   char *file_ext, char *filepath_path, char *filepath_path_tags, char* filepath_sing_lab,
-  int opt_write
+  FILE *logfptr, int opt_write
 );
 
 //////

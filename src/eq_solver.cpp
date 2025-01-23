@@ -4455,10 +4455,10 @@ void solve_zero(
   }
 
   mpfr_t mpfr_mem; mpfr_init2(mpfr_mem, wp2);
-  cout << endl; cout << "memory for the solution: ";
-  cout << num_classes << " x " << b_len_max+2 << " x " << dim << " x " << eta_ord+1 << " x ";
-  cout << mpfr_get_memory_usage(mpfr_mem)*2 << "bytes = ";
-  cout << num_classes*(b_len_max+2)*dim*(eta_ord+1)*mpfr_get_memory_usage(mpfr_mem)*2 << "bytes" << endl;
+  // cout << endl; cout << "memory for the solution: ";
+  // cout << num_classes << " x " << b_len_max+2 << " x " << dim << " x " << eta_ord+1 << " x ";
+  // cout << mpfr_get_memory_usage(mpfr_mem)*2 << " bytes = ";
+  // cout << num_classes*(b_len_max+2)*dim*(eta_ord+1)*mpfr_get_memory_usage(mpfr_mem)*2 << " bytes" << endl;
   mpfr_clear(mpfr_mem);
   //////
   // CHECK INPUTS
@@ -5960,6 +5960,7 @@ void propagate_along_path(
       //////
       fprintf(logfptr, "\nregular propagation...\n");
       fprintf(logfptr, "n. steps: %d\n", nreg_steps);
+      fflush(logfptr);
       propagate_regular(
         solutions,
         nreg_steps+1, path+et-nreg_steps,
@@ -6098,7 +6099,7 @@ void propagate_along_path(
       poly_frac_rk2_normal(sh_pfmat, dim, dim);
 
       // # NORMALIZE MATRIX
-      cout << endl; cout << "normalize matrix..." << endl;
+      fprintf(logfptr, "\nnormalize matrix...\n"); fflush(logfptr);
       // cout << "input matrix:" << endl;
       // poly_frac_rk2_print(sh_pfmat, dim, dim);
       // mpfr_mul_d(mpfr_tol, mpfr_tol, 1e10, MPFR_RNDN);
@@ -6184,7 +6185,7 @@ void propagate_along_path(
       }
       }
       // # SOLVE
-      fprintf(logfptr, "singular propagation...\n");
+      fprintf(logfptr, "singular propagation...\n"); fflush(logfptr);
       int try_analytic = 0;
       // if (et == 0) {try_analytic = 1;}
       solve_zero(
@@ -6295,7 +6296,7 @@ void propagate_all_eps(
     //////
     // LOAD BOUNDARY BEHAVIOUR
     //////
-    cout << endl; cout << "read bound behav from file..." << endl;
+    // cout << endl; cout << "read bound behav from file..." << endl;
     bound_behav_from_file(
       filepath_bound_behav,
       &bound_behav, &mi_eig, &mi_eig_num, &num_region_classes,
@@ -6332,7 +6333,7 @@ void propagate_all_eps(
   //////
   if (gen_bound == 0) {
     snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_bound, ep, file_ext);
-    cout << "loading boundary from " << tmp_filepath << endl;
+    fprintf(logfptr, "\nloading boundary from %s\n", tmp_filepath); fflush(logfptr);
     boundfptr = fopen(tmp_filepath, "r");
     if (boundfptr == NULL) {
       printf("Could not open file %s\n", tmp_filepath);
@@ -6408,7 +6409,7 @@ void propagate_all_eps(
   //////
   // PROPAGATION
   //////
-  cout << endl; cout << "PROPAGATION..." << endl;
+  fprintf(logfptr, "\nPROPAGATION...\n"); fflush(logfptr);
   // exit(0);
   propagate_along_path(
     sol_at_eps,
@@ -6427,8 +6428,9 @@ void propagate_all_eps(
   fprintf(logfptr, "\nresult of ep = %d\n", ep);
   for (int i=0; i<dim; i++) {
     // cout << "i = " << i << ": "; print_mpc(&solutions[0][i][0]); cout << endl;
-    fprintf(logfptr, "i = %d: ", i); mpc_out_str(logfptr, 10, 0, sol_at_eps[i][ep], MPFR_RNDN); fprintf(logfptr, "\n");
+    fprintf(logfptr, "MI n. %d: ", i); mpc_out_str(logfptr, 10, 0, sol_at_eps[i][ep], MPFR_RNDN); fprintf(logfptr, "\n");
   }
+  fflush(logfptr);
 
   // SAVE RESULT TO FILE 
   if (opt_write > 0 || opt_write == -2) {

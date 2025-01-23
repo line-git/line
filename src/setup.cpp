@@ -1728,7 +1728,7 @@ void bound_behav_from_file(
     perror("option num-eig not specified in bound_behav file");
     exit(1);
   };
-  cout << "number of regions = " << *num_region_classes << endl;
+  // cout << "number of regions = " << *num_region_classes << endl;
   malloc_rk2_tens(*bound_behav, dim, *num_region_classes);
   malloc_rk2_tens(*mi_eig, dim, *num_region_classes);
   *mi_eig_num = new int[dim];
@@ -1750,7 +1750,7 @@ void bound_behav_from_file(
           (*bound_behav)[m][(*mi_eig)[m][n]] = atoi(BB[m].item[n].item[k].item[1].str);
         }
       }
-      cout << "m, np, behav = " << m << ", " << (*mi_eig)[m][n] << ", " << (*bound_behav)[m][(*mi_eig)[m][n]] << endl;
+      // cout << "m, np, behav = " << m << ", " << (*mi_eig)[m][n] << ", " << (*bound_behav)[m][(*mi_eig)[m][n]] << endl;
     }
   }
 
@@ -3492,7 +3492,7 @@ void wrt_cmp_path(
   int ep, mpc_t **path, int **path_tags, int eps_num, int *neta_values,
   int *nsings, int **sing_lab, int **perm,
   char *file_ext, char *filepath_path, char *filepath_path_tags, char* filepath_sing_lab,
-  int opt_write
+  FILE *logfptr, int opt_write
 ) {
   char tmp_filepath[200];
   // for (int ep=0; ep<eps_num; ep++) {
@@ -3510,7 +3510,7 @@ void wrt_cmp_path(
     } else {
       // COMPARE PATH POINTS      
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_path, ep, file_ext);
-      cout << endl; cout << "reading path points from file " << tmp_filepath << endl;
+      fprintf(logfptr, "\nreading path points from file %s\n", tmp_filepath);
       mpc_t *bench_path;
       int bench_neta_values = count_lines(tmp_filepath);
       if (bench_neta_values != neta_values[ep]) {
@@ -3522,21 +3522,33 @@ void wrt_cmp_path(
       bench_path = new mpc_t[bench_neta_values];
       init_rk1_mpc(bench_path, bench_neta_values);
       mpc_rk1_from_file(tmp_filepath, bench_path, bench_neta_values);
-      cout << "CHECK path..." << endl;
-      mpc_rk1_compare_double(bench_path, path[ep], neta_values[ep]);
+      fprintf(logfptr, "CHECK path...\n");
+      fprintf(logfptr, "CHECK: ");
+      if(mpc_rk1_compare_double(bench_path, path[ep], neta_values[ep])) {
+        fprintf(logfptr, "FAIL\n");
+        exit(1);
+      } else {
+        fprintf(logfptr, "PASS\n");
+      }
 
       // COMPARE PATH TAGS
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_path_tags, ep, file_ext);
-      cout << "reading path tags from file " << tmp_filepath << endl;
+      fprintf(logfptr, "reading path tags from file %s\n", tmp_filepath);
       int *bench_path_tags = new int[neta_values[ep]];
       int_rk1_from_file(tmp_filepath, bench_path_tags, neta_values[ep]);
-      cout << "CHECK path tags..." << endl;
-      int_rk1_compare(bench_path_tags, path_tags[ep], neta_values[ep]);
+      fprintf(logfptr, "CHECK path tags...\n");
+      fprintf(logfptr, "CHECK: ");
+      if(int_rk1_compare(bench_path_tags, path_tags[ep], neta_values[ep])) {
+        fprintf(logfptr, "FAIL\n");
+        exit(1);
+      } else {
+        fprintf(logfptr, "PASS\n");
+      }
 
       // COMPARE SINGULAR LABELS
       // permutation of roots is needed in order to compare singular labels
       snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_sing_lab, ep, file_ext);
-      cout << "reading sing labs from file " << tmp_filepath << endl;
+      fprintf(logfptr, "reading sing labs from file %s\n", tmp_filepath);
       int bench_nsings, *bench_sing_lab;
       bench_nsings = count_lines(tmp_filepath);
       if (bench_nsings != nsings[ep]) {
@@ -3547,8 +3559,14 @@ void wrt_cmp_path(
       }
       bench_sing_lab = new int[bench_nsings];
       int_rk1_from_file(tmp_filepath, bench_sing_lab, bench_nsings);
-      cout << "CHECK sing labs..." << endl;
-      int_rk1_compare_perm(perm[ep], bench_sing_lab, sing_lab[ep], nsings[ep]);
+      fprintf(logfptr, "CHECK sing labs...\n");
+      fprintf(logfptr, "CHECK: ");
+      if(int_rk1_compare_perm(perm[ep], bench_sing_lab, sing_lab[ep], nsings[ep])) {
+        fprintf(logfptr, "FAIL\n");
+        exit(1);
+      } else {
+        fprintf(logfptr, "PASS\n");
+      }
     }
   // }
 }

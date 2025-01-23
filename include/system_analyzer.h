@@ -58,7 +58,7 @@ void wrt_cmp_DE(
   poly_frac ***pfmat, int eps_num, int dim,
   double wp2_rel_decr,
   char *file_ext, char *filepath_matrix, char *filepath_roots,
-  int opt_write
+  FILE *logfptr, int opt_write
 );
 
 void parse_DE_str(
@@ -82,7 +82,7 @@ void generate_poly_frac_DE(
   int dim,
   int nbranches, int *branch_deg,
   char **eps_str,
-  FILE *terminal
+  FILE *logfptr, FILE *terminal
 );
 
 void build_block_indices(int *&b_idx, int *&sb_idx, int *b_len, int *sb_len, int b, int** prof, int **sb_grid);
