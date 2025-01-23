@@ -9,17 +9,28 @@ using namespace std;
 
 void mpfr_set_str_rat(
   mpfr_t *mpfr_num,
-  char *rat_str
+  const char *rat_str
 ) {
-  if (strchr(rat_str, ("/")[0])) {
-    char *rat_str_copy = strdup(rat_str);
-    char *token;
-    token = strtok(rat_str_copy, (char*)"/");
-    mpfr_set_str(*mpfr_num, token, 10, MPFR_RNDN);
+  const char *slash_pos = nullptr;
+  for (const char *p = rat_str; *p != '\0'; ++p) {
+    if (*p == '/') {
+      slash_pos = p;
+      break;
+    }
+  }
+
+  if (slash_pos) {
+    size_t num_len = slash_pos - rat_str;
+    char *num_str = (char *)malloc(num_len + 1);
+    strncpy(num_str, rat_str, num_len);
+    num_str[num_len] = '\0';
+
+    mpfr_set_str(*mpfr_num, num_str, 10, MPFR_RNDN);
+    free(num_str);
+
     mpfr_t den;
     mpfr_init2(den, wp2);
-    token = strtok(NULL, (char*)"/");
-    mpfr_set_str(den, token, 10, MPFR_RNDN);
+    mpfr_set_str(den, slash_pos + 1, 10, MPFR_RNDN);
     mpfr_div(*mpfr_num, *mpfr_num, den, MPFR_RNDN);
     mpfr_clear(den);
   } else {

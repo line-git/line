@@ -1031,7 +1031,9 @@ int main(int argc, char *argv[])
   poly_frac **pspf_ep;
   malloc_rk2_tens(pspf_ep, eps_num, ninvs+1);
   poly_frac_rk2_build(pspf_ep, eps_num, ninvs+1);
-  #pragma omp parallel for num_threads(17)
+  char ****ep_kin_ep;
+  malloc_rk3_tens(ep_kin_ep, eps_num, 2, ninvs+1);
+  #pragma omp parallel for num_threads(10)
   for (int ep=0; ep<eps_num; ep++) {
     if (ep > 0) {fprintf(terminal, "\033[22D\033[K");}// fflush(terminal); usleep(sleep_time);}
     fprintf(terminal, "eps value %3d /%3d... ", ep, eps_num-1); fflush(terminal); usleep(sleep_time);
@@ -1041,6 +1043,8 @@ int main(int argc, char *argv[])
     mpfr_tol_set();
     for (int s=1; s<=ninvs; s++) {
       poly_frac_set_pf(&pspf_ep[ep][s], &pspf[s]);
+      ep_kin_ep[ep][0][s] = strdup(ep_kin[0][s]);
+      ep_kin_ep[ep][1][s] = strdup(ep_kin[1][s]);
     }
 
     // SOLUTIONS
@@ -1067,7 +1071,8 @@ int main(int argc, char *argv[])
         ep, nbranch_roots, branch_roots, branch_tols,
         ninvs, symbols, is_mass,
         pspf_ep[ep],
-        skip_inv, ep_kin,
+        skip_inv, ep_kin_ep[ep],
+        // skip_inv, ep_kin,
         dim, mats_str,
         nbranches, branch_deg,
         eps_str,
@@ -1091,7 +1096,8 @@ int main(int argc, char *argv[])
         nbranch_roots, branch_roots, branch_tols,
         ninvs, is_mass,
         pspf_ep[ep],
-        skip_inv, ep_kin,
+        skip_inv, ep_kin_ep[ep],
+        // skip_inv, ep_kin,
         dim,
         nbranches, branch_deg,
         eps_str,
