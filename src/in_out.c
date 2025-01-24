@@ -3,7 +3,6 @@
 #include "mpc.h"
 #include "global_vars.h"
 
-
 void int_rk1_to_file(
   char *file_name, int *tens, int dim1
 ) {
@@ -324,6 +323,5 @@ void print_result(
     }
     fprintf(resfptr, "\n");
   }
-  fclose(resfptr);
 }
 

@@ -74,4 +74,24 @@ void call_kira(
   FILE *terminal
 );
 
+void IBPs_to_file(
+  char *file_name,
+  mpz_t ******coeffs_num_den, int ******pows_num_den,
+  int *****nterms_num_den, lnode_pf ***der_ndpf,
+  LI *MI_eta, int dim, int max_num_contr
+);
+
+void IBPs_from_file(
+  char *file_name,
+  mpz_t ******coeffs_num_den, int ******pows_num_den,
+  int *****nterms_num_den, lnode_pf ***der_ndpf,
+  LI *MI_eta, int dim, int max_num_contr
+);
+
+void IBPs_free(
+  mpz_t ******coeffs_num_den, int ******pows_num_den,
+  int *****nterms_num_den, lnode_pf ***der_ndpf,
+  LI *MI_eta, int dim, int max_num_contr
+);
+
 #endif

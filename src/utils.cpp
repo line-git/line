@@ -25,6 +25,17 @@ extern "C" {
 }
 
 
+char* format_time(double seconds) {
+  int minutes = (int)(seconds / 60);
+  double remaining_seconds = fmod(seconds, 60);
+
+  char* formatted_time = (char*) malloc(32*sizeof(char));
+  snprintf(formatted_time, 32, "%6dm %09.6fs", minutes, remaining_seconds);
+
+  return formatted_time;
+}
+
+
 void generate_cache_filename(
   char **filename
 ) {

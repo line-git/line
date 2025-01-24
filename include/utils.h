@@ -1,6 +1,8 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+char* format_time(double seconds);
+
 void generate_cache_filename(
   char **filename
 );

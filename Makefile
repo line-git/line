@@ -1,3 +1,5 @@
+USE_OPENMP ?= yes
+
 # detect the operating system
 ifeq ($(shell uname),Darwin)  # for macOS
 	CC = clang
@@ -11,6 +13,12 @@ else ifeq ($(shell uname),Linux)  # for Linux
 
 else  # unsupported operating system
 	$(error Unsupported operating system)
+endif
+
+ifeq ($(USE_OPENMP), yes)
+	CFLAGS += -fopenmp
+	CXXFLAGS += -fopenmp
+	CXXFLAGS += -DUSE_OPENMP
 endif
 
 # CFLAGS += -Wall

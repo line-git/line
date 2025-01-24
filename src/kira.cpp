@@ -4017,3 +4017,231 @@ void call_kira(
 
 }
 
+
+void IBPs_to_file(
+  char *file_name,
+  mpz_t ******coeffs_num_den, int ******pows_num_den,
+  int *****nterms_num_den, lnode_pf ***der_ndpf,
+  LI *MI_eta, int dim, int max_num_contr
+) {
+  FILE *fptr = fopen(file_name, "w");
+  int nt, k;
+  for (int m=0; m<dim; m++) {
+    for (int d=0; d<MI_eta[m].nmass; d++) {
+      for (int n=0; n<dim; n++) {
+        // info
+        fprintf(fptr, "%d\n", der_ndpf[m][d][n].info);
+        if (der_ndpf[m][d][n].info == -1) {
+          continue;
+        } else if (der_ndpf[m][d][n].info == 1) {
+          continue;
+        }
+
+        if (der_ndpf[m][d][n].info == 2) {
+          // number of numerator terms
+          fprintf(fptr, "%d\n", der_ndpf[m][d][n].num_nterms);
+          // numerator powers
+          for (nt=0; nt<der_ndpf[m][d][n].num_nterms; nt++) {
+            fprintf(fptr, "%d ", der_ndpf[m][d][n].num_pows[nt]);
+          }
+          fprintf(fptr, "\n");
+
+          // number of denominator terms
+          fprintf(fptr, "%d\n", der_ndpf[m][d][n].den_nterms);
+          // denominator powers
+          for (nt=0; nt<der_ndpf[m][d][n].den_nterms; nt++) {
+            fprintf(fptr, "%d ", der_ndpf[m][d][n].den_pows[nt]);
+          }
+          fprintf(fptr, "\n");
+
+          // NUMERATOR
+          for (nt=0; nt<der_ndpf[m][d][n].num_nterms; nt++) {
+            // number of terms
+            fprintf(fptr, "%d\n", nterms_num_den[m][d][n][0][nt]);
+            // terms
+            for (k=0; k<nterms_num_den[m][d][n][0][nt]; k++) {
+              mpz_out_str(fptr, 10, coeffs_num_den[m][d][n][0][nt][k]);
+              fprintf(fptr, "\n");
+            }
+            // powers
+            for (k=0; k<nterms_num_den[m][d][n][0][nt]; k++) {
+              fprintf(fptr, "%d ", pows_num_den[m][d][n][0][nt][k]);
+            }
+            fprintf(fptr, "\n");
+          }
+
+          // whether den is one
+          fprintf(fptr, "%d\n", der_ndpf[m][d][n].den_is_one);
+          if (der_ndpf[m][d][n].den_is_one) {
+            continue;
+          }
+
+          // DENOMINATOR
+          for (nt=0; nt<der_ndpf[m][d][n].den_nterms; nt++) {
+            // number of terms
+            fprintf(fptr, "%d\n", nterms_num_den[m][d][n][1][nt]);
+            // terms
+            for (k=0; k<nterms_num_den[m][d][n][1][nt]; k++) {
+              mpz_out_str(fptr, 10, coeffs_num_den[m][d][n][1][nt][k]);
+              fprintf(fptr, "\n");
+            }
+            // powers
+            for (k=0; k<nterms_num_den[m][d][n][1][nt]; k++) {
+              fprintf(fptr, "%d ", pows_num_den[m][d][n][1][nt][k]);
+            }
+            fprintf(fptr, "\n");
+          }
+
+        }
+      }
+    }
+  }
+  fclose(fptr);
+
+}
+
+
+void IBPs_from_file(
+  char *file_name,
+  mpz_t ******coeffs_num_den, int ******pows_num_den,
+  int *****nterms_num_den, lnode_pf ***der_ndpf,
+  LI *MI_eta, int dim, int max_num_contr
+) {
+  FILE *fptr = fopen(file_name, "r");
+  int nt, k;
+  for (int m=0; m<dim; m++) {
+    for (int d=0; d<MI_eta[m].nmass; d++) {
+      for (int n=0; n<dim; n++) {
+        // info
+        fscanf(fptr, "%d\n", &der_ndpf[m][d][n].info);
+        if (der_ndpf[m][d][n].info == -1) {
+          continue;
+        } else if (der_ndpf[m][d][n].info == 1) {
+          continue;
+        }
+
+        if (der_ndpf[m][d][n].info == 2) {
+          // number of numerator terms
+          fscanf(fptr, "%d\n", &der_ndpf[m][d][n].num_nterms);
+          // numerator powers
+          der_ndpf[m][d][n].num_pows = (int*) malloc(der_ndpf[m][d][n].num_nterms*sizeof(int));
+          for (nt=0; nt<der_ndpf[m][d][n].num_nterms; nt++) {
+            fscanf(fptr, "%d ", &der_ndpf[m][d][n].num_pows[nt]);
+          }
+          fscanf(fptr, "\n");
+
+          // number of denominator terms
+          fscanf(fptr, "%d\n", &der_ndpf[m][d][n].den_nterms);
+          // denominator powers
+          der_ndpf[m][d][n].den_pows = (int*) malloc(der_ndpf[m][d][n].den_nterms*sizeof(int));
+          for (nt=0; nt<der_ndpf[m][d][n].den_nterms; nt++) {
+            fscanf(fptr, "%d ", &der_ndpf[m][d][n].den_pows[nt]);
+          }
+          fscanf(fptr, "\n");
+
+          // NUMERATOR
+          nterms_num_den[m][d][n][0] = new int[der_ndpf[m][d][n].num_nterms];
+          coeffs_num_den[m][d][n][0] = new mpz_t*[der_ndpf[m][d][n].num_nterms];
+          pows_num_den[m][d][n][0] = new int*[der_ndpf[m][d][n].num_nterms];
+          for (nt=0; nt<der_ndpf[m][d][n].num_nterms; nt++) {
+            // number of terms
+            fscanf(fptr, "%d\n", &nterms_num_den[m][d][n][0][nt]);
+            // terms
+            // printf("%d\n", nterms_num_den[m][d][n][0][nt]);
+            coeffs_num_den[m][d][n][0][nt] = new mpz_t[nterms_num_den[m][d][n][0][nt]];
+            for (k=0; k<nterms_num_den[m][d][n][0][nt]; k++) {
+              mpz_init(coeffs_num_den[m][d][n][0][nt][k]);
+              mpz_inp_str(coeffs_num_den[m][d][n][0][nt][k], fptr, 10);
+            }
+            // powers
+            pows_num_den[m][d][n][0][nt] = new int[nterms_num_den[m][d][n][0][nt]];
+            for (k=0; k<nterms_num_den[m][d][n][0][nt]; k++) {
+              fscanf(fptr, "%d ", &pows_num_den[m][d][n][0][nt][k]);
+            }
+            fscanf(fptr, "\n");
+          }
+
+          // whether den is one
+          fscanf(fptr, "%d\n", &der_ndpf[m][d][n].den_is_one);
+          if (der_ndpf[m][d][n].den_is_one) {
+            continue;
+          }
+
+          // DENOMINATOR
+          nterms_num_den[m][d][n][1] = new int[der_ndpf[m][d][n].den_nterms];
+          coeffs_num_den[m][d][n][1] = new mpz_t*[der_ndpf[m][d][n].den_nterms];
+          pows_num_den[m][d][n][1] = new int*[der_ndpf[m][d][n].den_nterms];
+          for (nt=0; nt<der_ndpf[m][d][n].den_nterms; nt++) {
+            // number of terms
+            fscanf(fptr, "%d\n", &nterms_num_den[m][d][n][1][nt]);
+            // terms
+            coeffs_num_den[m][d][n][1][nt] = new mpz_t[nterms_num_den[m][d][n][1][nt]];
+            for (k=0; k<nterms_num_den[m][d][n][1][nt]; k++) {
+              mpz_init(coeffs_num_den[m][d][n][1][nt][k]);
+              mpz_inp_str(coeffs_num_den[m][d][n][1][nt][k], fptr, 10);
+            }
+            // powers
+            pows_num_den[m][d][n][1][nt] = new int[nterms_num_den[m][d][n][1][nt]];
+            for (k=0; k<nterms_num_den[m][d][n][1][nt]; k++) {
+              fscanf(fptr, "%d ", &pows_num_den[m][d][n][1][nt][k]);
+            }
+            fscanf(fptr, "\n");
+          }
+
+        }
+      }
+    }
+  }
+
+}
+
+
+void IBPs_free(
+  mpz_t ******coeffs_num_den, int ******pows_num_den,
+  int *****nterms_num_den, lnode_pf ***der_ndpf,
+  LI *MI_eta, int dim, int max_num_contr
+) {
+  for (int m=0; m<dim; m++) {
+    for (int d=0; d<MI_eta[m].nmass; d++) {
+      for (int n=0; n<dim; n++) {
+        if (der_ndpf[m][d][n].info == -1) {
+          continue;
+        } else if (der_ndpf[m][d][n].info == 1) {
+          continue;
+        }
+
+        if (der_ndpf[m][d][n].info == 2) {
+          free(der_ndpf[m][d][n].num_pows);
+          free(der_ndpf[m][d][n].den_pows);
+
+          for (int nt=0; nt<der_ndpf[m][d][n].num_nterms; nt++) {
+            mpz_rk1_clear(coeffs_num_den[m][d][n][0][nt], nterms_num_den[m][d][n][0][nt]);
+            delete[] coeffs_num_den[m][d][n][0][nt];
+            free(pows_num_den[m][d][n][0][nt]);
+          }
+          delete[] coeffs_num_den[m][d][n][0];
+          delete[] pows_num_den[m][d][n][0];
+          delete[] nterms_num_den[m][d][n][0];
+
+          if (der_ndpf[m][d][n].den_is_one) {
+            continue;
+          }
+
+          for (int nt=0; nt<der_ndpf[m][d][n].den_nterms; nt++) {
+            mpz_rk1_clear(coeffs_num_den[m][d][n][1][nt], nterms_num_den[m][d][n][1][nt]);
+            delete[] coeffs_num_den[m][d][n][1][nt];
+            free(pows_num_den[m][d][n][1][nt]);
+          }
+          delete[] coeffs_num_den[m][d][n][1];
+          delete[] pows_num_den[m][d][n][1];
+          delete[] nterms_num_den[m][d][n][1];
+        }
+      }
+    }
+  }
+  del_rk4_tens(coeffs_num_den, dim, max_num_contr, dim);
+  del_rk4_tens(pows_num_den, dim, max_num_contr, dim);
+  del_rk4_tens(nterms_num_den, dim, max_num_contr, dim);
+  del_rk3_tens(der_ndpf, dim, max_num_contr);
+}
+
