@@ -6256,7 +6256,7 @@ void propagate_along_path(
 }
 
 
-void propagate_all_eps(
+void propagate_eps(
   // OUTPUT
   mpc_t **sol_at_eps,
   // INPUT

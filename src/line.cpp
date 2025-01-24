@@ -74,6 +74,7 @@ int main(int argc, char *argv[])
   double opt_incr_prec = 1;
   int opt_prune_eps_abs = -20, opt_prune_eps_abs_from_terminal = 0;
   int opt_prune_eps_mode = 1, opt_prune_eps_mode_from_terminal = 0;
+  int opt_eps_log = 0;
 
 	// defining long options
 	struct option long_options[] = {
@@ -93,6 +94,7 @@ int main(int argc, char *argv[])
 		{"incr-prec", required_argument, NULL, 0},
 		{"prune-eps-abs", required_argument, NULL, 0},
 		{"prune-eps-mode", required_argument, NULL, 0},
+		{"eps-log", required_argument, NULL, 0},
 		{0, 0, 0, 0} // terminator
 	};
 
@@ -198,6 +200,15 @@ int main(int argc, char *argv[])
 					printf("Option --prune-eps-mode has arg: %ld\n", value);
 					opt_prune_eps_mode = (int)value;
           opt_prune_eps_mode_from_terminal = 1;
+        } else if (strcmp("eps-log", long_options[long_index].name) == 0) {
+					char *endptr;
+					long value = strtol(optarg, &endptr, 10);
+					if (*endptr != '\0' || !(value == 0 || value == 1 || value == -1)) {
+						fprintf(stderr, "Invalid value for --eps-log: %s. Must be integer in [-1, 1].\n", optarg);
+						return 1;
+					}
+					printf("Option --eps-log has arg: %ld\n", value);
+					opt_eps_log = (int)value;
         }
 				break;
 			case '?':
@@ -1056,7 +1067,7 @@ int main(int argc, char *argv[])
   cout << "nthreads = " << nthreads << endl;
   #pragma omp parallel for num_threads(nthreads)
   for (int ep=0; ep<eps_num; ep++) {
-    if (ep == 0) {
+    if ((ep == 0 && opt_eps_log !=0) || opt_eps_log == -1) {
       logfptr = stdout;
     } else {
       logfptr = fopen("/dev/null", "w");
@@ -1147,7 +1158,7 @@ int main(int argc, char *argv[])
     // }
     // continue;
 
-    if (ep == 0) {
+    if (print && ep == 0) {
       if (print) {
       cout << endl; cout << "DE MATRIX (1st epsilon):" << endl;
       poly_frac_rk2_print(pfmat[0], dim, dim);
@@ -1304,7 +1315,7 @@ int main(int argc, char *argv[])
     // SOLVE DE
     //////
     fprintf(terminal, "propagate: "); fflush(terminal); usleep(sleep_time);
-    propagate_all_eps(
+    propagate_eps(
       // OUTPUT
       sol_at_eps,
       // INPUT

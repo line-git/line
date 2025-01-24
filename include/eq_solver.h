@@ -149,7 +149,7 @@ void propagate_along_path(
   FILE *logfptr, FILE *terminal
 );
 
-void propagate_all_eps(
+void propagate_eps(
   // OUTPUT
   mpc_t **sol_at_eps,
   // INPUT
