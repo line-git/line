@@ -2,7 +2,9 @@
 // #include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <omp.h>
+#ifdef USE_OPENMP
+  #include <omp.h>
+#endif
 
 #include "mpc.h"
 // #include "rel_err_mpc.h"

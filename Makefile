@@ -1,10 +1,22 @@
 USE_OPENMP ?= yes
 
-# detect the operating system
 ifeq ($(shell uname),Darwin)  # for macOS
-	CC = clang
-	CXX = c++
 	CXXFLAGS = -std=c++17
+
+	ifeq ($(USE_CLANG),yes)
+		CC = clang
+		CXX = c++
+		USE_OPENMP = no
+	else
+		GCC_VERSION := $(shell brew list --versions gcc | awk '{print $$2}' | sed 's/\([0-9]*\)\..*/\1/')
+		ifeq ($(shell which gcc-$(GCC_VERSION) 2>/dev/null),)
+			CC = gcc
+			CXX = g++
+		else
+			CC =gcc-$(GCC_VERSION)
+			CXX =g++-$(GCC_VERSION)
+		endif
+	endif
 
 else ifeq ($(shell uname),Linux)  # for Linux
 	CC = gcc
