@@ -1088,6 +1088,34 @@ int main(int argc, char *argv[])
         ninvs, symbols, is_mass, skip_inv,
         dim, mats_str
       );
+
+      // start = clock();
+      // for (int s=0; s<ninvs; s++) {
+      //   char tmp_filepath[MAX_PATH_LEN];
+      //   snprintf(tmp_filepath, MAX_PATH_LEN, "%s%s%d%s", filepath_cache, "ndmat", s, file_ext);
+      //   fprintf(logfptr, "\nwriting lnode mat to file  %s\n", tmp_filepath); fflush(logfptr);
+      //   FILE *fptr = fopen(tmp_filepath, "w");
+      //   lnode_rk2_to_file(fptr, mats_nd[s], dim, dim);
+      //   lnode_rk2_free(mats_nd[s], dim, dim);
+      //   fclose(fptr);
+      // }
+      // end = clock();
+      // time = ((double) (end - start)) / CLOCKS_PER_SEC;
+      // printf("time elapsed writing lnode mats: %f sec\n", time);
+
+      // start = clock();
+      // for (int s=0; s<ninvs; s++) {
+      //   char tmp_filepath[MAX_PATH_LEN];
+      //   snprintf(tmp_filepath, MAX_PATH_LEN, "%s%s%d%s", filepath_cache, "ndmat", s, file_ext);
+      //   fprintf(logfptr, "\reading lnode mat from file  %s\n", tmp_filepath); fflush(logfptr);
+      //   FILE *fptr = fopen(tmp_filepath, "r");
+      //   lnode_rk2_from_file(fptr, mats_nd[s], dim, dim);
+      //   fclose(fptr);
+      // }
+      // end = clock();
+      // time = ((double) (end - start)) / CLOCKS_PER_SEC;
+      // printf("time elapsed reading lnode mats: %f sec\n", time);
+
     }
     end_DE_preproc = clock();
     time_DE_preproc = ((double) (end_DE_preproc - start_DE_preproc)) / CLOCKS_PER_SEC;

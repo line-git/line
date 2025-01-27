@@ -92,6 +92,11 @@ void lnode_build(struct lnode *nd);
 
 void lnode_free(struct lnode *nd);
 
+void lnode_rk2_free(
+	struct lnode **nd,
+	int dim1, int dim2
+);
+
 void lnode_copy(
 	// OUTPUT
 	struct lnode *out,
@@ -165,6 +170,24 @@ void lnode_coefficient_list_helper(
 void lnode_neg(
 	// IN-OUT
 	struct lnode *nd
+);
+
+void lnode_to_file(
+	FILE *file, struct lnode *nd
+);
+
+void lnode_from_file(
+	FILE *file, struct lnode *nd
+);
+
+void lnode_rk2_to_file(
+	FILE *file, struct lnode **nd,
+	int dim1, int dim2
+);
+
+void lnode_rk2_from_file(
+	FILE *file, struct lnode **nd,
+	int dim1, int dim2
 );
 
 #endif

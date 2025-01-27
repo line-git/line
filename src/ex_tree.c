@@ -774,6 +774,18 @@ void lnode_free(struct lnode *nd) {
 }
 
 
+void lnode_rk2_free(
+	struct lnode **nd,
+	int dim1, int dim2
+) {
+	for (int i1=0; i1<dim1; i1++) {
+		for (int i2=0; i2<dim2; i2++) {
+			lnode_free(&nd[i1][i2]);
+		}
+	}
+}
+
+
 // Function to print the expression tree
 void lnode_print(struct lnode* root, const char **symbols) {
 	if (root->op == 's') {
@@ -984,6 +996,7 @@ void create_lnode(
 		new_node->son = NULL;
 	} else {
 		new_node->son = (struct lnode*) malloc(sizeof(struct lnode));
+		lnode_build(new_node->son);
 	}
 	return;
 }
@@ -1054,6 +1067,7 @@ void lnode_attach_son_first(
 	// printf("son address = %p\n", nd->son);
 	struct lnode *holder = (*nd).son;
 	nd->son = (struct lnode*) malloc(sizeof(struct lnode));
+	lnode_build(nd->son);
 	nd->son->bro = holder;
 	// printf("son address = %p\n", nd->son);
 	// printf("son bro address = %p\n", nd->son->bro);
@@ -1468,6 +1482,7 @@ void lnode_expand(
 				grandson->n = 1;
 				if (grandson->son->bro) {
 					grandson->bro = (struct lnode*) malloc(sizeof(struct lnode));
+					lnode_build(grandson->bro);
 					grandson->bro->son = grandson->son->bro;
 					grandson->son->bro = NULL;
 					grandson = grandson->bro;
@@ -1513,6 +1528,7 @@ void lnode_expand(
 				grandson->n = 1;
 				if (grandson->son->bro) {
 					grandson->bro = (struct lnode*) malloc(sizeof(struct lnode));
+					lnode_build(grandson->bro);
 					grandson->bro->son = grandson->son->bro;
 					grandson->son->bro = NULL;
 					grandson = grandson->bro;
@@ -1576,6 +1592,7 @@ void lnode_expand(
 					// printf("grandson:\n"); lnode_print(grandson, NULL); printf("\n");
 					if (grandson->son->bro) {
 						grandson->bro = (struct lnode*) malloc(sizeof(struct lnode));
+						lnode_build(grandson->bro);
 						grandson->bro->son = grandson->son->bro;
 						grandson->son->bro = NULL;
 						// printf("grandson:\n"); lnode_print(grandson, NULL); printf("\n");
@@ -1632,6 +1649,7 @@ void lnode_expand(
 					grandson->n = 1;
 					if (grandson->son->bro) {
 						grandson->bro = (struct lnode*) malloc(sizeof(struct lnode));
+						lnode_build(grandson->bro);
 						grandson->bro->son = grandson->son->bro;
 						grandson->son->bro = NULL;
 						grandson = grandson->bro;
@@ -1671,6 +1689,7 @@ void lnode_expand(
 				grandson->n = 1;
 				if (grandson->son->bro) {
 					grandson->bro = (struct lnode*) malloc(sizeof(struct lnode));
+					lnode_build(grandson->bro);
 					grandson->bro->son = grandson->son->bro;
 					grandson->son->bro = NULL;
 					grandson = grandson->bro;
@@ -1965,5 +1984,100 @@ void lnode_neg(
 	}
 
 	return;
+}
+
+
+//////
+// IN/OUT
+//////
+void lnode_to_file(FILE *file, struct lnode *nd) {
+	fwrite(&nd->n, sizeof(int), 1, file);
+	fwrite(&nd->op, sizeof(char), 1, file);
+	fwrite(&nd->number, sizeof(int), 1, file);
+
+	if (nd->op == 'n') {
+		// Calcola correttamente la dimensione in byte
+		size_t mpz_size = (mpz_sizeinbase(nd->mpz, 2) + 7) / 8; // Arrotonda verso l'alto
+		fwrite(&mpz_size, sizeof(size_t), 1, file);
+
+		void *mpz_data = calloc(1, mpz_size); // Usa calloc per inizializzare a zero
+		mpz_export(mpz_data, NULL, 1, 1, 0, 0, nd->mpz);
+		fwrite(mpz_data, 1, mpz_size, file);
+		free(mpz_data);
+	}
+
+	// Scrivi ricorsivamente son e bro
+	int has_son = (nd->son != NULL);
+	fwrite(&has_son, sizeof(int), 1, file);
+	if (has_son) {
+		lnode_to_file(file, nd->son);
+	}
+
+	int has_bro = (nd->bro != NULL);
+	fwrite(&has_bro, sizeof(int), 1, file);
+	if (has_bro) {
+		lnode_to_file(file, nd->bro);
+	}
+}
+
+
+void lnode_from_file(FILE *file, struct lnode *nd) {
+	fread(&nd->n, sizeof(int), 1, file);
+	fread(&nd->op, sizeof(char), 1, file);
+	fread(&nd->number, sizeof(int), 1, file);
+
+	// Leggi mpz_t
+	if (nd->op == 'n') {
+		size_t mpz_size;
+		fread(&mpz_size, sizeof(size_t), 1, file);
+		void *mpz_data = malloc(mpz_size);
+		fread(mpz_data, 1, mpz_size, file);
+		mpz_init(nd->mpz);
+		mpz_import(nd->mpz, mpz_size, 1, 1, 0, 0, mpz_data);
+		free(mpz_data);
+	}
+
+	// Leggi ricorsivamente son e bro
+	int has_son;
+	fread(&has_son, sizeof(int), 1, file);
+	if (has_son) {
+		nd->son = (struct lnode *)malloc(sizeof(struct lnode));
+		lnode_from_file(file, nd->son);
+	} else {
+		nd->son = NULL;
+	}
+
+	int has_bro;
+	fread(&has_bro, sizeof(int), 1, file);
+	if (has_bro) {
+		nd->bro = (struct lnode *)malloc(sizeof(struct lnode));
+		lnode_from_file(file, nd->bro);
+	} else {
+		nd->bro = NULL;
+	}
+}
+
+
+void lnode_rk2_to_file(
+	FILE *file, struct lnode **nd,
+	int dim1, int dim2
+) {
+	for (int i1=0; i1<dim1; i1++) {
+		for (int i2=0; i2<dim2; i2++) {
+			lnode_to_file(file, &nd[i1][i2]);
+		}
+	}
+}
+
+
+void lnode_rk2_from_file(
+	FILE *file, struct lnode **nd,
+	int dim1, int dim2
+) {
+	for (int i1=0; i1<dim1; i1++) {
+		for (int i2=0; i2<dim2; i2++) {
+			lnode_from_file(file, &nd[i1][i2]);
+		}
+	}
 }
 
