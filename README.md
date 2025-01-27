@@ -10,6 +10,21 @@ large-scale cluster computations more feasible.
 
 ## Dependencies
 
+In order to compile **LINE**, the **GCC** compiler version 14.0 or later
+is needed. **MacOS** users can also compile using `clang`:
+
+``` bash
+make USE_CLANG=yes
+```
+
+However, **OpenMP** is not compatible with the default `clang`, so
+parallelization will not be available. On macOS, GCC can be installed
+using [Homebrew](https://brew.sh):
+
+``` bash
+brew install gcc
+```
+
 **LINE** depends on the following libraries:
 
 -   **GMP (GNU Multiple Precision Arithmetic Library)**: 6.3.0
@@ -26,6 +41,11 @@ Kira is only needed if the user wants to generate boundaries using the
 **LINE** implementation of the
 [AMFlow](https://inspirehep.net/literature/1639025) method.
 
+Make sure the libraries and the header files are visible to the
+compiler. This can be done by ensuring the appropriate paths are set in
+the environment variables `LIBRARY_PATH` (for the libraries) and `CPATH`
+(for the header files).
+
 ### Install GMP
 
 To install GMP, follow these steps:
@@ -40,6 +60,12 @@ To install GMP, follow these steps:
 make
 make check
 sudo make install
+```
+
+**MacOS** users can also install GMP with **Homebrew**:
+
+``` bash
+brew install gmp
 ```
 
 ### Install MPFR
@@ -63,6 +89,12 @@ make check
 sudo make install
 ```
 
+On **macOS**, MPFR can also be installed with **Homebrew**:
+
+``` bash
+brew install mpfr
+```
+
 ### Install MPC
 
 MPC requires both GMP and MPFR. To install it:
@@ -81,6 +113,12 @@ make check
 sudo make install
 ```
 
+On **macOS**, MPC is also available with **Homebrew**:
+
+``` bash
+brew install mpc
+```
+
 ### Install OpenSSL
 
 The required libraries are `libcrypto` and `libssl`, which are part of
@@ -92,7 +130,7 @@ On **Linux**, OpenSSL can be installed with:
 sudo apt-get install libssl-dev
 ```
 
-On **MacOs**, you can install OpenSSL with **Homebrew**:
+On **macOs**, you can install OpenSSL with **Homebrew**:
 
 ``` bash
 brew install openssl
@@ -112,6 +150,24 @@ export FERMATPATH="/path/to/fer64"
 
 to your shell\'s initialization file (e.g., `.bashrc`, `.bash_profile`,
 etc.).
+
+### Notes for macOS users
+
+Homebrew installs packages in different paths depending on the
+architecture. For Apple Silicon users, the default installation path is
+`/opt/homebrew`, while Intel-based Macs use `/usr/local`. To ensure the
+compiler can locate the installed libraries and header files, adjust the
+proper environment variables accordingly.
+
+On Apple Silicon, use:
+
+    export LIBRARY_PATH="/opt/homebrew/lib/:$LIBRARY_PATH"
+    export CPATH="/opt/homebrew/include/:$CPATH"
+
+For Intel-based Mac, use:
+
+    export LIBRARY_PATH="/usr/local/lib/:$LIBRARY_PATH"
+    export CPATH="/usr/local/include/:$CPATH"
 
 ## Compile and check
 
@@ -270,6 +326,15 @@ mass. To make Kira use N CPU cores, run with the option
 skipped. If instead you want the IBPs to be generated from scratch, use
 `--kira-redo 1`.
 
+You can run **LINE** with the `--nthreads N` option (or `-n N` for
+short) to use N CPU cores, solving the differential equations for N
+different values of epsilon in parallel. Internally, **LINE** computes
+the most efficient number of OpenMP threads, selecting the lowest number
+that does not increase execution time compared to using exactly N
+threads. With `--nthreads 0`, **LINE** attempts to create as many
+threads as there are epsilon values, without exceeding the number of CPU
+cores on your machine.
+
 To write the computed results to the cache folders (so that they can be
 used as a boundary for later propagations) use `--write 1` (`-w 1` for
 short). If instead, for a given target point, you want to check that the
@@ -358,9 +423,9 @@ results of the computations. To run these tests:
 -   Run `line` using the input cards in the `cards/` folder of the
     `line-app` directory.
 
-## Alpha version and future improvements
+## Beta version and future improvements
 
-This code is an alpha version of the tool. While functional, there is
+This code is a beta version of the tool. While functional, there is
 still significant room for improvement, particularly in terms of
 efficiency, code compactness, and modularity. Many enhancements have
 already been conceptualized and a beta version including these
@@ -369,7 +434,7 @@ for updates!
 
 ## Reporting issues
 
-Please note that as this is an alpha version, the code may be prone to
+Please note that as this is a beta version, the code may be prone to
 bugs. If you encounter any issues, we encourage you to [contact
 us](mailto:renatomaria.prisco@unina.it,jonathan.ronca@pd.infn.it,francesco.tramontano@unina.it?subject=LINE%20-%20Issue%20Report)
 for support. Please include a detailed description of the problem and
