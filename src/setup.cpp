@@ -1427,7 +1427,9 @@ void load_symbols(
 	char *line = NULL;
 	size_t line_len = 0;
 	while (getline(&line, &line_len, file) != -1) {
-		(*ninvs)++;
+		if (line[0] != '\n' && line[0] != '\r') {
+			(*ninvs)++;
+		}
 	}
 	rewind(file);
 

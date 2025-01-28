@@ -857,7 +857,7 @@ int main(int argc, char *argv[])
 	}
 
   //////
-  // INPUT MATRICES
+  // LOAD MATRICES
   //////
   // INPUT MATRICES AS STRINGS
 	char ****mats_str = NULL;
