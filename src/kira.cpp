@@ -3472,11 +3472,25 @@ void kira_to_DE_str(
 void call_kira(
   // OUTPUT
   LI **MI_eta, int *dim_eta, int **MI_idx, int *dim,
+  double *time,
   // INPUT
-  int redo, int opt_kira_parallel,
+  int redo, int opt_kira_parallel, int opt_kira_print,
   char **kin, char *dir_parent, char *dir_amflow,
   FILE *terminal
 ) {
+  // to measure time
+  timespec start_el_MI, end_el_MI;
+  timespec start_el_red, end_el_red;
+  time[0] = 0, time[1] = 0;
+
+  // options
+  char *kira_print = NULL;
+  if (opt_kira_print) {
+    kira_print = strdup("");
+  } else {
+    kira_print = strdup(" > /dev/null 2>&1");
+  }
+  
   char *dir_common = NULL;
   join_path(&dir_common, dir_parent, (char*)"common/");
 
@@ -3734,7 +3748,7 @@ void call_kira(
   fprintf(fptr, "jobs:\n");
   fprintf(fptr, "  - reduce_sectors:\n");
   fprintf(fptr, "      reduce:\n");
-  fprintf(fptr, "        - {r: %d, s: %d}\n", r, s+1);
+  fprintf(fptr, "        - {r: %d, s: %d}\n", r, s);
   fprintf(fptr, "      select_integrals:\n");
   fprintf(fptr, "        select_mandatory_recursively:\n");
   fprintf(fptr, "          - {r: %d, s: %d, d: %d}\n", r, s, d);
@@ -3749,7 +3763,7 @@ void call_kira(
   fprintf(fptr, "jobs:\n");
   fprintf(fptr, "  - reduce_sectors:\n");
   fprintf(fptr, "      reduce:\n");
-  fprintf(fptr, "        - {r: %d, s: %d}\n", r, s+1);
+  fprintf(fptr, "        - {r: %d, s: %d}\n", r, s);
   fprintf(fptr, "      select_integrals:\n");
   fprintf(fptr, "        select_mandatory_list:\n");
   fprintf(fptr, "          - [%s, target]\n", topo_name);
@@ -3793,6 +3807,7 @@ void call_kira(
   }
 
   if (execute) {
+    clock_gettime(CLOCK_MONOTONIC, &start_el_MI);
     fprintf(terminal, "call Kira to find MIs... "); fflush(terminal); usleep(sleep_time);
     snprintf(
       command, MAX_VALUE_LEN*sizeof(char),
@@ -3803,11 +3818,14 @@ void call_kira(
     system(command);
     snprintf(
       command, MAX_VALUE_LEN*sizeof(char),
-      "cd %s && kira --parallel=%d jobs_MIs-eta.yaml; cd -", dir_kira, opt_kira_parallel
+      "cd %s && kira --parallel=%d jobs_MIs-eta.yaml %s; cd -", dir_kira, opt_kira_parallel, kira_print
     );
     cout << endl; cout << "executing shell command: " << endl; cout << "  $ " << command << endl;
     cout << endl;
-    system(command);
+    if (system(command)) {
+      fprintf(stderr, "error while executing command: %s\n", command);
+		  return exit(1); 
+    }
     snprintf(
       command, MAX_VALUE_LEN*sizeof(char),
       "cp %s %s", kira_MIs_eta_filepath, MIs_eta_filepath
@@ -3816,6 +3834,8 @@ void call_kira(
     cout << endl;
     system(command);
     fprintf(terminal, "\033[25D\033[K"); fflush(terminal); usleep(sleep_time);
+    clock_gettime(CLOCK_MONOTONIC, &end_el_MI);
+    time[0] = timespec_to_double(start_el_MI, end_el_MI);
   }
 
   //////
@@ -3978,17 +3998,23 @@ void call_kira(
   }
 
   if (execute) {
+    clock_gettime(CLOCK_MONOTONIC, &start_el_red);
     fprintf(terminal, "call Kira to reduce derivatives... "); fflush(terminal); usleep(sleep_time);    
     snprintf(
       command, MAX_VALUE_LEN*sizeof(char),
-      "cd %s && kira --parallel=%d jobs.yaml; cd -", dir_kira, opt_kira_parallel
+      "cd %s && kira --parallel=%d jobs.yaml %s; cd -", dir_kira, opt_kira_parallel, kira_print
     );
     cout << endl; cout << "executing shell command: " << endl; cout << "  $ " << command << endl;
     cout << endl;
-    system(command);
+    if (system(command)) {
+      fprintf(stderr, "error while executing command: %s\n", command);
+		  return exit(1); 
+    }
     fprintf(terminal, "\033[45D\033[K"); fflush(terminal); usleep(sleep_time);
+    clock_gettime(CLOCK_MONOTONIC, &end_el_red);
+    time[1] = timespec_to_double(start_el_red, end_el_red);
   }
-
+  
   return;
 
   //////

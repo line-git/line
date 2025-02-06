@@ -1,7 +1,25 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+double clock_t_to_double(
+  clock_t start, clock_t end
+);
+
+double timespec_to_double(
+  timespec start, timespec end
+);
+
 char* format_time(double seconds);
+
+void log_time_stats(
+  double time_el_main,
+  double *time_el_kira,
+  double time_line, double time_el_line,
+  double time_DE_preproc,
+  double time_eps_loop, double time_el_eps_loop,
+  double time_el_eps_iter, double time_el_DE, double time_el_prop,
+  int eps_num, int nthreads, int opt_kira_parallel
+);
 
 void generate_cache_filename(
   char **filename

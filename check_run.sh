@@ -1,6 +1,12 @@
 #!/bin/bash
 
 ######
+# PREPARATION
+######
+# always measure time in the same format regardless of local settings
+export LC_NUMERIC=C
+
+######
 # GETOPTS
 ######
 # default values

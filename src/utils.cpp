@@ -25,6 +25,20 @@ extern "C" {
 }
 
 
+double clock_t_to_double(
+  clock_t start, clock_t end
+) {
+  return ((double) end - start) / CLOCKS_PER_SEC;
+}
+
+
+double timespec_to_double(
+  timespec start, timespec end
+) {
+  return end.tv_sec - start.tv_sec + (end.tv_nsec - start.tv_nsec)/1e9;
+}
+
+
 char* format_time(double seconds) {
   int minutes = (int)(seconds / 60);
   double remaining_seconds = fmod(seconds, 60);
@@ -33,6 +47,52 @@ char* format_time(double seconds) {
   snprintf(formatted_time, 32, "%6dm %09.6fs", minutes, remaining_seconds);
 
   return formatted_time;
+}
+
+
+void log_time_stats(
+  double time_el_main,
+  double *time_el_kira,
+  double time_line, double time_el_line,
+  double time_DE_preproc,
+  double time_eps_loop, double time_el_eps_loop,
+  double time_el_eps_iter, double time_el_DE, double time_el_prop,
+  int eps_num, int nthreads, int opt_kira_parallel
+) {
+  printf("\n------------------------------------------------------------\n");
+  printf("\nTIME STATS\n");
+  printf("(%d eps value(s), %d thread(s)", eps_num, nthreads);
+  if (time_el_kira[0] > 0) {
+  printf(", %d Kira thread(s)", opt_kira_parallel);
+  }
+  printf(")\n");
+  printf("\n");
+  if (time_el_kira[0] > 0) {
+  printf("%-26s %s\n", "Kira (elapsed):", format_time(time_el_kira[0]+time_el_kira[1]));
+  }
+  if (nthreads > 1) {
+  printf("%-26s %s, %s\n", "LINE (elapsed, cpu):", format_time(time_el_line), format_time(time_line));
+  } else {
+  printf("%-26s %s\n", "LINE:", format_time(time_el_line));
+  }
+  if (time_DE_preproc) {
+  printf("%-26s %s\n", "  DE preproc:", format_time(time_DE_preproc));
+  }
+  if (nthreads > 1) {
+  printf("%-26s %s, %s\n", "  eps loop (elapsed, cpu):", format_time(time_el_eps_loop), format_time(time_eps_loop));
+  } else {
+  printf("%-26s %s\n", "  eps loop:", format_time(time_eps_loop));
+  }
+  printf("%-26s %s\n", "    eps iteration:", format_time(time_el_eps_iter));
+  if (time_el_DE > 0) {
+  printf("%-26s %s\n", "      DE:", format_time(time_el_DE));
+  }
+  if (time_el_prop > 0) {
+  printf("%-26s %s\n", "      propagation:", format_time(time_el_prop));
+  }
+  printf("\n");
+  printf("%-26s %s\n", "total (elapsed):", format_time(time_el_main));
+
 }
 
 

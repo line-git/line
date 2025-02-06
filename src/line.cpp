@@ -53,24 +53,31 @@ char *filepath_cache = NULL;
 int main(int argc, char *argv[])
 {
   int print = 0;
+
+  //////
+  // PREPARE TIME MEASUREMENTS
+  //////
   clock_t start, end;
-  clock_t start_kira, end_kira;
+  timespec start_el_kira, end_el_kira;
   clock_t start_DE_preproc, end_DE_preproc;
   clock_t start_eps_loop, end_eps_loop;
-  static timespec start_wc_eps_loop, end_wc_eps_loop;
-  #pragma omp threadprivate(start_wc_eps_loop, end_wc_eps_loop)
-  static timespec start_wc_eps_iter, end_wc_eps_iter;
-  #pragma omp threadprivate(start_wc_eps_iter, end_wc_eps_iter)
-  static timespec start_wc_DE, end_wc_DE;
-  #pragma omp threadprivate(start_wc_DE, end_wc_DE)
-  static timespec start_wc_prop, end_wc_prop;
-  #pragma omp threadprivate(start_wc_prop, end_wc_prop)
-  clock_t start_main, end_main;
-  timespec start_wc_main, end_wc_main;
-  double time, time_kira = 0, time_DE_preproc = 0;
-  double time_wc_eps_iter = 0, time_wc_DE = 0, time_wc_prop = 0;
-  start_main = clock();
-  clock_gettime(CLOCK_MONOTONIC, &start_wc_main);
+  static timespec start_el_eps_loop, end_el_eps_loop;
+  #pragma omp threadprivate(start_el_eps_loop, end_el_eps_loop)
+  static timespec start_el_eps_iter, end_el_eps_iter;
+  #pragma omp threadprivate(start_el_eps_iter, end_el_eps_iter)
+  static timespec start_el_DE, end_el_DE;
+  #pragma omp threadprivate(start_el_DE, end_el_DE)
+  static timespec start_el_prop, end_el_prop;
+  #pragma omp threadprivate(start_el_prop, end_el_prop)
+  clock_t start_line, end_line;
+  timespec start_el_main, end_el_main;
+  double time = 0, time_main = 0, time_el_main = 0, time_line = 0, time_el_line = 0;
+  double time_DE_preproc = 0, time_eps_loop = 0, time_el_eps_loop = 0;
+  double time_eps_iter = 0, time_el_eps_iter = 0, time_el_DE = 0, time_el_prop = 0;
+  double time_el_kira[2];
+  time_el_kira[0] = 0; time_el_kira[1] = 0;
+  clock_gettime(CLOCK_MONOTONIC, &start_el_main);
+  start_line = clock();  
   
   //////
   // OPTIONS FROM TERMINAL
@@ -92,6 +99,7 @@ int main(int argc, char *argv[])
 	int opt_nthreads = 1;
 	int opt_kira_parallel = 1;
   int opt_kira_redo = -1;
+  int opt_kira_print = 1;
   double opt_incr_prec = 1;
   int opt_prune_eps_abs = -20, opt_prune_eps_abs_from_terminal = 0;
   int opt_prune_eps_mode = 1, opt_prune_eps_mode_from_terminal = 0;
@@ -112,6 +120,7 @@ int main(int argc, char *argv[])
 		{"nthreads", required_argument, NULL, 'n'},
 		{"kira-parallel", required_argument, NULL, 0},
 		{"kira-redo", required_argument, NULL, 0},
+		{"kira-print", required_argument, NULL, 0},
 		{"incr-prec", required_argument, NULL, 0},
 		{"prune-eps-abs", required_argument, NULL, 0},
 		{"prune-eps-mode", required_argument, NULL, 0},
@@ -193,6 +202,15 @@ int main(int argc, char *argv[])
 					}
 					printf("Option --kira-redo has arg: %ld\n", value);
 					opt_kira_redo = (int)value;
+        } else if (strcmp("kira-print", long_options[long_index].name) == 0) {
+					char *endptr;
+					long value = strtol(optarg, &endptr, 10);
+					if (*endptr != '\0' || !(value == 0 ||  value == 1)) {
+						fprintf(stderr, "Invalid value for --kira-print: %s. Must be 0 or 1.\n", optarg);
+						return 1;
+					}
+					printf("Option --kira-print has arg: %ld\n", value);
+					opt_kira_print = (int)value;
         } else if (strcmp("incr-prec", long_options[long_index].name) == 0) {
 					char *endptr;
 					opt_incr_prec = strtod(optarg, &endptr);
@@ -557,13 +575,13 @@ int main(int argc, char *argv[])
     make_dir(dir_amflow);
     join_path(&dir_common, dir_amflow, (char*)"common/");
 
-    start_kira = clock();
     call_kira(
       &MI_eta, &dim, &MI_idx, &dim_eta_less,
-      opt_kira_redo, opt_kira_parallel, kin[1], dir_parent, dir_amflow,
+      time_el_kira,
+      opt_kira_redo, opt_kira_parallel, opt_kira_print,
+      kin[1], dir_parent, dir_amflow,
       terminal
     );
-    end_kira = clock();
   }
   // path to common files
   join_path(&filepath_mats, dir_common, (char*)"");
@@ -1141,7 +1159,7 @@ int main(int argc, char *argv[])
   // EPSILON LOOP
   //////
   start_eps_loop = clock();
-  clock_gettime(CLOCK_MONOTONIC, &start_wc_eps_loop);
+  clock_gettime(CLOCK_MONOTONIC, &start_el_eps_loop);
   cout << endl; cout << "EPSILON LOOP" << endl;
   poly_frac **pspf_ep;
   malloc_rk2_tens(pspf_ep, eps_num, ninvs+1);
@@ -1160,7 +1178,7 @@ int main(int argc, char *argv[])
   cout << "using " << nthreads << " thread(s)" << endl;
   #pragma omp parallel for num_threads(nthreads)
   for (int ep=0; ep<eps_num; ep++) {
-    clock_gettime(CLOCK_MONOTONIC, &start_wc_eps_iter);
+    clock_gettime(CLOCK_MONOTONIC, &start_el_eps_iter);
     if ((ep == 0 && opt_eps_log !=0) || opt_eps_log == -1) {
       logfptr = stdout;
     } else {
@@ -1199,7 +1217,7 @@ int main(int argc, char *argv[])
     //////
     // BUILD DE
     //////
-    clock_gettime(CLOCK_MONOTONIC, &start_wc_DE);
+    clock_gettime(CLOCK_MONOTONIC, &start_el_DE);
     if (exit_sing == -1) {
       //////
       // BUILD AMF DE
@@ -1245,8 +1263,8 @@ int main(int argc, char *argv[])
       );
       fprintf(terminal, "\033[13D\033[K"); fflush(terminal); usleep(sleep_time);
     }
-    clock_gettime(CLOCK_MONOTONIC, &end_wc_DE);
-    time_wc_DE += end_wc_DE.tv_sec - start_wc_DE.tv_sec + (end_wc_DE.tv_nsec - start_wc_DE.tv_nsec)/1e9;
+    clock_gettime(CLOCK_MONOTONIC, &end_el_DE);
+    time_el_DE += end_el_DE.tv_sec - start_el_DE.tv_sec + (end_el_DE.tv_nsec - start_el_DE.tv_nsec)/1e9;
     
     // #pragma omp critical
     // {
@@ -1411,7 +1429,7 @@ int main(int argc, char *argv[])
     //////
     // SOLVE DE
     //////
-    clock_gettime(CLOCK_MONOTONIC, &start_wc_prop);
+    clock_gettime(CLOCK_MONOTONIC, &start_el_prop);
     fprintf(terminal, "propagate: "); fflush(terminal); usleep(sleep_time);
     propagate_eps(
       // OUTPUT
@@ -1435,8 +1453,8 @@ int main(int argc, char *argv[])
       terminal
     );
     fprintf(terminal, "\033[11D\033[K"); fflush(terminal); usleep(sleep_time);
-    clock_gettime(CLOCK_MONOTONIC, &end_wc_prop);
-    time_wc_prop += end_wc_prop.tv_sec - start_wc_prop.tv_sec + (end_wc_prop.tv_nsec - start_wc_prop.tv_nsec)/1e9;
+    clock_gettime(CLOCK_MONOTONIC, &end_el_prop);
+    time_el_prop += end_el_prop.tv_sec - start_el_prop.tv_sec + (end_el_prop.tv_nsec - start_el_prop.tv_nsec)/1e9;
 
     goto_eps_loop_continue:
     // FREE
@@ -1448,16 +1466,18 @@ int main(int argc, char *argv[])
     del_rk2_tens(*solutions, dim);  
     delete[] solutions;
     
-    clock_gettime(CLOCK_MONOTONIC, &end_wc_eps_iter);
-    time_wc_eps_iter += end_wc_eps_iter.tv_sec - start_wc_eps_iter.tv_sec + (end_wc_eps_iter.tv_nsec - start_wc_eps_iter.tv_nsec)/1e9;
+    clock_gettime(CLOCK_MONOTONIC, &end_el_eps_iter);
+    time_el_eps_iter += end_el_eps_iter.tv_sec - start_el_eps_iter.tv_sec + (end_el_eps_iter.tv_nsec - start_el_eps_iter.tv_nsec)/1e9;
   }
-  time_wc_DE /= eps_num;
-  time_wc_prop /= eps_num;
-  time_wc_eps_iter /= eps_num;
+  time_el_DE /= eps_num;
+  time_el_prop /= eps_num;
+  time_el_eps_iter /= eps_num;
   fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
   logfptr = stdout;
   end_eps_loop = clock();
-  clock_gettime(CLOCK_MONOTONIC, &end_wc_eps_loop);
+  clock_gettime(CLOCK_MONOTONIC, &end_el_eps_loop);
+  time_eps_loop = clock_t_to_double(start_eps_loop, end_eps_loop);
+  time_el_eps_loop = timespec_to_double(start_el_eps_loop, end_el_eps_loop);
   // exit(0);
 
   if (opt_checkpoint < 1) {
@@ -1836,39 +1856,21 @@ int main(int argc, char *argv[])
   //////
   // TIME STATS
   //////
-  end_main = clock();
-  clock_gettime(CLOCK_MONOTONIC, &end_wc_main);
-  printf("\nTIME STATS\n");
-  printf("(");
-  if (time_kira > 0) {
-  printf("%d Kira threads, ", opt_kira_parallel);
-  }
-  printf("%d eps value(s), %d thread(s))\n", eps_num, nthreads);
-  if (time_kira > 0) {
-  printf("%-20s %s\n", "kira:", format_time(time_kira));
-  }
-  if (time_DE_preproc) {
-  printf("%-20s %s\n", "DE preprocessing:", format_time(time_DE_preproc));
-  }
-  if (nthreads > 1) {
-  printf("%-20s %s\n", "eps loop (cpu):", format_time(((double) (end_eps_loop - start_eps_loop)) / CLOCKS_PER_SEC));
-  printf("%-20s %s\n", "eps loop (elapsed):", format_time(end_wc_eps_loop.tv_sec - start_wc_eps_loop.tv_sec + (end_wc_eps_loop.tv_nsec - start_wc_eps_loop.tv_nsec)/1e9));
-  } else {
-  printf("%-20s %s\n", "eps loop:", format_time(((double) (end_eps_loop - start_eps_loop)) / CLOCKS_PER_SEC));
-  }
-  printf("%-20s %s\n", "eps iteration:", format_time(time_wc_eps_iter));
-  if (time_wc_DE > 0) {
-  printf("%-20s %s\n", "    DE:", format_time(time_wc_DE));
-  }
-  if (time_wc_prop > 0) {
-  printf("%-20s %s\n", "    propagation:", format_time(time_wc_prop));
-  }
-  if (nthreads > 1) {
-  printf("%-20s %s\n", "total (cpu):", format_time(((double) (end_main - start_main)) / CLOCKS_PER_SEC));
-  printf("%-20s %s\n", "total (elapsed):", format_time(end_wc_main.tv_sec - start_wc_main.tv_sec + (end_wc_main.tv_nsec - start_wc_main.tv_nsec)/1e9));
-  } else {
-  printf("%-20s %s\n", "total:", format_time(((double) (end_main - start_main)) / CLOCKS_PER_SEC));
-  }
-  return 0;
+  // end_main = get_cpu_time();
+  clock_gettime(CLOCK_MONOTONIC, &end_el_main);
+  end_line = clock();
+  time_line = clock_t_to_double(start_line, end_line);  
+  time_el_main = timespec_to_double(start_el_main, end_el_main);
+  time_el_line = time_el_main - time_el_kira[0] - time_el_kira[1];
+  log_time_stats(
+    time_el_main,
+    time_el_kira,
+    time_line, time_el_line,
+    time_DE_preproc,
+    time_eps_loop, time_el_eps_loop,
+    time_el_eps_iter, time_el_DE, time_el_prop,
+    eps_num, nthreads, opt_kira_parallel
+  );
 
+  return 0;
 }

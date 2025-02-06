@@ -68,8 +68,9 @@ void kira_IBPs_to_DE_pf(
 void call_kira(
   // OUTPUT
   LI **MI_eta, int *dim_eta, int **MI_idx, int *dim,
+  double *time,
   // INPUT
-  int redo, int opt_kira_parallel,
+  int redo, int opt_kira_parallel, int opt_kira_print,
   char **kin, char *dir_parent, char *dir_amflow,
   FILE *terminal
 );
