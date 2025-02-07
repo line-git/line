@@ -17,6 +17,7 @@ using namespace std;
 #include "global_vars.h"
 #include "malloc_defs.h"
 #include "poly_frac.h"
+#include "topology.h"
 
 extern "C" {
   #include "cpoly.h"
@@ -114,6 +115,53 @@ void generate_cache_filename(
 
   snprintf(*filename, 30, "cache_%d_%d/", timestamp, random_component);
 }
+
+
+void print_result(
+  FILE *resfptr, int precision,
+  mpc_t **res, LI *MI, int dim, int order, int nloops
+) {
+  char res_format[20];
+  snprintf(res_format, sizeof(res_format), "%%.%dRe", precision-1);
+  int sign;
+  for (int i=0; i<dim; i++) {
+    fprintf(resfptr, "n. %d", i);
+    if (MI) fprintf(resfptr, ", MI%s", MI->pows_str);
+    fprintf(resfptr, "\n");
+    for (int ep=0; ep<=order; ep++) {
+      fprintf(resfptr, "eps^%d: ", ep - 2*nloops);
+      if (ep - 2*nloops >= 0) fprintf(resfptr, " ");
+      fprintf(resfptr, "(");
+
+      // print real part
+      sign = mpfr_cmp_ui(mpc_realref(res[i][ep]), 0);
+      if (sign == 0) {
+        fprintf(resfptr, "0");
+      } else {
+        if (sign > 0) fprintf(resfptr, "+");
+        mpfr_fprintf(resfptr, res_format, mpc_realref(res[i][ep]));
+        // mpfr_out_str(resfptr, 10, 0, mpc_realref(res[i][ep]), MPFR_RNDN);
+      }
+
+      fprintf(resfptr, " ");
+
+      // print imag part
+      sign = mpfr_cmp_ui(mpc_imagref(res[i][ep]), 0);
+      if (sign == 0) {
+        fprintf(resfptr, "0");
+      } else {
+        if (sign > 0) fprintf(resfptr, "+");
+        mpfr_fprintf(resfptr, res_format, mpc_imagref(res[i][ep]));
+        // mpfr_out_str(resfptr, 10, 0, mpc_imagref(res[i][ep]), MPFR_RNDN);
+      }
+      fprintf(resfptr, ")\n");
+    }
+    fprintf(resfptr, "\n");
+  }
+}
+
+
+
 
 
 // void write_to_cache(const char* data) {

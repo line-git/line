@@ -1,6 +1,8 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include "topology.h"
+
 double clock_t_to_double(
   clock_t start, clock_t end
 );
@@ -23,6 +25,11 @@ void log_time_stats(
 
 void generate_cache_filename(
   char **filename
+);
+
+void print_result(
+  FILE *resfptr, int precision,
+  mpc_t **res, LI *MI, int dim, int order, int nloops
 );
 
 int MIN(int a, int b);

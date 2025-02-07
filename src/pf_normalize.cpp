@@ -440,7 +440,7 @@ void pf_NormalizeDiagonal(
   fprintf(terminal, "diagonal: "); fflush(terminal); usleep(sleep_time);
   for (int b=0; b<nblocks; b++) {
     if (b > 0) {fprintf(terminal, "\033[18D\033[K");}// fflush(terminal); usleep(sleep_time);}
-    fprintf(terminal, "block %3d /%3d... ", b, nblocks-1); fflush(terminal); usleep(sleep_time);
+    fprintf(terminal, "block %3d /%3d... ", b, nblocks); fflush(terminal); usleep(sleep_time);
     b_len = prof[b][1] - prof[b][0] + 1;
     b_len2 = b_len*b_len;
     if (0 && b == 40) dbg = 1;
@@ -1397,7 +1397,7 @@ void pf_to_Fuchsian_global(
   fprintf(terminal, "off-diagonal: "); fflush(terminal); usleep(sleep_time);
   for (int b=0; b<nblocks; b++) {
     if (b > 0) {fprintf(terminal, "\033[18D\033[K");}// fflush(terminal); usleep(sleep_time);}
-    fprintf(terminal, "block %3d /%3d... ", b, nblocks-1); fflush(terminal); usleep(sleep_time);
+    fprintf(terminal, "block %3d /%3d... ", b, nblocks); fflush(terminal); usleep(sleep_time);
     b_len = prof[b][1] - prof[b][0] + 1;
     if (print) {
     cout << "################################################################# b = " << b << endl;

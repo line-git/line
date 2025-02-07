@@ -4547,7 +4547,7 @@ void solve_zero(
   for (int b=0; b<nblocks; b++) {
     // for (int b=0; b<1; b++) {
     if (b > 0) {fprintf(terminal, "\033[18D\033[K");}// fflush(terminal); usleep(sleep_time);}
-    fprintf(terminal, "block %3d /%3d... ", b, nblocks-1); fflush(terminal); usleep(sleep_time);
+    fprintf(terminal, "block %3d /%3d... ", b, nblocks); fflush(terminal); usleep(sleep_time);
   
     // build block indices
     build_block_indices(b_idx, sb_idx, &b_len, &sb_len, b, prof, sb_grid);
@@ -5889,7 +5889,7 @@ void propagate_along_path(
   // fprintf(logfptr, "{\n");
   for (int et=0; et<neta_values; et++) {
     if (et  > 0) {fprintf(terminal, "\033[23D\033[K");}// fflush(terminal); usleep(sleep_time);}
-    fprintf(terminal, "path point %3d /%3d... ", et, neta_values-1); fflush(terminal); usleep(sleep_time);
+    fprintf(terminal, "path point %3d /%3d... ", et, neta_values); fflush(terminal); usleep(sleep_time);
 
     // if (et != neta_values - 1) continue;
     // FILE *bc_ptr = fopen("sol_at_eta-last_box1.txt", "r");

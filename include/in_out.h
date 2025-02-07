@@ -53,9 +53,4 @@ int copy_file(
   const char *source_path, const char *destination_path
 );
 
-void print_result(
-  FILE *resfptr, int precision,
-  mpc_t **res, int dim, int order, int nloops
-);
-
 #endif

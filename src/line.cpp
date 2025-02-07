@@ -44,10 +44,42 @@ int wp2;
 int dbg = 0;
 mpfr_t mpfr_tol;
 double sleep_time = 0;
-char *filepath_cache = NULL;
 // double sleep_time = 0.2e6;
-// double sleep_time = 0.01e6;
+// double sleep_time = 0.05e6;
 // double sleep_time = 0.005e6;
+char *filepath_cache = NULL;
+FILE *dev_null_fptr = NULL;
+
+
+int lock_acquire_if_free(
+  int *lock
+) {
+  // #pragma atomic read
+  // if (*lock == 0) {
+  //   #pragma atomic write
+  //   *lock = 1;
+  // }
+  int expected = 0;
+  int desired = 1;
+  if (
+    __atomic_compare_exchange(
+      lock, &expected, &desired, 0, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED
+    )
+  ) {
+    return 1;  // lock acquired
+  } else {
+    return 0;  // lock acquired
+  }
+}
+
+
+void lock_release(
+  int *lock
+) {
+  // #pragma atomic write
+  // *lock = 0;
+  __atomic_store_n(lock, 0, __ATOMIC_RELEASE);
+}
 
 
 int main(int argc, char *argv[])
@@ -77,8 +109,13 @@ int main(int argc, char *argv[])
   double time_el_kira[2];
   time_el_kira[0] = 0; time_el_kira[1] = 0;
   clock_gettime(CLOCK_MONOTONIC, &start_el_main);
-  start_line = clock();  
-  
+  start_line = clock();
+
+  //////
+  // COMMON VARS
+  //////
+  FILE *fptr = NULL;
+
   //////
   // OPTIONS FROM TERMINAL
   //////
@@ -91,7 +128,7 @@ int main(int argc, char *argv[])
 	char *dir_bound = NULL;
 	char *dir_run = NULL;
 	char *filepath_result = NULL;
-	int opt_bar = 0;
+	int opt_bar = 1;
 	int opt_one_eps = 0;
 	int opt_eps_list = 0;
 	int opt_checkpoint = 0;
@@ -272,13 +309,27 @@ int main(int argc, char *argv[])
     }
   }
 
+  // check result file
+  if (filepath_result) {
+    FILE *resfptr = fopen(filepath_result, "w");
+    if (!resfptr) {
+      fprintf(stderr, "error while creating/opening result file %s\n", filepath_result);
+      exit(1);
+    }
+  }
+
   // open virtual terminal for progress bars
-  FILE *terminal = NULL;
+  static FILE *terminal = NULL;
+  #pragma omp threadprivate(terminal)
   if (opt_bar) {
     // terminal = fopen("/dev/tty", "w");
     terminal = stderr;
   } else {
-    terminal = fopen("/dev/null", "w");
+    if (dev_null_fptr) {
+      terminal = dev_null_fptr;
+    } else {
+      terminal = fopen("/dev/null", "w");
+    }
     if (terminal == NULL) {
       perror("error while opening /dev/null.");
       exit(1);
@@ -294,10 +345,15 @@ int main(int argc, char *argv[])
   //////
   // PARENT FILE PATHS
   //////
+  char cwd[MAX_PATH_LEN];
+  if (getcwd(cwd, sizeof(cwd)) != NULL) {
+    cout << "cwd: " << cwd << endl;
+  }
+
   cout << endl; cout << "open file card: " << filepath_card << endl;
   FILE *card_fptr = fopen(filepath_card, "r");
   if (card_fptr == NULL) {
-    perror("error while opening file");
+    fprintf(stderr, "error while opening input card %s\n", filepath_card);
     exit(1);
   }
   char *dir_work = NULL;
@@ -324,9 +380,11 @@ int main(int argc, char *argv[])
   char *filepath_vars = NULL, *filepath_mats = NULL;
   char *filepath_branchcuts = NULL, *filepath_start = NULL;
   char *filepath_bound_behav = NULL, *filepath_bound_build = NULL;
+  char *filepath_MIs = NULL;
   join_path(&filepath_vars, dir_common, (char*)"vars.txt");
   join_path(&filepath_branchcuts, dir_common, (char*)"branch_cuts.txt");
   join_path(&filepath_start, dir_common, (char*)"initial_point.txt");
+  join_path(&filepath_MIs, dir_common, (char*)"MIs.txt");
 
   // CACHE
   join_path(&filepath, dir_parent, (char*)"cache/");
@@ -403,9 +461,8 @@ int main(int argc, char *argv[])
   }
 
   //////
-  // LOAD PARAMETERS
+  // SET EPSLION PRUNE
   //////
-
   // EPSILON ABSOLUTE PRUNE
   cout << endl;
   if (opt_prune_eps_abs_from_terminal == 0) {
@@ -897,6 +954,23 @@ int main(int argc, char *argv[])
   int *starting_ord = new int[dim];
 
   //////
+  // LOAD MIs
+  //////
+  LI *MI = NULL;
+  cout << "filepath_MIs:" << filepath_MIs << endl;
+  if (file_exists(filepath_MIs)) {
+    int MI_dim;
+    LI_rk1_from_file(filepath_MIs, &MI, &MI_dim, (char*)"MI");
+    if (exit_sing != -1) {
+      if (MI_dim != dim) {
+        fprintf(stderr, "error: DE matrix dim is %d but there are %d MIs in %s\n", dim, MI_dim, filepath_MIs);
+      }
+    }
+    cout << "found list of MIs:" << endl;
+    LI_rk1_pows_print(MI, dim);
+  }
+
+  //////
   // PREPARATIONS
   //////
   // ROOTS
@@ -1158,14 +1232,7 @@ int main(int argc, char *argv[])
   //////
   // EPSILON LOOP
   //////
-  start_eps_loop = clock();
-  clock_gettime(CLOCK_MONOTONIC, &start_el_eps_loop);
-  cout << endl; cout << "EPSILON LOOP" << endl;
-  poly_frac **pspf_ep;
-  malloc_rk2_tens(pspf_ep, eps_num, ninvs+1);
-  poly_frac_rk2_build(pspf_ep, eps_num, ninvs+1);
-  char ****ep_kin_ep;
-  malloc_rk3_tens(ep_kin_ep, eps_num, 2, ninvs+1);
+  // PARALLELIZATION
   // calculate number of threads
   int nthreads; nthreads = 1;
   #ifdef USE_OPENMP
@@ -1176,24 +1243,61 @@ int main(int argc, char *argv[])
     nthreads = 1 + (eps_num-1)/nthreads;
   #endif
   cout << "using " << nthreads << " thread(s)" << endl;
+
+  int lock; lock = 0;
+  FILE *terminal_cp; terminal_cp = terminal;
+
+  start_eps_loop = clock();
+  clock_gettime(CLOCK_MONOTONIC, &start_el_eps_loop);
+  cout << endl; cout << "EPSILON LOOP" << endl;
+  poly_frac **pspf_ep;
+  malloc_rk2_tens(pspf_ep, eps_num, ninvs+1);
+  poly_frac_rk2_build(pspf_ep, eps_num, ninvs+1);
+  char ****ep_kin_ep;
+  malloc_rk3_tens(ep_kin_ep, eps_num, 2, ninvs+1);
+  int count_eps; count_eps = 0;
   #pragma omp parallel for num_threads(nthreads)
   for (int ep=0; ep<eps_num; ep++) {
     clock_gettime(CLOCK_MONOTONIC, &start_el_eps_iter);
-    if ((ep == 0 && opt_eps_log !=0) || opt_eps_log == -1) {
-      logfptr = stdout;
+    
+    //////
+    // HANDLE PROGRESS BAR
+    //////
+    int lock_acquired = 0;
+    lock_acquired = lock_acquire_if_free(&lock);
+    if (lock_acquired) {
+      terminal = terminal_cp;
     } else {
-      logfptr = fopen("/dev/null", "w");
-      if (logfptr == NULL) {
-        if (terminal != stderr) {
-          logfptr = terminal;
+      if (dev_null_fptr) {
+        terminal = dev_null_fptr;
+      } else {
+        if (dev_null_fptr) {
+          terminal = dev_null_fptr;
         } else {
-          perror("error while opening /dev/null.");
-          exit(1);
+          terminal = fopen("/dev/null", "w");
         }
       }
     }
+
+    //////
+    // HANDLE LOG
+    //////
+    if ((ep == 0 && opt_eps_log !=0) || opt_eps_log == -1) {
+      logfptr = stdout;
+    } else {
+      if (dev_null_fptr) {
+        logfptr = dev_null_fptr;
+      } else {
+        logfptr = fopen("/dev/null", "w");
+      }
+    }
+    
+    //////
+    // EPS ITERATION
+    //////
+
     if (ep > 0) {fprintf(terminal, "\033[22D\033[K");}// fflush(terminal); usleep(sleep_time);}
-    fprintf(terminal, "eps value %3d /%3d... ", ep, eps_num-1); fflush(terminal); usleep(sleep_time);
+    fprintf(terminal, "eps value %3d /%3d... ", count_eps, eps_num); fflush(terminal); usleep(sleep_time);
     fprintf(logfptr, "\n############################################## ep = %d\n", ep);
     
     // set private variables
@@ -1465,13 +1569,19 @@ int main(int argc, char *argv[])
     mpc_rk2_clear(*solutions, dim, eta_ord+1);
     del_rk2_tens(*solutions, dim);  
     delete[] solutions;
-    
+
+    if (lock_acquired) lock_release(&lock);
+
+    #pragma atomic write
+    count_eps++;
+
     clock_gettime(CLOCK_MONOTONIC, &end_el_eps_iter);
-    time_el_eps_iter += end_el_eps_iter.tv_sec - start_el_eps_iter.tv_sec + (end_el_eps_iter.tv_nsec - start_el_eps_iter.tv_nsec)/1e9;
+    time_el_eps_iter += timespec_to_double(start_el_eps_iter, end_el_eps_iter);
   }
   time_el_DE /= eps_num;
   time_el_prop /= eps_num;
   time_el_eps_iter /= eps_num;
+  terminal = terminal_cp;
   fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
   logfptr = stdout;
   end_eps_loop = clock();
@@ -1796,7 +1906,7 @@ int main(int argc, char *argv[])
 
   // FINAL PRINT
   fprintf(logfptr, "\nEPSILON ORDERS (target precision):\n");
-  print_result(logfptr, precision, sol_eps_ord_wrt_cmp, dim_wrt_cmp, order, nloops);
+  print_result(logfptr, precision, sol_eps_ord_wrt_cmp, MI, dim_wrt_cmp, order, nloops);
 
   if (filepath_result) {
     FILE *resfptr = fopen(filepath_result, "w");
@@ -1805,7 +1915,7 @@ int main(int argc, char *argv[])
 		  exit(1);
 	  }
     // print_result(resfptr, precision, sol_eps_ord_prec, dim_wrt_cmp, order, nloops);
-    print_result(resfptr, precision, sol_eps_ord_wrt_cmp, dim_wrt_cmp, order, nloops);
+    print_result(resfptr, precision, sol_eps_ord_wrt_cmp, MI, dim_wrt_cmp, order, nloops);
     fclose(resfptr);
   }
 
@@ -1851,6 +1961,7 @@ int main(int argc, char *argv[])
   fprintf(terminal, "\033[2K\r"); fflush(terminal); usleep(sleep_time);
   if (!opt_bar) {
     fclose(terminal);
+    terminal = NULL;
   }
 
   //////

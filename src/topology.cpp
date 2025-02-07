@@ -141,7 +141,8 @@ void LI_pows_print(
 ) {
   printf("[");
   for (int p=0; p<li->nprop; p++) {
-    printf("%d, ", li->pows[p]);
+    if (p > 0) printf(",");
+    printf("%d", li->pows[p]);
   }
   printf("]");
 }

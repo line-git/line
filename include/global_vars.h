@@ -18,6 +18,9 @@ extern int dbg;
 #include <unistd.h>  // just for sleep function (debug)
 extern double sleep_time;
 
+// useful
+extern FILE *dev_null_fptr;
+
 // macros
 #define MAX_PATH_LEN 1000
 #define MAX_LEAF_LEN 256
