@@ -43,11 +43,14 @@ int workprec;
 int wp2;
 int dbg = 0;
 mpfr_t mpfr_tol;
+char *filepath_cache = NULL;
 double sleep_time = 0;
 // double sleep_time = 0.2e6;
 // double sleep_time = 0.05e6;
 // double sleep_time = 0.005e6;
-char *filepath_cache = NULL;
+double time_el_regular = 0;
+double time_el_singular = 0;
+double time_el_normalize = 0;
 FILE *dev_null_fptr = NULL;
 
 
@@ -106,6 +109,7 @@ int main(int argc, char *argv[])
   double time = 0, time_main = 0, time_el_main = 0, time_line = 0, time_el_line = 0;
   double time_DE_preproc = 0, time_eps_loop = 0, time_el_eps_loop = 0;
   double time_eps_iter = 0, time_el_eps_iter = 0, time_el_DE = 0, time_el_prop = 0;
+  double time_el_regular_avg = 0, time_el_singular_avg = 0, time_el_normalize_avg = 0;;
   double time_el_kira[2];
   time_el_kira[0] = 0; time_el_kira[1] = 0;
   clock_gettime(CLOCK_MONOTONIC, &start_el_main);
@@ -949,7 +953,7 @@ int main(int argc, char *argv[])
 
   }
 
-  cout << "dim = " << dim << endl;
+  cout << endl; cout << "number of MIs: " << dim << endl;
 
   int *starting_ord = new int[dim];
 
@@ -957,9 +961,8 @@ int main(int argc, char *argv[])
   // LOAD MIs
   //////
   LI *MI = NULL;
-  cout << "filepath_MIs:" << filepath_MIs << endl;
   if (file_exists(filepath_MIs)) {
-    int MI_dim;
+    int MI_dim = 0;
     LI_rk1_from_file(filepath_MIs, &MI, &MI_dim, (char*)"MI");
     if (exit_sing != -1) {
       if (MI_dim != dim) {
@@ -967,7 +970,8 @@ int main(int argc, char *argv[])
       }
     }
     cout << "found list of MIs:" << endl;
-    LI_rk1_pows_print(MI, dim);
+    if (exit_sing == -1) cout << "(eta-less)" << endl;
+    LI_rk1_pows_print(MI, MI_dim);
   }
 
   //////
@@ -1256,6 +1260,8 @@ int main(int argc, char *argv[])
   char ****ep_kin_ep;
   malloc_rk3_tens(ep_kin_ep, eps_num, 2, ninvs+1);
   int count_eps; count_eps = 0;
+  int nregs_tot; nregs_tot = 0;
+  int nsings_tot; nsings_tot = 0;
   #pragma omp parallel for num_threads(nthreads)
   for (int ep=0; ep<eps_num; ep++) {
     clock_gettime(CLOCK_MONOTONIC, &start_el_eps_iter);
@@ -1293,15 +1299,20 @@ int main(int argc, char *argv[])
     }
     
     //////
+    // SET THREAD-PRIVATE VARIABLE
+    //////
+    mpfr_tol_set();
+    time_el_regular = 0;
+    time_el_singular = 0;
+    time_el_normalize = 0;
+
+    //////
     // EPS ITERATION
     //////
-
     if (ep > 0) {fprintf(terminal, "\033[22D\033[K");}// fflush(terminal); usleep(sleep_time);}
     fprintf(terminal, "eps value %3d /%3d... ", count_eps, eps_num); fflush(terminal); usleep(sleep_time);
     fprintf(logfptr, "\n############################################## ep = %d\n", ep);
     
-    // set private variables
-    mpfr_tol_set();
     for (int s=1; s<=ninvs; s++) {
       poly_frac_set_pf(&pspf_ep[ep][s], &pspf[s]);
       ep_kin_ep[ep][0][s] = strdup(ep_kin[0][s]);
@@ -1368,7 +1379,8 @@ int main(int argc, char *argv[])
       fprintf(terminal, "\033[13D\033[K"); fflush(terminal); usleep(sleep_time);
     }
     clock_gettime(CLOCK_MONOTONIC, &end_el_DE);
-    time_el_DE += end_el_DE.tv_sec - start_el_DE.tv_sec + (end_el_DE.tv_nsec - start_el_DE.tv_nsec)/1e9;
+    #pragma omp atomic write
+    time_el_DE = time_el_DE + timespec_to_double(start_el_DE, end_el_DE);
     
     // #pragma omp critical
     // {
@@ -1530,6 +1542,11 @@ int main(int argc, char *argv[])
       int_rk1_from_file(tmp_filepath, sing_lab[ep], nsings[ep]);
     }
 
+    // update total number of propagation steps
+    #pragma omp atomic write
+    nregs_tot = nregs_tot + neta_values[ep] - nsings[ep];
+    nsings_tot = nsings_tot + nsings[ep];
+
     //////
     // SOLVE DE
     //////
@@ -1558,7 +1575,8 @@ int main(int argc, char *argv[])
     );
     fprintf(terminal, "\033[11D\033[K"); fflush(terminal); usleep(sleep_time);
     clock_gettime(CLOCK_MONOTONIC, &end_el_prop);
-    time_el_prop += end_el_prop.tv_sec - start_el_prop.tv_sec + (end_el_prop.tv_nsec - start_el_prop.tv_nsec)/1e9;
+    #pragma omp atomic write
+    time_el_prop = time_el_prop +timespec_to_double(start_el_prop, end_el_prop);
 
     goto_eps_loop_continue:
     // FREE
@@ -1572,15 +1590,28 @@ int main(int argc, char *argv[])
 
     if (lock_acquired) lock_release(&lock);
 
-    #pragma atomic write
-    count_eps++;
-
+    // UPDATE TIME STATS
     clock_gettime(CLOCK_MONOTONIC, &end_el_eps_iter);
     time_el_eps_iter += timespec_to_double(start_el_eps_iter, end_el_eps_iter);
-  }
+    time_el_regular /= neta_values[ep] - nsings[ep];
+    time_el_singular /= exit_sing == -1 ? nsings[ep] + 1 : nsings[ep];
+    time_el_normalize /= exit_sing == -1 ? nsings[ep] + 1 : nsings[ep];
+    #pragma omp atomic write
+    time_el_regular_avg = time_el_regular_avg + time_el_regular;
+    #pragma omp atomic write
+    time_el_singular_avg = time_el_singular_avg + time_el_singular;
+    #pragma omp atomic write
+    time_el_normalize_avg = time_el_normalize_avg + time_el_normalize;
+
+    #pragma omp atomic write
+    count_eps = count_eps + 1;
+  }  
   time_el_DE /= eps_num;
   time_el_prop /= eps_num;
   time_el_eps_iter /= eps_num;
+  time_el_regular_avg /= eps_num;
+  time_el_singular_avg /= eps_num;
+  time_el_normalize_avg /= eps_num;
   terminal = terminal_cp;
   fprintf(terminal, "\033[22D\033[K"); fflush(terminal); usleep(sleep_time);
   logfptr = stdout;
@@ -1980,7 +2011,10 @@ int main(int argc, char *argv[])
     time_DE_preproc,
     time_eps_loop, time_el_eps_loop,
     time_el_eps_iter, time_el_DE, time_el_prop,
-    eps_num, nthreads, opt_kira_parallel
+    time_el_regular_avg, time_el_singular_avg,
+    time_el_normalize_avg,
+    eps_num, nthreads, opt_kira_parallel,
+    neta_values[0], exit_sing == -1 ? nsings[0] + 1 : nsings[0]
   );
 
   return 0;

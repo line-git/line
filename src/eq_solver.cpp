@@ -866,8 +866,12 @@ void propagate_regular(
   poly_frac_rk2_set_pf_rk2(lcm_mat_ep, mat_ep, dim, dim);
   // poly_frac_rk2_mul_sym_pow(lcm_mat_ep, 1+p_rank, dim, dim);
 
+  
+  timespec start_el_regular, end_el_regular;
+  double time_el_regular_local = 0;
   for (int et=0; et<neta_values-1; et++) {
-  // for (int et=0; et<1; et++) {
+    // for (int et=0; et<1; et++) {
+    clock_gettime(CLOCK_MONOTONIC, &start_el_regular);
     // etav = (numeric) eta_values[et].real() + I * (numeric) eta_values[et].imag();
     if (print) {
       cout << "eta_" << et << " = "; print_mpc(&eta_values[et]); cout << endl;
@@ -976,6 +980,10 @@ void propagate_regular(
     //   print_mpc(&(*solutions)[i][0]);
     //   cout << endl;
     // }
+
+    clock_gettime(CLOCK_MONOTONIC, &end_el_regular);
+    time_el_regular_local = timespec_to_double(start_el_regular, end_el_regular);
+    time_el_regular += time_el_regular_local;
   }
 
   // FREE
@@ -5656,6 +5664,8 @@ void propagate_infty(
   int *eq_class = new int[dim];
   int *eig_grid = new int[dim];
   fprintf(logfptr, "\nnormalize at infinity...\n");
+  timespec start_el_normalize, end_el_normalize;
+  clock_gettime(CLOCK_MONOTONIC, &start_el_normalize);
   pf_NormalizeMat(
     tmat, inv_tmat,
     &num_classes, eq_class, &eig_list, eig_grid,
@@ -5664,6 +5674,10 @@ void propagate_infty(
     roots_infty, nroots,
     terminal
   );
+  clock_gettime(CLOCK_MONOTONIC, &end_el_normalize);
+  double time_el_normalize_local = timespec_to_double(start_el_normalize, end_el_normalize);
+  time_el_normalize += time_el_normalize_local;
+
   if (print) {
   cout << "tmat=";
   poly_frac_rk2_print_to_math(tmat, dim, dim, roots_infty);
@@ -5748,6 +5762,8 @@ void propagate_infty(
   mpc_init3(PS_fin[0], wp2, wp2);
   mpc_set_ui(PS_fin[0], 1, MPFR_RNDN);
   fprintf(logfptr, "singular propagation at infinity...\n");
+  timespec start_el_singular, end_el_singular;
+  clock_gettime(CLOCK_MONOTONIC, &start_el_singular);
   solve_zero(
     solutions,
     dim, pfmat_infty,
@@ -5763,20 +5779,9 @@ void propagate_infty(
     bound_behav_reg, mi_eig, mi_eig_num,
     terminal
   );
-  // solve_zero(
-  //   solutions,
-  //   dim, pfmat_infty,
-  //   tmat, inv_tmat,
-  //   nroots, roots_infty,
-  //   &bound_pt,
-  //   nblocks, prof, sb_grid, eta_ord,
-  //   num_classes, eig_list, eq_class, eig_grid,
-  //   roots_infty, nroots,
-  //   1, &target_pt, 1,
-  //   NULL, is_mass, skip_inv, ninvs, PS_ini, PS_fin, eps_str,
-  //   0,
-  //   bound_behav_reg, mi_eig, mi_eig_num
-  // );
+  clock_gettime(CLOCK_MONOTONIC, &end_el_singular);
+  double time_el_singular_local = timespec_to_double(start_el_singular, end_el_singular);
+  time_el_singular += time_el_singular_local;
 
   //////
   // MULTIPLY BACK BEHAVIOR
@@ -5883,6 +5888,10 @@ void propagate_along_path(
   mpc_t m1, m2;
   mpc_init3(m1, wp2, wp2);
   mpc_init3(m2, wp2, wp2);
+
+  // needed for timing
+  timespec start_el_singular, end_el_singular;
+  timespec start_el_normalize, end_el_normalize;
 
   int solve_tag, count_sings = 0, nreg_steps = 1;
 
@@ -6118,6 +6127,7 @@ void propagate_along_path(
       // poly_frac_rk2_print(sh_pfmat, dim, dim);
       // poly_frac_rk2_print_to_math(sh_pfmat, dim, dim, sh_roots);
       // cout << "tol: "; mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
+      clock_gettime(CLOCK_MONOTONIC, &start_el_normalize);
       pf_NormalizeMat(
         tmat, inv_tmat,
         &num_classes, eq_class, &eig_list, eig_grid,
@@ -6126,6 +6136,10 @@ void propagate_along_path(
         sh_roots, nroots,
         terminal
       );
+      clock_gettime(CLOCK_MONOTONIC, &end_el_normalize);
+      double time_el_normalize_local = timespec_to_double(start_el_normalize, end_el_normalize);
+      time_el_normalize += time_el_normalize_local;
+
       if (print) {
       cout << "tmat=";
       poly_frac_rk2_print_to_math(tmat, dim, dim, sh_roots);
@@ -6188,6 +6202,7 @@ void propagate_along_path(
       fprintf(logfptr, "singular propagation...\n"); fflush(logfptr);
       int try_analytic = 0;
       // if (et == 0) {try_analytic = 1;}
+      clock_gettime(CLOCK_MONOTONIC, &start_el_singular);
       solve_zero(
         solutions,
         dim, sh_pfmat,
@@ -6203,20 +6218,10 @@ void propagate_along_path(
         bound_behav, mi_eig, mi_eig_num,
         terminal
       );
-      // solve_zero(
-      //   solutions,
-      //   dim, sh_pfmat,
-      //   tmat, inv_tmat,
-      //   nroots, sh_roots,
-      //   &bound_pt,
-      //   nblocks, prof, sb_grid, eta_ord,
-      //   num_classes, eig_list, eq_class, eig_grid,
-      //   sh_roots, nroots,
-      //   crossr, &target_pt, analytic_cont[count_sings],
-      //   depmat, is_mass, skip_inv, ninvs, PS_ini, PS_fin, eps_str,
-      //   try_analytic,
-      //   bound_behav, mi_eig, mi_eig_num
-      // );
+      clock_gettime(CLOCK_MONOTONIC, &end_el_singular);
+      double time_el_singular_local = timespec_to_double(start_el_singular, end_el_singular);
+      time_el_singular += time_el_singular_local;
+
       // print
       fprintf(logfptr, "\nresult of singular propagation:\n");
       for (int i=0; i<dim; i++) {

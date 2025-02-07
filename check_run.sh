@@ -206,6 +206,6 @@ for file in ${logdir}/*_time_s; do
   rm "$file"
 done
 echo ""
-echo "total time: ${time_s_total} s"
+echo "total time (cpu): ${time_s_total} s"
 
 exit 0

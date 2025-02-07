@@ -20,7 +20,10 @@ void log_time_stats(
   double time_DE_preproc,
   double time_eps_loop, double time_el_eps_loop,
   double time_el_eps_iter, double time_el_DE, double time_el_prop,
-  int eps_num, int nthreads, int opt_kira_parallel
+  double time_el_regular_avg, double time_el_singular_avg,
+  double time_el_normalize_avg,
+  int eps_num, int nthreads, int opt_kira_parallel,
+  int neta_values, int nsings
 );
 
 void generate_cache_filename(

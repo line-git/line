@@ -3854,7 +3854,7 @@ void call_kira(
   }
   *MI_eta = NULL;
   LI_rk1_qsort(MI_eta, MI_eta_tmp, *dim_eta);
-  cout << endl; cout << "MIs with auxiliary mass" << endl;
+  cout << endl; cout << "MIs with auxiliary mass:" << endl;
   LI_rk1_pows_print(*MI_eta, *dim_eta);
 
   // STORE INDICES OF eta-LESS MIs

@@ -18,6 +18,14 @@ extern int dbg;
 #include <unistd.h>  // just for sleep function (debug)
 extern double sleep_time;
 
+// used for time stats
+extern double time_el_regular;
+#pragma omp threadprivate(time_el_regular)
+extern double time_el_singular;
+#pragma omp threadprivate(time_el_singular)
+extern double time_el_normalize;
+#pragma omp threadprivate(time_el_normalize)
+
 // useful
 extern FILE *dev_null_fptr;
 

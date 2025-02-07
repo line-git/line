@@ -1,3 +1,4 @@
+
 #include <iostream>
 #include <cstring>
 #include <stdio.h>
@@ -58,15 +59,20 @@ void log_time_stats(
   double time_DE_preproc,
   double time_eps_loop, double time_el_eps_loop,
   double time_el_eps_iter, double time_el_DE, double time_el_prop,
-  int eps_num, int nthreads, int opt_kira_parallel
+  double time_el_regular_avg, double time_el_singular_avg,
+  double time_el_normalize_avg,
+  int eps_num, int nthreads, int opt_kira_parallel,
+  int neta_values, int nsings
 ) {
   printf("\n------------------------------------------------------------\n");
   printf("\nTIME STATS\n");
-  printf("(%d eps value(s), %d thread(s)", eps_num, nthreads);
+  printf("- %d eps value(s), %d thread(s)", eps_num, nthreads);
   if (time_el_kira[0] > 0) {
   printf(", %d Kira thread(s)", opt_kira_parallel);
   }
-  printf(")\n");
+  printf("\n");
+  printf("- %d path points: %d regular, %d singular\n", neta_values, neta_values - nsings, nsings);
+
   printf("\n");
   if (time_el_kira[0] > 0) {
   printf("%-26s %s\n", "Kira (elapsed):", format_time(time_el_kira[0]+time_el_kira[1]));
@@ -89,7 +95,10 @@ void log_time_stats(
   printf("%-26s %s\n", "      DE:", format_time(time_el_DE));
   }
   if (time_el_prop > 0) {
-  printf("%-26s %s\n", "      propagation:", format_time(time_el_prop));
+    printf("%-26s %s\n", "      propagation:", format_time(time_el_prop));
+    printf("%-26s %s\n", "        regular:", format_time(time_el_regular_avg));
+    printf("%-26s %s\n", "        singular:", format_time(time_el_singular_avg));
+    printf("%-26s %s\n", "        normalize:", format_time(time_el_normalize_avg));
   }
   printf("\n");
   printf("%-26s %s\n", "total (elapsed):", format_time(time_el_main));
@@ -161,9 +170,6 @@ void print_result(
 }
 
 
-
-
-
 // void write_to_cache(const char* data) {
 //   char* filename = generate_cache_filename();
 //   FILE* cache_file = fopen(filename, "w");
@@ -202,37 +208,28 @@ int int_pow_int(int base, int exp) {
 
 int count_lines(char *filename) {
   FILE *fptr = fopen(filename, "r");
-  char tmp_char;
-  int count = 0;
-  // char *line = NULL;
-  // size_t len = 0;
-  // int ninvs = 0;
-  while(1) {
-    tmp_char = fgetc(fptr);
-    if (tmp_char==EOF) {
-      break;
-    }
-    if (tmp_char == '\n') {
-      count++;
-    }
-  }
+	int count = 0;
+	char *line = NULL;
+	size_t line_len = 0;
+	while (getline(&line, &line_len, fptr) != -1) {
+		if (line[0] != '\n' && line[0] != '\r') {
+			count++;
+		}
+	}
   fclose(fptr);
   return count;
 }
 
 
 int count_lines_fptr(FILE *fptr) {
-  char tmp_char;
-  int count = 0;
-  while(1) {
-    tmp_char = fgetc(fptr);
-    if (tmp_char==EOF) {
-      break;
-    }
-    if (tmp_char == '\n') {
-      count++;
-    }
-  }
+	int count = 0;
+	char *line = NULL;
+	size_t line_len = 0;
+	while (getline(&line, &line_len, fptr) != -1) {
+		if (line[0] != '\n' && line[0] != '\r') {
+			count++;
+		}
+	}
   return count;
 }
 
