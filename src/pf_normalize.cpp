@@ -380,7 +380,7 @@ void print_eigenvalues(
   mpc_t *eig_list
 ) {
   cout << "num classes = " << num_classes << endl;
-  cout << "line, grid, class label, int diff, eigenvalues" << endl;
+  cout << "line, grid, class label, eigenvalues" << endl;
   for (int i=0; i<dim; i++) {
     cout << i << "\t" << eig_grid[i] << "\t" << eq_class[i]  << "\t";
     print_mpc(&eig_list[eq_class[i]]); cout << endl;

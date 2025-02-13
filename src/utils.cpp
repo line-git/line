@@ -135,7 +135,7 @@ void print_result(
   int sign;
   for (int i=0; i<dim; i++) {
     fprintf(resfptr, "n. %d", i);
-    if (MI) fprintf(resfptr, ", MI%s", MI->pows_str);
+    if (MI) fprintf(resfptr, ", MI%s", MI[i].pows_str);
     fprintf(resfptr, "\n");
     for (int ep=0; ep<=order; ep++) {
       fprintf(resfptr, "eps^%d: ", ep - 2*nloops);

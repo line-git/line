@@ -2205,6 +2205,10 @@ void process_kira_IBPs(
   char *line = NULL;
   cout << endl; cout << "reading Kira results from " << kira_results_filepath << endl;
   FILE *fptr = fopen(kira_results_filepath, "r");
+  if (!fptr) {
+    fprintf(stderr, "error: Kira results file not found: %s\n", kira_results_filepath);
+    exit(1);
+  }
   int mi_idx, mi_count, c = 0, line_count = 0;
   int topo_len = strlen(topo_name);
 
