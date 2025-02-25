@@ -161,13 +161,17 @@ proper environment variables accordingly.
 
 On Apple Silicon, use:
 
-    export LIBRARY_PATH="/opt/homebrew/lib/:$LIBRARY_PATH"
-    export CPATH="/opt/homebrew/include/:$CPATH"
+``` bash
+export LIBRARY_PATH="/opt/homebrew/lib:$LIBRARY_PATH"
+export CPATH="/opt/homebrew/include:$CPATH"
+```
 
 For Intel-based Mac, use:
 
-    export LIBRARY_PATH="/usr/local/lib/:$LIBRARY_PATH"
-    export CPATH="/usr/local/include/:$CPATH"
+``` bash
+export LIBRARY_PATH="/usr/local/lib:$LIBRARY_PATH"
+export CPATH="/usr/local/include:$CPATH"
+```
 
 ### Troubleshooting: handling multiple versions of the dependencies
 
@@ -177,22 +181,31 @@ picks up the wrong version, leading to build errors or unexpected
 behavior. To ensure that the correct version is used, consider the
 following approaches:
 
--   locate the folders `path/to/include/` and `path/to/lib/` containing
+-   locate the folders `path/to/include` and `path/to/lib` containing
     the header files and the libraries of the dependency, respectively,
     and update the environment variables according to:
 
-        export LIBRARY_PATH="/path/to/include/:$LIBRARY_PATH"
-        export CPATH="/path/to/lib/:$CPATH"
+    ``` bash
+    export LIBRARY_PATH="/path/to/include:$LIBRARY_PATH"
+    export CPATH="/path/to/lib:$CPATH"
+    ```
 
-    It this does not work or you do not want to change these variables,
-    then:
+-   change the dedicated environment variables `LINE_X_INCLUDE`,
+    `LINE_X_LIB`, where `X` is the name of the dependency. The available
+    values for `X` are `GMP`, `MPFR`, `MPC`, `OPENSSL`. For instance, to
+    specify the version of MPFR use
 
--   change the `Makefile` by adding the following lines right before the
-    linking and compilation rules:
+    ``` bash
+    make LINE_MPFR_INCLUDE=/path/to/mpfr/include LINE_MPFR_LIB=/path/to/mpfr/lib
+    ```
 
-        CFLAGS   += -I/path/to/include
-        CXXFLAGS += -I/path/to/include
-        LDFLAGS  += -L/path/to/lib
+    or:
+
+    ``` bash
+    export LINE_MPFR_INCLUDE=/path/to/mpfr/include
+    export LINE_MPFR_LIB=/path/to/mpfr/lib
+    make
+    ```
 
 ## Compile and check
 

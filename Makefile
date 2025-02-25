@@ -36,6 +36,23 @@ endif
 # CFLAGS += -Wall
 # CXXFLAGS += -Wall
 
+# HANDLE DEPENDENCIES
+# directories containing header files of the dependencies
+LINE_GMP_INCLUDE ?=
+LINE_MPFR_INCLUDE ?=
+LINE_MPC_INCLUDE ?=
+LINE_OPENSSL_INCLUDE ?=
+
+# directories containing libraries of the dependencies
+LINE_GMP_LIB ?=
+LINE_MPFR_LIB ?=
+LINE_MPC_LIB ?=
+LINE_OPENSSL_LIB ?=
+
+CFLAGS += $(foreach dir, $(LINE_GMP_INCLUDE) $(LINE_MPFR_INCLUDE) $(LINE_MPC_INCLUDE) $(LINE_OPENSSL_INCLUDE), -I$(dir))
+CXXFLAGS += $(foreach dir, $(LINE_GMP_INCLUDE) $(LINE_MPFR_INCLUDE) $(LINE_MPC_INCLUDE) $(LINE_OPENSSL_INCLUDE), -I$(dir))
+#LDFLAGS += $(foreach dir, $(LINE_GMP_LIB) $(LINE_MPFR_LIB) $(LINE_MPC_LIB) $(LINE_OPENSSL_LIB), -L$(dir))
+
 # Add debug flags if DEBUG variable is passed via the command line
 ifeq ($(DEBUG),-g)
 	CFLAGS += -g
@@ -62,7 +79,23 @@ CPP_OBJECTS = $(CPP_SOURCES:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 HEADERS = $(wildcard $(INCLUDE_DIR)/*.h)
 
 # libraries
-LDFLAGS = -lm -lmpc -lmpfr -lgmp -lcrypto -lssl
+ifneq ($(LINE_GMP_LIB),)
+	LDFLAGS += -L$(LINE_GMP_LIB)
+endif
+LDFLAGS += -lgmp
+ifneq ($(LINE_MPFR_LIB),)
+	LDFLAGS += -L$(LINE_MPFR_LIB)
+endif
+LDFLAGS += -lmpfr
+ifneq ($(LINE_MPC_LIB),)
+	LDFLAGS += -L$(LINE_MPC_LIB)
+endif
+LDFLAGS += -lmpc
+ifneq ($(LINE_OPENSSL_LIB),)
+	LDFLAGS += -L$(LINE_OPENSSL_LIB)
+endif
+LDFLAGS += -lcrypto -lssl
+LDFLAGS += -lm
 
 # create obj directory if it doesn't exist
 $(shell mkdir -p $(OBJ_DIR))
