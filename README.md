@@ -169,6 +169,31 @@ For Intel-based Mac, use:
     export LIBRARY_PATH="/usr/local/lib/:$LIBRARY_PATH"
     export CPATH="/usr/local/include/:$CPATH"
 
+### Troubleshooting: handling multiple versions of the dependencies
+
+If multiple versions of a given dependency (e.g. GMP, MPFR, MPC) are
+present on your system, you might encounter issues where the compiler
+picks up the wrong version, leading to build errors or unexpected
+behavior. To ensure that the correct version is used, consider the
+following approaches:
+
+-   locate the folders `path/to/include/` and `path/to/lib/` containing
+    the header files and the libraries of the dependency, respectively,
+    and update the environment variables according to:
+
+        export LIBRARY_PATH="/path/to/include/:$LIBRARY_PATH"
+        export CPATH="/path/to/lib/:$CPATH"
+
+    It this does not work or you do not want to change these variables,
+    then:
+
+-   change the `Makefile` by adding the following lines right before the
+    linking and compilation rules:
+
+        CFLAGS   += -I/path/to/include
+        CXXFLAGS += -I/path/to/include
+        LDFLAGS  += -L/path/to/lib
+
 ## Compile and check
 
 The source code can be compiled with `make`, that produces the
@@ -178,21 +203,21 @@ can be run through the script `check_run.sh`:
 
 ``` bash
 make
-./chek_run.sh
+./check_run.sh
 ```
 
 To perform multiple checks simultaneously using N CPU cores, run
 `check_run.sh` with the `--nthreads N` option (or `-n N` for short):
 
 ``` bash
-./chek_run.sh -n N
+./check_run.sh -n N
 ```
 
 In order to check the `Kira` installation as well (together with the
 standard tests), run with the `--kira` option (or `-k` for short):
 
 ``` bash
-./chek_run.sh -k
+./check_run.sh -k
 ```
 
 The script runs `line` using the input cards in the folder
