@@ -234,6 +234,10 @@ void poly_frac_rk2_normal(
   int dim1, int dim2
 );
 
+void poly_frac_prune_radius(
+  struct poly_frac *pf, int wp_bin, int rad_exp
+);
+
 void poly_frac_rk1_prune_radius(
   struct poly_frac *pf, int wp_bin, int rad_exp,
   int dim1
@@ -469,7 +473,7 @@ void poly_frac_mat_extract_NLOc(
   int dim1, int dim2
 );
 
-void poly_frac_extract_oder(
+void poly_frac_extract_order(
   // OUTPUT
   mpc_t *out,
   // INPUT
@@ -643,6 +647,13 @@ void rel_err_poly_frac_add_pf(
   int wp_bin
 );
 
+void rel_err_poly_frac_mul_pf(
+  struct poly_frac *pfout,
+  struct poly_frac *pfin1,
+  struct poly_frac *pfin2,
+  int wp_bin
+);
+
 void rel_err_poly_frac_rk2_mul_pf_rk1(
   struct poly_frac *pf_tens_out,
   struct poly_frac **pf_tens_in1,
@@ -723,7 +734,7 @@ void rel_err_poly_frac_mat_extract_NLOc(
   int wp_bin
 );
 
-void rel_err_poly_frac_extract_oder(
+void rel_err_poly_frac_extract_order(
   // OUTPUT
   mpc_t *out,
   // INPUT

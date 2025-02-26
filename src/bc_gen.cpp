@@ -562,10 +562,10 @@ void formulary(mpc_t *out, int loop, int id, mpc_t eps, mpc_t *scale, int *intar
             mpc_neg(*out, *out, MPFR_RNDN);
           }
           
-          // E^((3-m-n-2eps)*pLog[m2])
+          // E^((5-m-n-2eps)*pLog[m2])
           mpc_set(f_eps, eps, MPFR_RNDN);  // eps
           mpc_mul_si(f_eps, f_eps, -2, MPFR_RNDN);  // -2*eps
-          mpc_add_si(f_eps, f_eps, 5-m-n, MPFR_RNDN);  // -2*eps+3-m-n
+          mpc_add_si(f_eps, f_eps, 5-m-n, MPFR_RNDN);  // -2*eps+5-m-n
           mpc_pow(f_eps, *scale, f_eps, MPFR_RNDN);
           if (print) {cout << "scale factor = "; print_mpc(&f_eps); cout << endl;}
           mpc_mul(*out, *out, f_eps, MPFR_RNDN);
@@ -621,17 +621,67 @@ void formulary(mpc_t *out, int loop, int id, mpc_t eps, mpc_t *scale, int *intar
           mpc_add_si(f_eps, f_eps, 96+m*m*(-2+n)*(-1+n)+2*(-7+n)*n+m*(-14+(5-3*n)*n), MPFR_RNDN);  // 96+m^2*(-2+n)*(-1+n)+2(-7+n)*n+m*(-14+(5-3*n)*n)+2*(-58*+2*m+2*n+3*m*n)*eps+(55-2*m*n)*eps^2-12*eps^3+eps^4
           mpc_mul(*out, *out, f_eps, MPFR_RNDN);
 
-          // E^((2-m-n-2eps)*pLog[m2])
+          // E^((6-m-n-2eps)*pLog[m2])
           mpc_set(f_eps, eps, MPFR_RNDN);  // eps
           mpc_mul_si(f_eps, f_eps, -2, MPFR_RNDN);  // -2*eps
-          mpc_add_si(f_eps, f_eps, 6-m-n, MPFR_RNDN);  // -2*eps+2-m-n
+          mpc_add_si(f_eps, f_eps, 6-m-n, MPFR_RNDN);  // -6*eps+2-m-n
+          mpc_pow(f_eps, *scale, f_eps, MPFR_RNDN);
+          if (print) {cout << "scale factor = "; print_mpc(&f_eps); cout << endl;}
+          mpc_mul(*out, *out, f_eps, MPFR_RNDN);
+
+          break;
+        } else if (neg_int == -3) {
+          // Gamma[eps+m-2]
+          mpc_add_si(f_eps, eps, m-5, MPFR_RNDN);
+          mpfr_gamma(gamma_f_eps, mpc_realref(f_eps), MPFR_RNDN);
+          mpc_set_fr(*out, gamma_f_eps, MPFR_RNDN);
+
+          // Gamma[eps+n-5]
+          mpc_add_si(f_eps, eps, n-5, MPFR_RNDN);
+          mpfr_gamma(gamma_f_eps, mpc_realref(f_eps), MPFR_RNDN);
+          mpc_mul_fr(*out, *out, gamma_f_eps, MPFR_RNDN);
+
+          // 1/Gamma[m]
+          mpc_set_ui(f_eps, m, MPFR_RNDN);
+          mpfr_gamma(gamma_f_eps, mpc_realref(f_eps), MPFR_RNDN);
+          mpc_div_fr(*out, *out, gamma_f_eps, MPFR_RNDN);
+
+          // 1/Gamma[n]
+          mpc_set_ui(f_eps, n, MPFR_RNDN);
+          mpfr_gamma(gamma_f_eps, mpc_realref(f_eps), MPFR_RNDN);
+          mpc_div_fr(*out, *out, gamma_f_eps, MPFR_RNDN);
+
+          // (-1)^(m+n+1)
+          if ((m+n) % 2 == 0) {
+            mpc_neg(*out, *out, MPFR_RNDN);
+          }
+
+          // polynomial expression
+          mpc_neg(f_eps, eps, MPFR_RNDN);
+          mpc_add_si(f_eps, f_eps, 24, MPFR_RNDN);
+          mpc_mul(f_eps, f_eps, eps, MPFR_RNDN);
+          mpc_add_si(f_eps, f_eps, -238 + 3*n+ 3*m*(1 + n), MPFR_RNDN);
+          mpc_mul(f_eps, f_eps, eps, MPFR_RNDN);
+          mpc_add_si(f_eps, f_eps, -6*(-206 + 7*n + m*(7 + 5*n)), MPFR_RNDN);
+          mpc_mul(f_eps, f_eps, eps, MPFR_RNDN);
+          mpc_add_si(f_eps, f_eps, 5*(-701 + 39*n) + 3*m*(65 + n*(40 + m + n - m*n)), MPFR_RNDN);
+          mpc_mul(f_eps, f_eps, eps, MPFR_RNDN);
+          mpc_add_si(f_eps, f_eps, 6*(846 + m*m*(-1 + n)*(3 + n) + m*(1 + n)*(-53 + 2*n) - n*(53 + 3*n)), MPFR_RNDN);
+          mpc_mul(f_eps, f_eps, eps, MPFR_RNDN);
+          mpc_add_si(f_eps, f_eps, m*m*m*(-3 + n)*(-2 + n)*(-1 + n) - 6*m*m*(-1 + n)*(12 + (-5 + n)*n) - 6*(480 + (-13 + n)*n*(1 + n)) + m*(78 + n*(445 + n*(-102 + 11*n))), MPFR_RNDN);
+          mpc_mul(*out, *out, f_eps, MPFR_RNDN);
+
+          // E^((7-m-n-2eps)*pLog[m2])
+          mpc_set(f_eps, eps, MPFR_RNDN);  // eps
+          mpc_mul_si(f_eps, f_eps, -2, MPFR_RNDN);  // -2*eps
+          mpc_add_si(f_eps, f_eps, 7-m-n, MPFR_RNDN);  // -2*eps+7-m-n
           mpc_pow(f_eps, *scale, f_eps, MPFR_RNDN);
           if (print) {cout << "scale factor = "; print_mpc(&f_eps); cout << endl;}
           mpc_mul(*out, *out, f_eps, MPFR_RNDN);
 
           break;
         } else {
-          perror("hypergeometric with negative index lower than -2");
+          perror("hypergeometric with negative index lower than -3");
           exit(1);
         }
 

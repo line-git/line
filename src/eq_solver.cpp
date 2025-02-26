@@ -1998,6 +1998,9 @@ void match_sol_around_zero(
     poly_frac_build(&pf_tmp);
 
     int wp_bin = - mpfr_log2_int(mpfr_tol);
+    mpfr_t tmpfr; mpfr_init2(tmpfr, wp2);
+    mpc_abs(tmpfr, *mpc_eta, MPFR_RNDN);
+    int rad_exp = mpfr_get_exp(tmpfr);
     //
     //////
 
@@ -2040,7 +2043,8 @@ void match_sol_around_zero(
         // cout << "mul tmat" << endl;
         // poly_frac_rk2_print(tmat, b_len, offset);
         poly_frac_rk2_mul_pf_rk1(pf_const_term[lam], tmat, pf_sol, b_len, offset, roots);
-        poly_frac_rk1_prune_rel_tol(pf_const_term[lam], wp_bin, b_len);
+        // poly_frac_rk1_prune_rel_tol(pf_const_term[lam], wp_bin, b_len);
+        poly_frac_rk1_prune_radius(pf_const_term[lam], wp_bin, rad_exp, b_len);
 
         if (print) {
         cout << "tmat times prev sol:" << endl;
@@ -2089,25 +2093,30 @@ void match_sol_around_zero(
 
         for (int i=0; i<b_len; i++) {
           if (print) cout << "lamp, i = " << lamp << ", " << i << endl;
-          poly_frac_mul_pf(
+          rel_err_poly_frac_mul_pf(
             &tmat_times_psol[lamp][i], &tmat[i][0], &pf_sol[0]
+            , wp_bin
           );
           for (int k=1; k<b_len; k++) {
-            poly_frac_mul_pf(
+            rel_err_poly_frac_mul_pf(
               &pf_tmp, &tmat[i][k], &pf_sol[k]
+              , wp_bin
             );
-            poly_frac_add_pf(
+            rel_err_poly_frac_add_pf(
               &tmat_times_psol[lamp][i], &tmat_times_psol[lamp][i], &pf_tmp,
               roots,
               NULL
+              , wp_bin
             );
           }
-          poly_frac_add_pf(
+          rel_err_poly_frac_add_pf(
             &pf_const_term[lamp][i], &pf_const_term[lamp][i], &tmat_times_psol[lamp][i],
             roots,
             NULL
+            , wp_bin
           );
-          poly_frac_prune_rel_tol(&pf_const_term[lamp][i], wp_bin);
+          // poly_frac_prune_rel_tol(&pf_const_term[lamp][i], wp_bin);
+          poly_frac_prune_radius(&pf_const_term[lamp][i], wp_bin, rad_exp);
           if (print) poly_frac_print(&pf_const_term[lamp][i]);
         }
       }
@@ -2304,6 +2313,9 @@ void match_sol_around_zero(
     }
     int num_constr_max = 0, num_null_coeff = 0;
     int *is_in_bound = new int[num_classes];
+    for (int n=0; n<num_classes; n++) {
+      is_in_bound[n] = 0;
+    }
     // malloc_rk2_tens(is_in_bound, b_len, num_classes);
     for (int lam, n=0; n<num_cum_eig; n++) {
       lam = cum_eig[n];
@@ -2837,6 +2849,9 @@ void match_sol_around_zero(
             //////
             if (poly_frac_pow_behav(&tmat_times_hsol[lam][i][j]) >= 0) {
               mpc_set_ui(constr[free_constr][jc], 0, MPFR_RNDN);
+            } else if (p < poly_frac_pow_behav(&tmat_times_hsol[lam][i][j])) {
+              if (print) cout << "pow behav is greater than the selected one" << endl;
+              mpc_set_ui(constr[free_constr][jc], 0, MPFR_RNDN);
             } else if (p == poly_frac_pow_behav(&tmat_times_hsol[lam][i][j])) {
               // poly_frac_extract_LO(
               rel_err_poly_frac_extract_LO(
@@ -2849,17 +2864,21 @@ void match_sol_around_zero(
             } else if (p == poly_frac_pow_behav(&tmat_times_hsol[lam][i][j]) + 1) {
               // poly_frac_extract_NLO(
               rel_err_poly_frac_extract_NLO(
-                &constr[free_constr][jc],
+                &constr[free_constr][jc], 
                 &constr[free_constr-LO_selected][jc],
                 &tmat_times_hsol[lam][i][j], roots, -p+1
                 , wp_bin
               );
-            } else if (p == poly_frac_pow_behav(&tmat_times_hsol[lam][i][j]) + 2) {
+            } else if (p >= poly_frac_pow_behav(&tmat_times_hsol[lam][i][j]) + 2) {
               // curretnly only LO and NLO extraction has been implemented;
               // extraction of NNLO and beyond of a poly_frac still not available
-              printf("WARNING: trying to extract NNNLO behavior of a poly_frac while computing free constarints\n");
-              perror("WARNING: trying to extract NNNLO behavior of a poly_frac while computing free constarints");
-              exit(1);
+              printf("WARNING: trying to extract NNLO or higher behavior of a poly_frac while computing free constraints\n");
+              perror("WARNING: trying to extract NNLO or higher behavior of a poly_frac while computing free constraints");
+              rel_err_poly_frac_extract_order(
+                &constr[free_constr][jc],
+                &tmat_times_hsol[lam][i][j], roots, nroots, p
+                , wp_bin
+              );
             }
             // poly_frac_mul_sym_pow(&tmp_pf[free_constr], &tmat_times_hsol[lam][i][j], -p);
             // poly_frac_eval_sym_zero(&constr[free_constr][j], &tmp_pf[i], roots);
@@ -2882,6 +2901,9 @@ void match_sol_around_zero(
             if (poly_frac_pow_behav(&pf_const_term[lam][i]) == 0) {
               if (print) cout << "pow behav of const term = 0" << endl;
               mpc_set_ui(free_constr_const_term[free_constr], 0, MPFR_RNDN);
+            } else if (p < poly_frac_pow_behav(&pf_const_term[lam][i])) {
+              if (print) cout << "pow behav is greater than the selected one" << endl;
+              mpc_set_ui(free_constr_const_term[free_constr], 0, MPFR_RNDN);
             } else if (p == poly_frac_pow_behav(&pf_const_term[lam][i])) {
               if (print) cout << "extract LO of the constant term" << endl;
               // poly_frac_extract_LO(
@@ -2901,12 +2923,16 @@ void match_sol_around_zero(
                 &pf_const_term[lam][i], roots, -p+1
                 , wp_bin
               );
-            } else if (p == poly_frac_pow_behav(&pf_const_term[lam][i]) + 2) {
+            } else if (p >= poly_frac_pow_behav(&pf_const_term[lam][i]) + 2) {
               // curretnly only LO and NLO extraction has been implemented;
-              // extraction of NNLO and beyond of a poly_frac still not available
-              printf("WARNING: trying to extract NNLO behavior of a poly_frac while computing free constarints\n");
-              perror("WARNING: trying to extract NNLO behavior of a poly_frac while computing free constarints");
-              exit(1);
+              // extraction of NNLO and beyond of a poly_frac still not available              
+              printf("WARNING: trying to extract NNLO or higher behavior of a poly_frac while computing free constraints\n");
+              perror("WARNING: trying to extract NNLO or higher behavior of a poly_frac while computing free constraints");
+              rel_err_poly_frac_extract_order(
+                &free_constr_const_term[free_constr],
+                &pf_const_term[lam][i], roots, nroots, p
+                , wp_bin
+              );
             }
             mpc_neg(free_constr_const_term[free_constr], free_constr_const_term[free_constr], MPFR_RNDN);
             if (print) {
@@ -3036,174 +3062,6 @@ void match_sol_around_zero(
     }
     }
 
-    // if (0 && offset > 0 && sb_len > 0) {
-    // // if (0) {
-    //   cout << endl; cout << "look for even more residual free constraints from the DE" << endl;
-    //   int thresh_pow;
-    //   for (int i=0; i<b_len; i++) {
-    //     for (int lam, n=0; n<num_cum_eig; n++) {
-    //       lam = cum_eig[n];
-    //       cout << "i, lam = " << i << ", " << lam << endl;
-    //       if (block_log_len[lam] == 0) {
-    //         continue;
-    //       }
-    //       cout << "DE hom behav, DE const behav = " << DE_hom_pow_behav[lam][i] << ", " << DE_const_term_pow_behav[lam][i] << endl;
-
-    //       if (
-    //         mpc_lessthan_tol(eig_list[lam]) &&\
-    //         DE_hom_pow_behav[lam][i] == DE_const_term_pow_behav[lam][i] &&\
-    //         DE_hom_pow_behav[lam][i] == 0
-    //       ) {
-    //         cout << "missing implementation to apply DE contraint on lam = 0" << endl;;
-    //         continue;
-    //       }
-          
-    //       // SET POWERS BELOW THRESHOLD TO ZERO
-    //       cout << "SET POWERS BELOW THRESHOLD TO ZERO" << endl;
-    //       int LO_selected = 0;
-    //       for (int p=DE_hom_pow_behav[lam][i]; p<DE_const_term_pow_behav[lam][i]; p++) {
-    //         int found_non_zero = 0;
-    //         for (int jc, j=0; j<match_constr_dim[lam]; j++) {
-    //           jc = match_constr_idx[lam][j];
-    //           cout << "p, jc = " << p << ", " << jc << endl;
-    //           // poly_frac_print(&mat_times_tmat_times_hsol[lam][i][j]);
-    //           cout << "pow behav = " << poly_frac_pow_behav(&mat_times_tmat_times_hsol[lam][i][j]) << endl;
-    //           if (coeff_is_null[jc] == 1) {
-    //             cout << "coefficient is null" << endl;
-    //             continue;
-    //           }
-    //           //////
-    //           // EXTRACT HOMOGENEOUS COEFFICIENTS ASSOCIATED WITH SELECTED POWER BEHAVIOR
-    //           //////
-    //           if (poly_frac_pow_behav(&tmat_times_hsol[lam][i][j]) == 0) {
-    //             mpc_set_ui(constr[free_constr][jc], 0, MPFR_RNDN);
-    //           } else if (p == poly_frac_pow_behav(&mat_times_tmat_times_hsol[lam][i][j])) {
-    //             poly_frac_extract_LO(
-    //               &mpc_realref(constr[free_constr][jc]),
-    //               &mpc_imagref(constr[free_constr][jc]),
-    //               &mat_times_tmat_times_hsol[lam][i][j], roots, -p
-    //             );
-    //             LO_selected = 1;
-    //           } else if (p == poly_frac_pow_behav(&mat_times_tmat_times_hsol[lam][i][j]) + 1) {
-    //             poly_frac_extract_LO(
-    //               &mpc_realref(constr[free_constr][jc]),
-    //               &mpc_imagref(constr[free_constr][jc]),
-    //               &mat_times_tmat_times_hsol[lam][i][j], roots, -p
-    //             );
-    //           } else if (p == poly_frac_pow_behav(&mat_times_tmat_times_hsol[lam][i][j]) + 2) {
-    //             // curretnly only LO and NLO extraction has been implemented;
-    //             // extraction of NNLO and beyond of a poly_frac still not available
-    //             perror("WARNING: trying to extract NNNLO behavior of a poly_frac while computing free constarints");
-    //             exit(1);
-    //           }
-    //           cout << "constraint:" << endl;
-    //           print_mpc(&constr[free_constr][jc]); cout << endl;
-              
-    //           if (mpc_lessthan_tol(constr[free_constr][jc]) == 0) {
-    //             found_non_zero = 1;
-    //           }
-    //         }
-
-    //         if (found_non_zero) { // perform csvd instead
-    //           //////
-    //           // EXTRACT CONSTANT TERM COEFFICIENT ASSOCIATED WITH SELECTED POWER BEHAVIOR
-    //           //////
-    //           if (poly_frac_pow_behav(&DE_const_term[lam][i]) == 0) {
-    //             mpc_set_ui(free_constr_const_term[free_constr], 0, MPFR_RNDN);
-    //           } else if (p == DE_const_term_pow_behav[lam][i]) {
-    //             poly_frac_extract_LO(
-    //               &mpc_realref(free_constr_const_term[free_constr]),
-    //               &mpc_imagref(free_constr_const_term[free_constr]),
-    //               &DE_const_term[lam][i], roots, -p
-    //             );
-    //             LO_selected = 1;
-    //           } else if (p == DE_const_term_pow_behav[lam][i] + 1) {
-    //             poly_frac_extract_NLO(
-    //               &free_constr_const_term[free_constr],
-    //               &free_constr_const_term[free_constr-LO_selected],
-    //               &DE_const_term[lam][i], roots, -p
-    //             );
-    //           } else if (p == DE_const_term_pow_behav[lam][i] + 2) {
-    //             // curretnly only LO and NLO extraction has been implemented;
-    //             // extraction of NNLO and beyond of a poly_frac still not available
-    //             perror("WARNING: trying to extract NNNLO behavior of a poly_frac while computing free constarints");
-    //             exit(1);
-    //           }
-    //           free_constr++;
-    //         } else {
-    //           LO_selected = 0;
-    //         }
-
-    //         if (free_constr == num_constr) {
-    //           break;
-    //         }
-    //       }
-          
-    //       if (free_constr == num_constr) {
-    //         break;
-    //       }
-
-    //       // SET THRESHOLD POWER
-    //       cout << "SET THRESHOLD POWER" << endl;
-    //       int found_non_zero = 0;
-    //       for (int jc, j=0; j<match_constr_dim[lam]; j++) {
-    //         jc = match_constr_idx[lam][j];
-    //         cout << "p, jc = " << -1 << ", " << jc << endl;
-    //         cout << "pow behav = " << poly_frac_pow_behav(&mat_times_tmat_times_hsol[lam][i][j]) << endl;
-    //         if (coeff_is_null[jc] == 1) {
-    //           cout << "coefficient is null" << endl;
-    //           continue;
-    //         }
-            
-    //         poly_frac_extract_LO(
-    //           &mpc_realref(constr[free_constr][jc]),
-    //           &mpc_imagref(constr[free_constr][jc]),
-    //           &mat_times_tmat_times_hsol[lam][i][j], roots, 1
-    //         );
-            
-    //         cout << "constraint:" << endl;
-    //         print_mpc(&constr[free_constr][jc]); cout << endl;
-            
-    //         if (!mpc_lessthan_tol(constr[free_constr][jc])) {
-    //           found_non_zero = 1;
-    //         }
-    //       }
-          
-    //       if (found_non_zero) { // perform csvd instead
-    //         poly_frac_extract_LO(
-    //           &mpc_realref(free_constr_const_term[free_constr]),
-    //           &mpc_imagref(free_constr_const_term[free_constr]),
-    //           &DE_const_term[lam][i], roots, 1
-    //         );
-    //         free_constr++;
-    //       }
-
-    //       if (free_constr == num_constr) {
-    //         break;
-    //       }
-
-    //     }
-    //     if (free_constr == num_constr) {
-    //       break;
-    //     }
-    //   }
-    //   cout << "num null coeff = " << num_null_coeff << endl;
-    //   cout << "free constr = " << free_constr << endl;
-    //   cout << "free constr matrix:" << endl;
-    //   for (int i=0; i<free_constr; i++) {
-    //     for (int j=0; j<b_len; j++) {
-    //       if (coeff_is_null[j] == 1) {continue;}
-    //       cout << "i, j = " << i << ", " << j << ": ";
-    //       print_mpc(&constr[i][j]); cout << endl;
-    //     }
-    //   }
-    //   cout << "free constr const term:" << endl;
-    //   for (int i=0; i<free_constr; i++) {
-    //     cout << "i = " << i << ": ";
-    //     print_mpc(&free_constr_const_term[i]); cout << endl;
-    //   }
-    // }
-
     if (free_constr == num_constr) {
       // if (constr_const_term) {
       //   delete[] constr_const_term;
@@ -3216,27 +3074,51 @@ void match_sol_around_zero(
       tmat -= offset;
       goto goto_solve;
     }
-  
-    // if (offset == 5) {exit(0);}
-        // int num_constr = b_len, free_constr = 0;
-        // if (const_term_pow_behav[lam][i] < bound_behav[offset+i][lam]) {
-        //   if (pow_behav[lam][i] >= bound_behav[offset+i][lam]) {
-        //     // stop and signal error
-        //   }
-        //   // boundary condition not needed
-        //   free_constr++;
-        // } else if (const_term_pow_behav[lam][i] == bound_behav[offset+i][lam]) {
-        //   if (pow_behav[lam][i] >= bound_behav[offset+i][lam]) {
-        //     // stop and signal that a boundary condition is needed
-        //   }
-        //   // coefficient must be zero
-        //   num_constr--;
-        // } else if (const_term_pow_behav[lam][i] > bound_behav[offset+i][lam]) {
-        //   if (pow_behav[lam][i] != bound_behav[offset+i][lam]) {
-        //     // stop and signal error
-        //   }
-        //   // boundary condition needed
-        // }
+    
+    // CONSTANT TERM
+    // initialize to external boundary
+    for (int i=0; i<b_len; i++) {
+      mpc_set(ext_constr_const_term[i], (*solutions)[offset+i][0], MPFR_RNDN);
+    }
+
+    // CONSTANT TERM FOR EXTERNAL CONSTRAINTS
+    if (print) cout << "build constant term for the external constraints" << endl;
+    // if (sb_len>0 && sol_log_len[lam0] > 0) {
+    if ((sb_len > 0 || offset > 0) && num_constr > free_constr) {
+      for (int lamp, np=0; np<num_cum_eig; np++) {
+        lamp = cum_eig[np];
+        if (sol_log_len[lamp] == 0 || is_in_bound[lamp] == 0) {
+          continue;
+        }
+        for (int i=0; i<b_len; i++) { // sum only on selected external constraints
+          if (print) cout << "i = " << i << endl;
+          // #occhio
+          if (const_term_pow_behav[lamp][i] == bound_behav[offset+i][lamp]) {
+            poly_frac_mul_sym_pow(&tmp_pf[i], &pf_const_term[lamp][i], -const_term_pow_behav[lamp][i]);
+            poly_frac_eval_sym_zero(&tmpc, &tmp_pf[i], roots);
+            mpc_sub(
+              ext_constr_const_term[i], ext_constr_const_term[i], tmpc,
+              MPFR_RNDN
+            );
+          } else if (const_term_pow_behav[lamp][i] < bound_behav[offset+i][lamp]) {
+            poly_frac_extract_order(&tmpc, &pf_const_term[lamp][i], roots, nroots, -bound_behav[offset+i][lamp]);
+            mpc_sub(
+              ext_constr_const_term[i], ext_constr_const_term[i], tmpc,
+              MPFR_RNDN
+            );
+            // perror("WARNING: while matching in zero: constant term (prev. sol. and part. sol.) \
+            //   have power behaviour lower than external boundary. \
+            //   External constraint cannot be satisfied, unless this is a free constraint."
+            // );
+          }
+        }
+      }
+    }
+    mpc_t *csvd_constr_const_term; csvd_constr_const_term = new mpc_t[b_len];
+    init_rk1_mpc(csvd_constr_const_term, b_len);
+    for (int i=0; i<free_constr; i++) {
+      mpc_set(csvd_constr_const_term[i], free_constr_const_term[i], MPFR_RNDN);
+    }
     
     if (print) cout << "evaluate HOMOGENEOUS solution" << endl;
     count_mi_idx = 0;
@@ -3301,8 +3183,8 @@ void match_sol_around_zero(
             }
             // poly_frac_mul_sym_pow(&tmp_pf[i], &tmat_times_hsol[lam][i][j], -bound_behav[offset+i][lam]);
             // poly_frac_eval_sym_zero(&constr[free_constr+count_mi_idx][jc], &tmp_pf[i], roots);
-            // poly_frac_extract_oder(
-            rel_err_poly_frac_extract_oder(
+            // poly_frac_extract_order(
+            rel_err_poly_frac_extract_order(
               &constr[free_constr+count_mi_idx][jc],
               &tmat_times_hsol[lam][i][j], roots, nroots, -bound_behav[offset+i][lam]
               , wp_bin
@@ -3316,28 +3198,114 @@ void match_sol_around_zero(
           }
         }
 
+        // update constant term
+        mpc_set(csvd_constr_const_term[free_constr+count_mi_idx], ext_constr_const_term[i], MPFR_RNDN);
+
         // check whether new constraint is independent
         // cout << "check whether new constraint is independent" << endl;
-        int constr_found_non_zero = 0;
-        for (int lam, n=0; n<num_cum_eig; n++) {
-          lam = cum_eig[n];
-          if (block_log_len[lam] == 0) {
-            continue;
+
+        // #WIP: csvd check on external+free constraints
+        // prepare input for csvd
+        int row_dim = free_constr+count_mi_idx+1;
+        int col_dim = b_len-num_null_coeff;            
+        mpc_t *csvd_mat = new mpc_t[row_dim*(col_dim+1)];
+        init_rk1_mpc(csvd_mat, row_dim*(col_dim+1));
+        mpc_t *csvd_mat0 = new mpc_t[row_dim*(col_dim+1)];
+        init_rk1_mpc(csvd_mat0, row_dim*(col_dim+1));
+        mpc_t *csvd_mat1 = new mpc_t[row_dim*(col_dim+1)];
+        init_rk1_mpc(csvd_mat1, row_dim*(col_dim+1));
+        build_csvd_mat(
+          csvd_mat,
+          row_dim, col_dim, constr, csvd_constr_const_term,
+          b_len, coeff_is_null
+        );
+
+        if (print) {
+        cout << "CSVD mat:" << endl;
+        for (int i=0; i<row_dim; i++) {
+          for (int j=0; j<col_dim+1; j++) {
+            cout << "i, j = " << i << ", " << j << ": ";
+            print_mpc(&csvd_mat[i+row_dim*j]); cout << endl;
           }
-          if (lam != lam0) {  // #suspicous: might not hold when more than one lambda is present in the boundary!
-            continue;
+          cout << endl;
+        }
+        }
+
+        for (int i=0; i<row_dim; i++) {
+          for (int j=0; j<col_dim; j++) {
+            mpc_set(csvd_mat0[j+col_dim*i], csvd_mat[i+row_dim*j], MPFR_RNDN);
           }
-          for (int jc, j=0; j<match_constr_dim[lam]; j++) {
-            jc = match_constr_idx[lam][j];
-            if (coeff_is_null[jc] == 1) {continue;}
-            if (!mpc_lessthan_tol(constr[free_constr+count_mi_idx][jc])) {
-              constr_found_non_zero = 1;
-              break;
-            }
+        }
+
+        if (print) {
+        cout << "csvd_mat0:" << endl;
+        for (int i=0; i<col_dim; i++) {
+          for (int j=0; j<row_dim; j++) {
+            cout << "i, j = " << i << ", " << j << ": ";
+            print_mpc(&csvd_mat0[i+col_dim*j]); cout << endl;
+          }
+          cout << endl;
+        }
+        }
+
+        for (int i=0; i<row_dim; i++) {
+          for (int j=0; j<col_dim+1; j++) {
+            mpc_set(csvd_mat1[j+(col_dim+1)*i], csvd_mat[i+row_dim*j], MPFR_RNDN);
           }
         }
         
-        if (constr_found_non_zero) {
+        if (print) {
+        cout << "csvd_mat1:" << endl;
+        for (int i=0; i<col_dim+1; i++) {
+          for (int j=0; j<row_dim; j++) {
+            cout << "i, j = " << i << ", " << j << ": ";
+            print_mpc(&csvd_mat1[i+(col_dim+1)*j]); cout << endl;
+          }
+          cout << endl;
+        }
+        }
+
+        // apply Rouché-Capelli theorem
+        int constr_found_indep = 0;
+        int rank0, rank1;
+        // if (offset == 34) wp2 *= 0.90;
+        // if (offset == 34) mpfr_tol_enlarge(0.80);
+        rank0 = compute_rank(csvd_mat0, col_dim, row_dim);
+        if (print) cout << "rank0 = " << rank0 << endl;
+        rank1 = compute_rank(csvd_mat1, col_dim+1, row_dim);
+        if (print) cout << "rank1 = " << rank1 << endl;
+        if (rank0 != rank1) {
+          printf("WARNING: found inconsistency while matching in zero: constraints are contradictory\n");
+          perror("WARNING: found inconsistency while matching in zero: constraints are contradictory");
+          constr_found_indep = 0;
+        } else if (rank0 != free_constr+1) {
+          // constraint linearly depedends on the previous ones
+          constr_found_indep = 0;
+        } else {
+          // constraint does not linearly depedend on the previous ones
+          constr_found_indep = 1;
+        }
+
+        // int constr_found_non_zero = 0;
+        // for (int lam, n=0; n<num_cum_eig; n++) {
+        //   lam = cum_eig[n];
+        //   if (block_log_len[lam] == 0) {
+        //     continue;
+        //   }
+        //   if (lam != lam0) {  // #suspicous: might not hold when more than one lambda is present in the boundary!
+        //     continue;
+        //   }
+        //   for (int jc, j=0; j<match_constr_dim[lam]; j++) {
+        //     jc = match_constr_idx[lam][j];
+        //     if (coeff_is_null[jc] == 1) {continue;}
+        //     if (!mpc_lessthan_tol(constr[free_constr+count_mi_idx][jc])) {
+        //       constr_found_non_zero = 1;
+        //       break;
+        //     }
+        //   }
+        // }
+        
+        if (constr_found_indep) {
           count_mi_idx++;
         } else {
           continue;
@@ -3489,45 +3457,7 @@ void match_sol_around_zero(
     //   }
     // }
 
-    // CONSTANT TERM
-    // initialize to external boundary
-    for (int i=0; i<b_len; i++) {
-      mpc_set(ext_constr_const_term[i], (*solutions)[offset+i][0], MPFR_RNDN);
-    }
 
-    // CONSTANT TERM FOR EXTERNAL CONSTRAINTS
-    if (print) cout << "build constant term for the external constraints" << endl;
-    // if (sb_len>0 && sol_log_len[lam0] > 0) {
-    if ((sb_len > 0 || offset > 0) && num_constr > free_constr) {
-      for (int lamp, np=0; np<num_cum_eig; np++) {
-        lamp = cum_eig[np];
-        if (sol_log_len[lamp] == 0 || is_in_bound[lamp] == 0) {
-          continue;
-        }
-        for (int i=0; i<b_len; i++) { // sum only on selected external constraints
-          if (print) cout << "i = " << i << endl;
-          // #occhio
-          if (const_term_pow_behav[lamp][i] == bound_behav[offset+i][lamp]) {
-            poly_frac_mul_sym_pow(&tmp_pf[i], &pf_const_term[lamp][i], -const_term_pow_behav[lamp][i]);
-            poly_frac_eval_sym_zero(&tmpc, &tmp_pf[i], roots);
-            mpc_sub(
-              ext_constr_const_term[i], ext_constr_const_term[i], tmpc,
-              MPFR_RNDN
-            );
-          } else if (const_term_pow_behav[lamp][i] < bound_behav[offset+i][lamp]) {
-            poly_frac_extract_oder(&tmpc, &pf_const_term[lamp][i], roots, nroots, -bound_behav[offset+i][lamp]);
-            mpc_sub(
-              ext_constr_const_term[i], ext_constr_const_term[i], tmpc,
-              MPFR_RNDN
-            );
-            // perror("WARNING: while matching in zero: constant term (prev. sol. and part. sol.) \
-            //   have power behaviour lower than external boundary. \
-            //   External constraint cannot be satisfied, unless this is a free constraint."
-            // );
-          }
-        }
-      }
-    }
     // if (offset == 7) {exit(0);}
 
     // shift back

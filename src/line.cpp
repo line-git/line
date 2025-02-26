@@ -605,6 +605,9 @@ int main(int argc, char *argv[])
   if (opt_all_eps == 0) {
     eps_num = 1;
   }
+  // eps_str += 5;
+  // cout << endl; cout << "single epsilon mode:" << endl;
+  // cout << eps_str[0] << endl;
 
   //////
   // CHOOSE STARTING POINT
@@ -643,6 +646,14 @@ int main(int argc, char *argv[])
       kin[1], dir_parent, dir_amflow,
       terminal
     );
+
+    cout << endl;
+    cout << "num. MIs (eta-less): " << dim_eta_less << endl;
+    cout << "num. MIs (with eta): " << dim << endl;
+    cout << "indices of eta-less MIs:" << endl;
+    for (int m=0; m<dim_eta_less; m++) {
+      cout << "MIidx["<< m << "] = " << MI_idx[m] << endl;
+    }
   }
   // path to common files
   join_path(&filepath_mats, dir_common, (char*)"");
@@ -714,7 +725,7 @@ int main(int argc, char *argv[])
     calculate_hash(&run_hash, run_str);
     cout << "generate hash..." << endl;
   }
-	cout << "run hash: " << run_hash << endl;
+	cout << endl; cout << "run hash: " << run_hash << endl;
 
 	if (dir_run) {
     join_path(&dir_run, dir_target, dir_run);
@@ -1264,7 +1275,8 @@ int main(int argc, char *argv[])
   int nsings_tot; nsings_tot = 0;
   #pragma omp parallel for num_threads(nthreads)
   for (int ep=0; ep<eps_num; ep++) {
-    clock_gettime(CLOCK_MONOTONIC, &start_el_eps_iter);
+  // for (int ep=5; ep<=5; ep++) {
+      clock_gettime(CLOCK_MONOTONIC, &start_el_eps_iter);
     
     //////
     // HANDLE PROGRESS BAR
@@ -1670,8 +1682,9 @@ int main(int argc, char *argv[])
     //////
     cout << endl; cout << "selecting eta-less MIs from solution" << endl;
     for (int m=0; m<dim_eta_less; m++) {
-      // cout << "m, MI_idx = " << m << ", " << MI_idx[m] << endl;
+      // cout << "m, MI_idx = " << m << ", " << MI_idx[m] << endl; fflush(stdout);
       for (int ep=0; ep<eps_num; ep++) {
+        // print_mpc(&sol_at_eps[MI_idx[m]][ep]); cout << endl; fflush(stdout);
         mpc_set(sol_at_eps_wrt_cmp[m][ep], sol_at_eps[MI_idx[m]][ep], MPFR_RNDN);
         // print_mpc(&sol_at_eps_wrt_cmp[m][ep]); cout << endl;
       }
@@ -1916,20 +1929,20 @@ int main(int argc, char *argv[])
     mpfr_set(mpfr_tol_orig, mpfr_tol, MPFR_RNDN);
     // mpfr_tol_set_wp(precision*2);
     mpfr_tol_set_wp(precision*1.2);
-    // cout << endl; cout << "check with enlarged mpfr tol:" << endl;
-    // mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
+    cout << endl; cout << "check with enlarged mpfr tol:" << endl;
+    mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
 
     cout << endl; cout << "CHECK interpolation..." << endl;
     mpc_t **bench_sol_eps_ord;
     malloc_rk2_tens(bench_sol_eps_ord, dim_wrt_cmp, order+2*nloops+1);
     init_rk2_mpc(bench_sol_eps_ord, dim_wrt_cmp, order+2*nloops+1);
+    mpc_rk2_from_file(filepath_outer_sol_interp, bench_sol_eps_ord, dim_wrt_cmp, order+2*nloops+1);
     // cout << "benchmark:" << endl;
     // print_rk2_mpc(bench_sol_eps_ord, dim_wrt_cmp, order+2*nloops+1);
     // cout << "current:" << endl;
     // print_rk2_mpc(sol_eps_ord_wrt_cmp, dim_wrt_cmp, order+2*nloops+1);
-    mpc_rk2_from_file(filepath_outer_sol_interp, bench_sol_eps_ord, dim_wrt_cmp, order+2*nloops+1);
     // mpc_rk2_compare(bench_sol_eps_ord, sol_eps_ord_wrt_cmp, dim_wrt_cmp, order+2*nloops+1);
-    mpc_rk2_compare(bench_sol_eps_ord, sol_eps_ord_wrt_cmp, dim_wrt_cmp, order+2*nloops+1);
+    mpc_rk2_compare(bench_sol_eps_ord, sol_eps_ord_wrt_cmp, dim_wrt_cmp, order+1);
 
     // restore original tol
     mpfr_set(mpfr_tol, mpfr_tol_orig, MPFR_RNDN);

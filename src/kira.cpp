@@ -3745,17 +3745,34 @@ void call_kira(
   join_path(&kira_jobs_MIs_eta_filepath, dir_kira, (char*)"jobs_MIs-eta.yaml");
   join_path(&kira_jobs_filepath, dir_kira, (char*)"jobs.yaml");
 
+  char *dir_common_eta = NULL;
+  join_path(&dir_common_eta, dir_amflow, (char*)"common/");
+  make_dir(dir_common_eta);
+  char *MIs_eta_filepath = NULL;
+  join_path(&MIs_eta_filepath, dir_common_eta, (char*)"MIs.txt");
+  char *kira_MIs_eta_filepath = NULL;
+  join_path(&kira_MIs_eta_filepath, dir_kira, (char*)"results/");
+  join_path(&kira_MIs_eta_filepath, kira_MIs_eta_filepath, topo_name);
+  join_path(&kira_MIs_eta_filepath, kira_MIs_eta_filepath, (char*)"/masters");
+  char *kira_MIs_eta_outer_filepath = NULL;
+  join_path(&kira_MIs_eta_outer_filepath, dir_kira, (char*)"masters");
+
+  int r = LI_rk1_get_r(MI, *dim), s = LI_rk1_get_s(MI, *dim), d = 1;
+  int kira_r, kira_s, kira_d;
+  kira_r = r+1;
+  kira_s = s > 3 ? s : 3;
+  kira_d = 1; // d > 0 ? d : 0;
+
   // jobs_MIs-eta.yaml
   cout << "writing to " << kira_jobs_MIs_eta_filepath << endl;
   fptr = fopen(kira_jobs_MIs_eta_filepath, "w");
-  int r = LI_rk1_get_r(MI, *dim) + 1, s = LI_rk1_get_s(MI, *dim) + 1, d = 1;
   fprintf(fptr, "jobs:\n");
   fprintf(fptr, "  - reduce_sectors:\n");
   fprintf(fptr, "      reduce:\n");
-  fprintf(fptr, "        - {r: %d, s: %d}\n", r, s);
+  fprintf(fptr, "        - {r: %d, s: %d}\n", kira_r, kira_s);
   fprintf(fptr, "      select_integrals:\n");
   fprintf(fptr, "        select_mandatory_recursively:\n");
-  fprintf(fptr, "          - {r: %d, s: %d, d: %d}\n", r, s, d);
+  fprintf(fptr, "          - {r: %d, s: %d, d: %d}\n", kira_r, kira_s, kira_d);
   fprintf(fptr, "      preferred_masters: preferred\n");
   fprintf(fptr, "      integral_ordering: 5\n");
   fprintf(fptr, "      run_initiate: masters\n");
@@ -3767,10 +3784,11 @@ void call_kira(
   fprintf(fptr, "jobs:\n");
   fprintf(fptr, "  - reduce_sectors:\n");
   fprintf(fptr, "      reduce:\n");
-  fprintf(fptr, "        - {r: %d, s: %d}\n", r, s);
+  fprintf(fptr, "        - {r: %d, s: %d}\n", kira_r, kira_s);
   fprintf(fptr, "      select_integrals:\n");
   fprintf(fptr, "        select_mandatory_list:\n");
   fprintf(fptr, "          - [%s, target]\n", topo_name);
+  fprintf(fptr, "      preferred_masters: masters\n");
   fprintf(fptr, "      integral_ordering: 5\n");
   fprintf(fptr, "      run_initiate: true\n");
   fprintf(fptr, "      run_triangular: true\n");
@@ -3783,16 +3801,6 @@ void call_kira(
   //////
   // LAUNCH KIRA to find MIs with eta
   //////
-  char *dir_common_eta = NULL;
-  join_path(&dir_common_eta, dir_amflow, (char*)"common/");
-  make_dir(dir_common_eta);
-  char *MIs_eta_filepath = NULL;
-  join_path(&MIs_eta_filepath, dir_common_eta, (char*)"MIs.txt");
-  char *kira_MIs_eta_filepath = NULL;
-  join_path(&kira_MIs_eta_filepath, dir_kira, (char*)"results/");
-  join_path(&kira_MIs_eta_filepath, kira_MIs_eta_filepath, topo_name);
-  join_path(&kira_MIs_eta_filepath, kira_MIs_eta_filepath, (char*)"/masters");
-
   char *command = (char*) malloc(MAX_VALUE_LEN*sizeof(char));
 
   int execute;
@@ -3805,6 +3813,13 @@ void call_kira(
     if (file_exists(MIs_eta_filepath)) {
       execute = 0;
       cout << "Kira output already exists" << endl;
+      snprintf(
+        command, MAX_VALUE_LEN*sizeof(char),
+        "cp %s %s", kira_MIs_eta_filepath, kira_MIs_eta_outer_filepath
+      );
+      cout << endl; cout << "executing shell command: " << endl; cout << "  $ " << command << endl;
+      cout << endl;
+      system(command);
     } else {
       execute = 1;
     }
@@ -3833,6 +3848,13 @@ void call_kira(
     snprintf(
       command, MAX_VALUE_LEN*sizeof(char),
       "cp %s %s", kira_MIs_eta_filepath, MIs_eta_filepath
+    );
+    cout << endl; cout << "executing shell command: " << endl; cout << "  $ " << command << endl;
+    cout << endl;
+    system(command);
+    snprintf(
+      command, MAX_VALUE_LEN*sizeof(char),
+      "cp %s %s", kira_MIs_eta_filepath, kira_MIs_eta_outer_filepath
     );
     cout << endl; cout << "executing shell command: " << endl; cout << "  $ " << command << endl;
     cout << endl;

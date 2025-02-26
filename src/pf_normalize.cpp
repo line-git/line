@@ -1687,7 +1687,7 @@ void pf_to_Fuchsian_global(
 
         num_it++;
         // if (num_it > 10000) {
-        if (num_it > 10) {
+        if (num_it > 1000) {
           perror("too many iterations in global fuchsianization");
           exit(1);
         }

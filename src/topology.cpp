@@ -664,8 +664,13 @@ void LI_rk1_to_file(
   char *topo_name
 ) {
   FILE *fptr = fopen(filepath, "w");
+  if (!fptr) {
+    fprintf(stderr, "failed to open file to write masters\n");
+    exit(1);
+  }
   for (int m=0; m<dim; m++) {
     fprintf(fptr, "%s%s\n", topo_name, li[m].pows_str);
   }
+  fclose(fptr);
 }
 

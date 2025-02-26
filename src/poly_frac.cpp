@@ -3029,7 +3029,7 @@ void poly_frac_mat_extract_NLOc(
 }
 
 
-void poly_frac_extract_oder(
+void poly_frac_extract_order(
   // OUTPUT
   mpc_t *out,
   // INPUT
@@ -3044,6 +3044,7 @@ void poly_frac_extract_oder(
   poly_frac_mul_sym_pow(&pfin, &pfin, -pow_behav);
   // poly_frac_print(&pfin);
 
+  mpc_set_ui(*out, 0, MPFR_RNDN);
   for (int p=pow_behav; p<=order; p++) {
     poly_frac_eval_sym_zero(out, &pfin, roots);
     if (p<order) {
@@ -5669,7 +5670,7 @@ int rel_err_poly_frac_eval_sym_zero(
 }
 
 
-void rel_err_poly_frac_extract_oder(
+void rel_err_poly_frac_extract_order(
   // OUTPUT
   mpc_t *out,
   // INPUT
@@ -5685,6 +5686,7 @@ void rel_err_poly_frac_extract_oder(
   poly_frac_mul_sym_pow(&pfin, &pfin, -pow_behav);
   // poly_frac_print(&pfin);
 
+  mpc_set_ui(*out, 0, MPFR_RNDN);
   for (int p=pow_behav; p<=order; p++) {
     rel_err_poly_frac_eval_sym_zero(out, &pfin, roots, wp_bin);
     if (p<order) {
