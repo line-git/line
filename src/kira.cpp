@@ -3815,7 +3815,7 @@ void call_kira(
       cout << "Kira output already exists" << endl;
       snprintf(
         command, MAX_VALUE_LEN*sizeof(char),
-        "cp %s %s", kira_MIs_eta_filepath, kira_MIs_eta_outer_filepath
+        "cp %s %s", MIs_eta_filepath, kira_MIs_eta_outer_filepath
       );
       cout << endl; cout << "executing shell command: " << endl; cout << "  $ " << command << endl;
       cout << endl;
