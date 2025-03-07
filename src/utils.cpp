@@ -27,6 +27,30 @@ extern "C" {
 }
 
 
+int lock_acquire_if_free(
+  int *lock
+) {
+  int expected = 0;
+  int desired = 1;
+  if (
+    __atomic_compare_exchange(
+      lock, &expected, &desired, 0, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED
+    )
+  ) {
+    return 1;  // lock acquired
+  } else {
+    return 0;  // lock acquired
+  }
+}
+
+
+void lock_release(
+  int *lock
+) {
+  __atomic_store_n(lock, 0, __ATOMIC_RELEASE);
+}
+
+
 double clock_t_to_double(
   clock_t start, clock_t end
 ) {

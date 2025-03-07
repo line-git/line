@@ -1097,7 +1097,11 @@ void lnode_parse_expression(
 		}
 		q++;
 	}
-	*p = '\0';
+	if (*(p-1) == '\n') {
+		*(p-1) = '\0';
+	} else {
+		*p = '\0';
+	}
 	p = NULL;
 	q = NULL;
 

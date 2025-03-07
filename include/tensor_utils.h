@@ -23,6 +23,8 @@ void init_rk2_mpfr(mpfr_t **tens, int dim1, int dim2);
 
 void init_rk2_mpc(mpc_t **tens, int dim1, int dim2);
 
+void init_rk3_mpq(mpq_t ***tens, int dim1, int dim2, int dim3);
+
 void init_rk3_mpc(mpc_t ***tens, int dim1, int dim2, int dim3);
 
 void init_rk4_mpc(mpc_t ****tens, int dim1, int dim2, int dim3, int dim4);
@@ -218,6 +220,11 @@ int int_rk1_sum_postivie(
 int int_rk1_sum_negative_abs(
   // INPUT
   int *vec, int dim
+);
+
+int int_rk1_sum_shift(
+  // INPUT
+  int num, int *vec, int dim
 );
 
 int int_rk1_is_positive_to_decimal(

@@ -9,6 +9,7 @@ using namespace std;
 #include "utils.h"
 #include "tensor_utils.h"
 #include "topology.h"
+#include "global_vars.h"
 extern "C" {
   #include "ex_tree.h"
 }
@@ -362,6 +363,13 @@ int LI_get_s(
 }
 
 
+int LI_get_d(
+  LI *li
+) {
+  return int_rk1_sum_shift(1, li->pows, li->nprop);
+}
+
+
 void LI_get_loop_current(
   // OUTPUT
   int **loop_current,
@@ -574,6 +582,22 @@ int LI_rk1_get_s(
 }
 
 
+int LI_rk1_get_d(
+  LI *li, int dim
+) {
+  int d = LI_get_d(&li[0]);
+  int dp;
+  for (int m=1; m<dim; m++) {
+    dp = LI_get_d(&li[m]);
+    if (dp > d) {
+      d = dp;
+    }
+  }
+
+  return d;
+}
+
+
 void LI_rk1_from_file(
   char *filepath,
   // OUTPUT
@@ -602,7 +626,7 @@ void LI_rk1_from_file(
   int nprop, c = 0, m = 0, topo_len = strlen(topo_name);
   char **pows_str = NULL;
   char *line = (char*) malloc(line_size);
-  char *tmp_str = (char*) malloc(((MAX_POW_DIGITS+1)*(*dim)+2)*sizeof(char));
+  char *tmp_str = (char*) malloc(MAX_PATH_LEN*sizeof(char));
 	while (fgets(line, MAX_VALUE_LEN, fptr)) {
     // // skip in-line comment
     // end_at_char(line, '#');
@@ -638,8 +662,7 @@ void LI_rk1_from_file(
       (*li)[m].pows[p] = atoi(pows_str[p]);
     }
     // cout << endl;
-    (*li)[m].pows_str = (char*) malloc((strlen(tmp_str)+1)*sizeof(char));
-    strcpy((*li)[m].pows_str, tmp_str);
+    (*li)[m].pows_str = strdup(tmp_str);
     // cout << "copied power list: " << (*li)[m].pows_str << endl;
 
     m++;

@@ -17,6 +17,18 @@ void lnode_pf_build(lnode_pf *ndpf);
 
 void lnode_pf_free(lnode_pf *ndpf);
 
+void process_Kira_IBP_target(
+  // OUPUT
+  mpq_t ***coeffs,
+  // INPUT
+  int ninvs, char **symbols, int *is_mass,
+  char **eps_str, int eps_num,
+  int dim, LI *MI,
+  int dim_target, LI *MI_target,
+  char *dir_amflow,
+  FILE *terminal
+);
+
 void process_kira_IBPs(
   // OUTPUT
   mpz_t ******coeffs_num_den, int ******pows_num_den,
@@ -67,7 +79,7 @@ void kira_IBPs_to_DE_pf(
 
 void call_kira(
   // OUTPUT
-  LI **MI_eta, int *dim_eta, int **MI_idx, int *dim,
+  LI **MI_eta, LI **MI, int *dim_eta, int **MI_idx, int *dim,
   double *time,
   // INPUT
   int redo, int opt_kira_parallel, int opt_kira_print,
