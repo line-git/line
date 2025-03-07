@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# start time
+start_time=$(perl -MTime::HiRes=time -E 'printf "%.0f\n", time * 1000')
+
 ######
 # PREPARATION
 ######
@@ -12,6 +15,7 @@ export LC_NUMERIC=C
 # default values
 nthreads=1
 kira=0
+kira_parallel=1
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
@@ -20,13 +24,22 @@ while [[ "$#" -gt 0 ]]; do
         nthreads="$2"
         shift 2
       else
-        echo "Errore: il valore per --nthreads deve essere un intero positivo."
+        echo "Error: --nthreads must be a positive integer."
         exit 1
       fi
       ;;
     -k|--kira)
       kira=1
       shift
+      ;;
+    -kp|--kira-parallel)
+      if [[ "$2" =~ ^[1-9][0-9]*$ ]]; then
+        kira_parallel="$2"
+        shift 2
+      else
+        echo "Error: --kira-parallel must be a positive integer."
+        exit 1
+      fi
       ;;
     *)  # other options
       echo "option not valid: $1"
@@ -137,7 +150,7 @@ run_test() {
 
   {
     time {
-      ./$prg -i "${workdir}/${card}.txt" --parent-dir check -w 0 --kira-redo "${kira}" --kira-parallel 6 > "${logfile}" 2> "${stderr_redirect}"
+      ./$prg -i "${workdir}/${card}.txt" --parent-dir check -w 0 --kira-redo "${kira}" --kira-parallel "${kira_parallel}" > "${logfile}" 2> "${stderr_redirect}"
       exit_status=$?
     } 2>&1 
   } 2> "${time_file}"
@@ -178,6 +191,7 @@ export workdir
 export logdir
 export nthreads
 export kira
+export kira_parallel
 printf "%s\n" "${cards[@]}" | xargs -P $nthreads -I {} bash -c 'run_test "$@"' _ {}
 # echo "${cards[@]}" | xargs -n 1 -P $nthreads -I {} bash -c 'run_test "$@"' _ {}
 
@@ -206,6 +220,11 @@ for file in ${logdir}/*_time_s; do
   rm "$file"
 done
 echo ""
-echo "total time (cpu): ${time_s_total} s"
+echo "total time (cpu):     ${time_s_total}s"
+
+# elapsed time
+end_time=$(perl -MTime::HiRes=time -E 'printf "%.0f\n", time * 1000')
+elapsed_time=$(awk "BEGIN {printf \"%.3f\n\", ($end_time - $start_time) / 1000}")
+echo "total time (elapsed): ${elapsed_time}s"
 
 exit 0
