@@ -111,11 +111,7 @@ void solve_block(mpc_t **solutions,
   //////
   // CHECK IF INPUT BLOCK IS ZERO
   /////
-  // #2BD: check also sub-diagonal block (se non e' zero allora c'è il termine
-  // costante e quindi la derivata non fa zero, quindi c'e' il termine ordine 1)
-  // (probabilmente non e' possibile perche' i MI sono tali perche' irriducibili
-  // a MI di sottotopologie)
-  int found_non_zero = 0;
+  int block_non_zero = 0;
   mpfr_t mpfr_zero;
   mpfr_init2(mpfr_zero, wp2);
   mpfr_set_ui(mpfr_zero, 0, MPFR_RNDN);
@@ -125,26 +121,43 @@ void solve_block(mpc_t **solutions,
         if(!mpc_lessthan_tol(block[i][j][k])) {
         // if(mpfr_equal_p(mpc_realref(block[i][j][k]), mpfr_zero) && mpfr_equal_p(mpc_imagref(block[i][j][k]), mpfr_zero)) {
           // cout << "non-zero: i, j = " << i << ", " << j << endl;
-          found_non_zero = 1;
+          block_non_zero = 1;
           break;
         }
       }
-      if (found_non_zero) {
+      if (block_non_zero) {
         break;
       }
     }
-    if (found_non_zero) {
+    if (block_non_zero) {
       break;
     }
   }
-  if (!found_non_zero) {
+
+  //////
+  // CHECK IF CONSTANT TERM IS ZERO
+  //////
+  int const_term_non_zero = 0;
+  if (sb_len > 0) {
+    for (int i=0; i<b_len; i++) {
+      for (int k=0; k<eta_ord; k++) {
+        if(!mpc_lessthan_tol(const_term[i][k])) {
+          const_term_non_zero = 1;
+          break;
+        }
+      }
+      if (const_term_non_zero) {
+        break;
+      }
+    }
+  }
+
+  if (!block_non_zero && !const_term_non_zero) {
     for (int i=0; i<b_len; i++) {
       for (int k=1; k<=eta_ord; k++) {
         mpc_set_d(solutions[b_idx[i]][k], 0, MPFR_RNDN);
       }
     }
-    // cout << "hit new return" << endl;
-    return;
   }
 
   int max_j;
@@ -830,7 +843,7 @@ void propagate_regular(
   int npoles, mpc_t *poles,
   int nblocks, int **prof, int **sb_grid, int eta_ord
 ) {
-  int print = 0;
+  int print = 1;
   int prt_ord = 10;
 
   //////
