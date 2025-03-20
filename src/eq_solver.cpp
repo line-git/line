@@ -843,7 +843,7 @@ void propagate_regular(
   int npoles, mpc_t *poles,
   int nblocks, int **prof, int **sb_grid, int eta_ord
 ) {
-  int print = 1;
+  int print = 0;
   int prt_ord = 10;
 
   //////
