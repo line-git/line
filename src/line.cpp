@@ -132,6 +132,7 @@ int main(int argc, char *argv[])
 	char *dir_bound = NULL;
 	char *dir_run = NULL;
 	char *filepath_result = NULL;
+	char *filepath_check_with = NULL;
 	int opt_bar = 1;
 	int opt_one_eps = 0;
 	int opt_eps_list = 0;
@@ -154,6 +155,7 @@ int main(int argc, char *argv[])
 		{"bound-dir", required_argument, NULL, 0},
 		{"run-dir", required_argument, NULL, 0},
   	{"result-file", required_argument, NULL, 'r'},
+  	{"check-with", required_argument, NULL, 0},
   	{"bar", required_argument, NULL, 'b'},
 		{"one-eps", no_argument, NULL, 0},
 		{"eps-list", no_argument, NULL, 0},
@@ -167,7 +169,7 @@ int main(int argc, char *argv[])
 		{"prune-eps-abs", required_argument, NULL, 0},
 		{"prune-eps-mode", required_argument, NULL, 0},
 		{"eps-log", required_argument, NULL, 0},
-		{"eps-less", required_argument, NULL, 0},
+		{"eps-less", no_argument, NULL, 0},
 		{0, 0, 0, 0} // terminator
 	};
 
@@ -221,6 +223,9 @@ int main(int argc, char *argv[])
 				} else if (strcmp("run-dir", long_options[long_index].name) == 0) {
 					printf("Option --run-dir has arg: %s\n", optarg);
 					dir_run = strdup(optarg);
+				} else if (strcmp("check-with", long_options[long_index].name) == 0) {
+					printf("Option --check-with has arg: %s\n", optarg);
+					filepath_check_with = strdup(optarg);
 				} else if (strcmp("one-eps", long_options[long_index].name) == 0) {
 					printf("Option --one-eps activated.\n");
 					opt_one_eps = 1;
@@ -292,7 +297,7 @@ int main(int argc, char *argv[])
 					printf("Option --eps-log has arg: %ld\n", value);
 					opt_eps_log = (int)value;
         } else if (strcmp("eps-less", long_options[long_index].name) == 0) {
-					printf("Option --one-eps activated.\n");
+					printf("Option --eps-less activated.\n");
 					opt_eps_less = 1;
         }
 				break;
@@ -327,6 +332,15 @@ int main(int argc, char *argv[])
     }
   }
 
+  // check validation file
+  if (filepath_check_with) {
+    FILE *resfptr = fopen(filepath_check_with, "r");
+    if (!resfptr) {
+      fprintf(stderr, "error while opening result file %s\n", filepath_check_with);
+      exit(1);
+    }
+  }
+  
   // open virtual terminal for progress bars
   static FILE *terminal = NULL;
   #pragma omp threadprivate(terminal)
@@ -352,6 +366,7 @@ int main(int argc, char *argv[])
   if (opt_eps_less) {
     if (opt_prune_eps_mode == 1) {
       printf("--prune-eps-mode 1 not compatible with --opt-eps-less, switching to --prune-eps-mode -1");
+      opt_prune_eps_mode = -1;
     }
   }
 
@@ -1955,6 +1970,30 @@ int main(int argc, char *argv[])
     malloc_rk2_tens(bench_sol_eps_ord, dim_wrt_cmp, order+2*nloops+1);
     init_rk2_mpc(bench_sol_eps_ord, dim_wrt_cmp, order+2*nloops+1);
     mpc_rk2_from_file(filepath_outer_sol_interp, bench_sol_eps_ord, dim_wrt_cmp, order+2*nloops+1);
+    // cout << "benchmark:" << endl;
+    // print_rk2_mpc(bench_sol_eps_ord, dim_wrt_cmp, order+2*nloops+1);
+    // cout << "current:" << endl;
+    // print_rk2_mpc(sol_eps_ord_wrt_cmp, dim_wrt_cmp, order+2*nloops+1);
+    // mpc_rk2_compare(bench_sol_eps_ord, sol_eps_ord_wrt_cmp, dim_wrt_cmp, order+2*nloops+1);
+    mpc_rk2_compare(bench_sol_eps_ord, sol_eps_ord_wrt_cmp, dim_wrt_cmp, order+1);
+
+    // restore original tol
+    mpfr_set(mpfr_tol, mpfr_tol_orig, MPFR_RNDN);
+  }
+
+  if (filepath_check_with) {
+    mpfr_t mpfr_tol_orig;
+    mpfr_init2(mpfr_tol_orig, wp2);
+    mpfr_set(mpfr_tol_orig, mpfr_tol, MPFR_RNDN);
+    mpfr_tol_set_wp(precision*1.2);
+    cout << endl; cout << "check with enlarged mpfr tol:" << endl;
+    mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
+
+    cout << endl; cout << "CHECK WITH " << filepath_check_with << endl;
+    mpc_t **bench_sol_eps_ord;
+    malloc_rk2_tens(bench_sol_eps_ord, dim_wrt_cmp, order+1);
+    init_rk2_mpc(bench_sol_eps_ord, dim_wrt_cmp, order+1);
+    mpc_rk2_from_file(filepath_check_with, bench_sol_eps_ord, dim_wrt_cmp, order+1);
     // cout << "benchmark:" << endl;
     // print_rk2_mpc(bench_sol_eps_ord, dim_wrt_cmp, order+2*nloops+1);
     // cout << "current:" << endl;
