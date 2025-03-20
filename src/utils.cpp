@@ -128,7 +128,8 @@ void generate_cache_filename(
 
 void print_result(
   FILE *resfptr, int precision,
-  mpc_t **res, LI *MI, int dim, int order, int nloops
+  mpc_t **res, LI *MI, int dim, int order, int nloops,
+  int opt_eps_less
 ) {
   char res_format[20];
   snprintf(res_format, sizeof(res_format), "%%.%dRe", precision-1);
@@ -138,8 +139,10 @@ void print_result(
     if (MI) fprintf(resfptr, ", MI%s", MI[i].pows_str);
     fprintf(resfptr, "\n");
     for (int ep=0; ep<=order; ep++) {
+      if (!opt_eps_less) {
       fprintf(resfptr, "eps^%d: ", ep - 2*nloops);
       if (ep - 2*nloops >= 0) fprintf(resfptr, " ");
+      }
       fprintf(resfptr, "(");
 
       // print real part

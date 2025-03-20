@@ -32,7 +32,8 @@ void generate_cache_filename(
 
 void print_result(
   FILE *resfptr, int precision,
-  mpc_t **res, LI *MI, int dim, int order, int nloops
+  mpc_t **res, LI *MI, int dim, int order, int nloops,
+  int opt_eps_less
 );
 
 int MIN(int a, int b);

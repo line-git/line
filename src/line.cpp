@@ -145,6 +145,7 @@ int main(int argc, char *argv[])
   int opt_prune_eps_abs = -20, opt_prune_eps_abs_from_terminal = 0;
   int opt_prune_eps_mode = 1, opt_prune_eps_mode_from_terminal = 0;
   int opt_eps_log = 0;
+  int opt_eps_less = 0;
 
 	// defining long options
 	struct option long_options[] = {
@@ -166,6 +167,7 @@ int main(int argc, char *argv[])
 		{"prune-eps-abs", required_argument, NULL, 0},
 		{"prune-eps-mode", required_argument, NULL, 0},
 		{"eps-log", required_argument, NULL, 0},
+		{"eps-less", required_argument, NULL, 0},
 		{0, 0, 0, 0} // terminator
 	};
 
@@ -289,6 +291,9 @@ int main(int argc, char *argv[])
 					}
 					printf("Option --eps-log has arg: %ld\n", value);
 					opt_eps_log = (int)value;
+        } else if (strcmp("eps-less", long_options[long_index].name) == 0) {
+					printf("Option --one-eps activated.\n");
+					opt_eps_less = 1;
         }
 				break;
 			case '?':
@@ -340,10 +345,14 @@ int main(int argc, char *argv[])
     }
   }
 
-  int opt_all_eps = 1;
-  if (opt_one_eps) {
-    opt_all_eps = 0;
+  if (opt_one_eps || opt_eps_less) {
     opt_nthreads = 1;
+  }
+
+  if (opt_eps_less) {
+    if (opt_prune_eps_mode == 1) {
+      printf("--prune-eps-mode 1 not compatible with --opt-eps-less, switching to --prune-eps-mode -1");
+    }
   }
 
   //////
@@ -593,16 +602,18 @@ int main(int argc, char *argv[])
   cout << "binary workprec = " << wp2 << endl;
   cout << "mpfr tolerance = "; mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
   
-  cout << endl; cout << eps_num << " EPSILON VALUES: " << endl;
-  for (int ep=0 ; ep<eps_num ; ep++) {
-    cout << eps_str[ep] << endl;
+  if (!opt_eps_less) {
+    cout << endl; cout << eps_num << " EPSILON VALUES: " << endl;
+    for (int ep=0 ; ep<eps_num ; ep++) {
+      cout << eps_str[ep] << endl;
+    }
   }
 
   if (opt_eps_list) {
     exit(0);
   }
 
-  if (opt_all_eps == 0) {
+  if (opt_one_eps == 1 || opt_eps_less == 1) {
     eps_num = 1;
   }
   // eps_str += 5;
@@ -1758,7 +1769,7 @@ int main(int argc, char *argv[])
     mpfr_clear(mpfr_tol_orig);
   }
 
-  if (!opt_all_eps) {
+  if (opt_one_eps) {
     cout << endl; cout << "processing only one epsilon: skip interpolatation" << endl;
     goto goto_exit;
   }
@@ -1785,18 +1796,25 @@ int main(int argc, char *argv[])
   //////
   // INTERPOLATE EPSILON ORDERS
   //////
-  cout << endl; cout << "INTERPOLATE EPSILON ORDERS..." << endl;
   mpc_t **sol_eps_ord;
   malloc_rk2_tens(sol_eps_ord, dim, eps_num);
   init_rk2_mpc(sol_eps_ord, dim, eps_num);
   mpc_t **sol_eps_ord_wrt_cmp;
-  interpolate_epsilon_orders(
-    sol_eps_ord,
-    sol_at_eps, eps_str,
-    dim, eps_num, nloops,
-    precision,
-    NULL
-  );
+  if (opt_eps_less) {
+    for (int i=0; i<dim; i++) {
+      mpc_set(sol_eps_ord[i][0], sol_at_eps[i][0], MPFR_RNDN);
+    }
+    nloops = 0;
+  } else {
+    cout << endl; cout << "INTERPOLATE EPSILON ORDERS..." << endl;
+    interpolate_epsilon_orders(
+      sol_eps_ord,
+      sol_at_eps, eps_str,
+      dim, eps_num, nloops,
+      precision,
+      NULL
+    );
+  }
 
   fprintf(logfptr, "\nEPSILON ORDERS:\n");
   for (int i=0; i<dim; i++) {
@@ -1950,7 +1968,7 @@ int main(int argc, char *argv[])
 
   // FINAL PRINT
   fprintf(logfptr, "\nEPSILON ORDERS (target precision):\n");
-  print_result(logfptr, precision, sol_eps_ord_wrt_cmp, MI, dim_wrt_cmp, order, nloops);
+  print_result(logfptr, precision, sol_eps_ord_wrt_cmp, MI, dim_wrt_cmp, order, nloops, opt_eps_less);
 
   if (filepath_result) {
     FILE *resfptr = fopen(filepath_result, "w");
@@ -1959,7 +1977,7 @@ int main(int argc, char *argv[])
 		  exit(1);
 	  }
     // print_result(resfptr, precision, sol_eps_ord_prec, dim_wrt_cmp, order, nloops);
-    print_result(resfptr, precision, sol_eps_ord_wrt_cmp, MI, dim_wrt_cmp, order, nloops);
+    print_result(resfptr, precision, sol_eps_ord_wrt_cmp, MI, dim_wrt_cmp, order, nloops, opt_eps_less);
     fclose(resfptr);
   }
 
