@@ -365,7 +365,7 @@ int main(int argc, char *argv[])
 
   if (opt_eps_less) {
     if (opt_prune_eps_mode == 1) {
-      printf("--prune-eps-mode 1 not compatible with --opt-eps-less, switching to --prune-eps-mode -1");
+      printf("--prune-eps-mode 1 not compatible with --opt-eps-less, switching to --prune-eps-mode -1\n");
       opt_prune_eps_mode = -1;
     }
   }
@@ -551,6 +551,13 @@ int main(int argc, char *argv[])
   //   cout << filepath_bound << endl;
   // }
 
+  if (opt_eps_less) {
+    if (order != 0) {
+      printf("order != 0 is not compatible with --opt-eps-less, setting to zero.\n");
+      order = 0;
+    }
+  }
+
 	printf("target phase-space point: [\n");
 	for (int s=0; s<ninvs; s++) {
 		cout << "  " << symbols[s+1] << " = " << kin[1][s] << "," << endl;
@@ -608,6 +615,7 @@ int main(int argc, char *argv[])
   );
   wp2 = (10*workprec)/3; // binary working precision
   wp2 *= opt_incr_prec;
+  eta_ord *= opt_incr_prec;
 
   mpfr_tol_set();
 
