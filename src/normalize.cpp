@@ -416,6 +416,11 @@ void RLeeAlg1(
     S[*dimS] = col_idx;
     (*dimS)++;
     // cout << "dimS = " << *dimS << endl;
+    if (*dimS > num_ein) {
+      fprintf(stdout, "error in RLee algorithm: dimS > # eigenvalues\n");
+      fprintf(stderr, "error in RLee algorithm: dimS > # eigenvalues\n");
+      exit(1);
+    }
 
     // cout << "new Delta: " << endl;
     // for (int i=0; i<num_ein; i++) {
@@ -557,7 +562,11 @@ void find_projector(
   copy_rk2_mpc(copy_t_mat, t_mat, dim, dim);
   mp_inverse(t_mat_inv, copy_t_mat, dim);
   mpc_rk2_prune_abs_tol(t_mat_inv, dim, dim);
-  
+  if (print || dbg) {
+    cout << "1st jordan inv tmat:" << endl;
+    print_rk2_mpc(t_mat_inv, dim, dim);
+  }
+
   // BUILD L0 AND L1
   mpc_t **L0, **L1;
   malloc_rk2_tens(L0, num_ein, num_ein);
@@ -583,12 +592,17 @@ void find_projector(
       mpc_set_d_d(L1[i][j], 0, 0, MPFR_RNDN);
       for (int h=0; h<dim; h++) {
         // mpc_fma(L1[i][j], t_mat_inv[row][h], t_mat[h][col], L1[i][j], MPFR_RNDN);
+        // cout << "t_mat_inv[row][h] = "; print_mpc(&t_mat_inv[row][h]); cout << endl;
+        // cout << "t_mat[h][col] = "; print_mpc(&t_mat[h][col]); cout << endl;
         exp_rel_err_mpc_mul(tmpflop, t_mat_inv[row][h], t_mat[h][col], MPFR_RNDN, wp_bin);
+        // cout << "tmpflop = "; print_mpc(&tmpflop); cout << endl;
         exp_rel_err_mpc_add(L1[i][j], L1[i][j], tmpflop, MPFR_RNDN, wp_bin);
         for (int k=0; k<dim; k++) {
           exp_rel_err_mpc_mul(tmp, A1[h][k], t_mat[k][col], MPFR_RNDN, wp_bin);
+          // cout << "tmp = "; print_mpc(&tmp); cout << endl;
           // mpc_fma(L0[i][j], t_mat_inv[row][h], tmp, L0[i][j], MPFR_RNDN);
           exp_rel_err_mpc_mul(tmpflop, t_mat_inv[row][h], tmp, MPFR_RNDN, wp_bin);
+          // cout << "tmpflop = "; print_mpc(&tmpflop); cout << endl;
           exp_rel_err_mpc_add(L0[i][j], L0[i][j], tmpflop, MPFR_RNDN, wp_bin);
         }
       }

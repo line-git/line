@@ -190,20 +190,42 @@ void jordan_triv_2(
     mpc_set_ui(t_mat[j+1][j], 1, MPFR_RNDN);
   }
   if (first_non_zero > 0 && first_non_zero <= zero_right) {
-    mpc_norm(norm, prop[first_non_zero], MPFR_RNDN);
+    // find first non-zero prop coeff
+    int p;
+    for (p=first_non_zero; p<N-1; p++) {
+      if (prop_is_zero[p] == 0) {
+        break;
+      }
+    }
+    if (print) printf("p = %d\n", p);
+
+    // // convention with 1 under the diagonal
+    // mpc_set_ui(t_mat[first_non_zero][first_non_zero-1], 1, MPFR_RNDN);
+    // mpc_set_si(t_mat[p+1][first_non_zero-1], -1, MPFR_RNDN);
+    // mpc_div(t_mat[p+1][first_non_zero-1], t_mat[p+1][first_non_zero-1], prop[p], MPFR_RNDN);
+
+    mpc_norm(norm, prop[p], MPFR_RNDN);
     mpfr_add_ui(norm, norm, 1, MPFR_RNDN);
     mpfr_sqrt(norm, norm, MPFR_RNDN);
-    mpc_div_fr(
-      t_mat[first_non_zero][first_non_zero-1],
-      prop[first_non_zero], norm,
-      MPFR_RNDN
-    );
-    mpc_set_si(t_mat[first_non_zero+1][first_non_zero-1], -1, MPFR_RNDN);
-    mpc_div_fr(
-      t_mat[first_non_zero+1][first_non_zero-1],
-      t_mat[first_non_zero+1][first_non_zero-1], norm,
-      MPFR_RNDN
-    );
+    mpc_div_fr(t_mat[first_non_zero][first_non_zero-1], prop[p], norm, MPFR_RNDN);
+    mpc_set_si(t_mat[p+1][first_non_zero-1], -1, MPFR_RNDN);
+    mpc_div_fr(t_mat[p+1][first_non_zero-1], t_mat[p+1][first_non_zero-1], norm, MPFR_RNDN);
+
+    // // bugged one
+    // mpc_norm(norm, prop[first_non_zero], MPFR_RNDN);
+    // mpfr_add_ui(norm, norm, 1, MPFR_RNDN);
+    // mpfr_sqrt(norm, norm, MPFR_RNDN);
+    // mpc_div_fr(
+    //   t_mat[first_non_zero][first_non_zero-1],
+    //   prop[first_non_zero], norm,
+    //   MPFR_RNDN
+    // );
+    // mpc_set_si(t_mat[first_non_zero+1][first_non_zero-1], -1, MPFR_RNDN);
+    // mpc_div_fr(
+    //   t_mat[first_non_zero+1][first_non_zero-1],
+    //   t_mat[first_non_zero+1][first_non_zero-1], norm,
+    //   MPFR_RNDN
+    // );
   }
 
   // NON-NULL COLUMN

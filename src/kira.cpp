@@ -2215,6 +2215,37 @@ void process_Kira_IBP_target(
   join_path(&kira_results_filepath, kira_results_filepath, topo_name);
   join_path(&kira_results_filepath, kira_results_filepath, (char*)"/kira_target.kira");
 
+  int mi_idx, mi_count, c = 0, line_count = 0;
+  int topo_len = strlen(topo_name);
+
+  //////
+  // DEAL WITH TARGETS THAT ARE MIs
+  //////
+  int targets_are_MIs = 1;
+  for (int m=0; m<dim_target; m++) {
+
+    // check whether contribution is a master
+    mi_idx = LI_rk1_get_idx(MI_target[m].pows_str, MI, dim);
+    if (mi_idx != -1) {
+      // contribution is a master
+      if (print) cout << "contribution is a master: " << MI_target[m].pows_str << endl;
+      if (print) cout << "mi_idx = " << mi_idx << endl;
+      
+      for (int ep=0; ep<eps_num; ep++) {
+        mpq_set_ui(coeffs[ep][m][mi_idx], 1, 1);
+      }
+    } else {
+      // contribution is not a master
+      targets_are_MIs = 0;
+      continue;
+    }
+  }
+
+  if (targets_are_MIs) {
+    if (print) cout << "all targets are MIs" << endl;
+    return;
+  }
+
   char *tmp_str = NULL;
   size_t len = 0;
   char *line = NULL;
@@ -2224,8 +2255,7 @@ void process_Kira_IBP_target(
     fprintf(stderr, "error: Kira results file not found: %s\n", kira_results_filepath);
     exit(1);
   }
-  int mi_idx, mi_count, c = 0, line_count = 0;
-  int topo_len = strlen(topo_name);
+
 
   //////
   // READ KIRA RESULTS FILE AND EXTRACT COEFFICIENT TREES
@@ -2239,7 +2269,7 @@ void process_Kira_IBP_target(
 
     // read coefficients
     if(tmp_str) {free(tmp_str);}
-    tmp_str = (char*) malloc(((MAX_POW_DIGITS+1)*dim_target+2)*sizeof(char));
+    tmp_str = (char*) malloc(MAX_PATH_LEN*sizeof(char));
 
     // check whether contribution is a master
     mi_idx = LI_rk1_get_idx(MI_target[m].pows_str, MI, dim);
@@ -2247,7 +2277,7 @@ void process_Kira_IBP_target(
       // contribution is a master
       if (print) cout << "contribution is a master: " << MI_target[m].pows_str << endl;
       if (print) cout << "mi_idx = " << mi_idx << endl;
-      // ....
+
       continue;  
     }
 
@@ -3965,8 +3995,9 @@ void call_kira(
   int s = LI_rk1_get_s(MI_target, dim_target);
   int d = LI_rk1_get_d(MI_target, dim_target);
   int kira_r, kira_s, kira_d;
-  kira_r = r;
-  kira_s = s > 3 ? s : 3;
+  kira_r = r + 1;
+  // kira_s = s > 3 ? s : 3;
+  kira_s = loop_mom_nl.nitems > 1 ? (s > 3 ? s : 3) : 1; 
   kira_d = d > 0 ? d : 0;
   cout << "from target integrals:" << endl;
   cout << "r, s, d = " << r << ", " << s << ", " << d << endl;
@@ -4082,7 +4113,7 @@ void call_kira(
   LI *MI_tmp = NULL;
   LI_rk1_from_file(MIs_filepath, &MI_tmp, dim, topo_name0);
   // cout << "unsorted:" << endl;
-  // LI_rk1_pows_print(MI_eta_tmp, *dim_eta);
+  // LI_rk1_pows_print(MI_tmp, *dim);
 
   // SORT MIs
   if (*MI) {

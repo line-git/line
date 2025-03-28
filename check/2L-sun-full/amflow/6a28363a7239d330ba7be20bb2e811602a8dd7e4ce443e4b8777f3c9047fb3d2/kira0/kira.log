@@ -1,0 +1,73 @@
+6 Fermat/Blackbox instances will be run in parallel.
+The user defined environment variable FERMATPATH for Fermat is set:
+/home/rprisco/programming/computational_packages/bin/fer64
+One variable is set to 1: {}
+The directories for the temporary files, result files and the sector mapping files are: 
+./tmp
+./results
+./sectormappings
+Kira prepares topology: MI and top level sector: 
+7 
+
+*****Integral ordering*************************************
+Kira will use the integral ordering: 5.
+Following reductions will be performed for the topology: MI
+Sector: 7 rmax: 4 smax: 3 
+
+***********************************************************
+Find IBP LI and symmetry relations for the topology: MI
+***********************************************************
+
+*****Search trivial sectors********************************
+read from: ./sectormappings/MI/nonTrivialSector
+
+Non trivial sectors in total: 17
+Trivial sectors in total: 15
+( 0.000886 s )
+
+Search symmetry relations: 
+read from: ./sectormappings/MI/canonica
+Number of symmetries read out: 11
+
+( 9.6e-05 s )
+***********************************************************
+Prepare Symmetries for the topology: MI
+***********************************************************
+read from: ./sectormappings/MI/sectorRelations
+Number of symmetries read out: 0
+read from: ./sectormappings/MI/sectorSymmetries
+Number of symmetries read out: 0
+
+***********************************************************
+Kira starts the reduction of the topology: MI
+***********************************************************
+
+***** Select equations recursively ************************
+length of mandatory list: 7
+Algebraic reconstruction is switched off.
+41 independent coefficients
+directory to the masters: MI
+Number of master integrals: 7
+MI[1,1,0,0,0]  # 3
+MI[1,0,1,0,0]  # 5
+MI[0,1,1,0,0]  # 6
+MI[1,1,1,0,0]  # 7
+MI[1,1,1,-1,0] # 7
+MI[1,1,1,0,-1] # 7
+MI[1,1,1,-2,0] # 7
+No integrals to reduce, skipping this family.
+The input directory is set to:
+./results
+symbol_to_replace_by_one: x in kinematics.yaml is not set. 
+Mass reconstruction is disabled.
+################################################
+kira2file: Reconstruct results for MI
+################################################
+
+Algebraic reconstruction is switched off.
+
+No reductions found in ./results/kira.db.
+
+Unable to export results to Kira
+Total time:
+( 4.07021 s )

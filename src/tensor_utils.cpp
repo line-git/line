@@ -867,7 +867,7 @@ void int_rk1_to_str(
 }
 
 
-int int_rk1_count_postivie(
+int int_rk1_count_positive(
   // INPUT
   int *vec, int dim
 ) {
