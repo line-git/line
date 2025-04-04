@@ -4303,7 +4303,7 @@ void solve_zero(
   int *is_mass, int *skip_inv, int ninvs, mpc_t *PS_ini, mpc_t *PS_fin, char *eps_str,
   int try_analytic,
   int **bound_behav, int **mi_eig, int *mi_eig_num,
-  FILE *terminal
+  FILE *logfptr, FILE *terminal
 ) {
   /*
   INPUT:
@@ -4396,8 +4396,9 @@ void solve_zero(
   }
 
   mpc_t *****hsol, *****psol, ****sol;
-  malloc_rk4_tens(sol, num_classes, b_len_max+2, dim, eta_ord+1);
-  init_rk4_mpc(sol, num_classes, b_len_max+2, dim, eta_ord+1);
+  int log_len_max = b_len_max+2;
+  malloc_rk4_tens(sol, num_classes, log_len_max, dim, eta_ord+1);
+  init_rk4_mpc(sol, num_classes, log_len_max, dim, eta_ord+1);
   // initialize to zero
   for (int i=0; i<dim; i++) {
     for (int k=0; k<eta_ord+1; k++) {
@@ -4602,13 +4603,27 @@ void solve_zero(
         block_log_prof[lam][i] = block_log_len[lam];
       }
 
-      if (sol_log_len[lam] > b_len_max+2) {
-        fprintf(
-          stderr,
-          "b = %d, lam = %d: sol_log_len = %d greater than b_len_max + 2 = %d\n",
-          b, lam, sol_log_len[lam], b_len_max+2
-        );
-        exit(1);
+      if (sol_log_len[lam] > log_len_max) {
+        if (sol_log_len[lam] == log_len_max + 1) {
+          fprintf(
+            logfptr,
+            "b = %d, lam = %d: sol_log_len = %d greater than log_len_max = %d\n"
+            "b_len_max = %d, rhs_log_len = %d, block_log_len = %d\n"
+            "reducing rhs_log_len and sol_log_len by one unit\n",
+            b, lam, sol_log_len[lam], b_len_max+2,
+            b_len_max, rhs_log_len[lam], block_log_len[lam]
+          );
+          rhs_log_len[lam]--;
+          sol_log_len[lam]--;
+        } else {
+          fprintf(
+            stderr,
+            "b = %d, lam = %d: sol_log_len = %d greater than log_len_max = %d\n\
+            b_len_max = %d, rhs_log_len = %d, block_log_len = %d\n",
+            b, lam, sol_log_len[lam], b_len_max+2,
+            b_len_max, rhs_log_len[lam], block_log_len[lam]
+          );
+        }
       }
     }
     if (print) {
@@ -5720,7 +5735,7 @@ void propagate_infty(
     is_mass, skip_inv, ninvs, PS_ini, PS_fin, eps_str,
     0,
     bound_behav_reg, mi_eig, mi_eig_num,
-    terminal
+    logfptr, terminal
   );
   clock_gettime(CLOCK_MONOTONIC, &end_el_singular);
   double time_el_singular_local = timespec_to_double(start_el_singular, end_el_singular);
@@ -6028,7 +6043,7 @@ void propagate_along_path(
         nroots, dim, dim,
         wp2*(0.95)
       );
-      if (print) {
+      if (0 && print) {
       cout << "shifted matrix:" << endl;
       // poly_frac_rk2_print(sh_pfmat, dim, dim);
       poly_frac_rk2_print_to_math(sh_pfmat, dim, dim, sh_roots);
@@ -6083,7 +6098,7 @@ void propagate_along_path(
       double time_el_normalize_local = timespec_to_double(start_el_normalize, end_el_normalize);
       time_el_normalize += time_el_normalize_local;
 
-      if (print) {
+      if (0 && print) {
       cout << "tmat=";
       poly_frac_rk2_print_to_math(tmat, dim, dim, sh_roots);
       // cout << "tmat:" << endl;
@@ -6094,12 +6109,13 @@ void propagate_along_path(
       // poly_frac_rk2_print(inv_tmat, dim, dim);
       cout << "mat=";
       poly_frac_rk2_print_to_math(sh_pfmat, dim, dim, sh_roots);
-
-      cout << endl << "EIGENVALUES:" << endl;
-      print_eigenvalues(
-        dim, num_classes, eig_grid, eq_class,
-        eig_list
-      );
+      }
+      if (print) {
+        cout << endl << "EIGENVALUES:" << endl;
+        print_eigenvalues(
+          dim, num_classes, eig_grid, eq_class,
+          eig_list
+        );
       }
 
       // cout << "mat:" << endl;
@@ -6131,7 +6147,7 @@ void propagate_along_path(
         prof, nblocks, sh_pfmat
       );
 
-      if (print) {
+      if (0 && print) {
       cout << endl; cout << "BLOCK GRID after normalization:" << endl;
       for (int b=0; b<nblocks; b++) {
         for (int sb=0; sb<b; sb++) {
@@ -6159,7 +6175,7 @@ void propagate_along_path(
         is_mass, skip_inv, ninvs, PS_ini, PS_fin, eps_str,
         try_analytic,
         bound_behav, mi_eig, mi_eig_num,
-        terminal
+        logfptr, terminal
       );
       clock_gettime(CLOCK_MONOTONIC, &end_el_singular);
       double time_el_singular_local = timespec_to_double(start_el_singular, end_el_singular);

@@ -1436,11 +1436,11 @@ int main(int argc, char *argv[])
     // continue;
 
     if (print && ep == 0) {
-      if (print) {
       cout << endl; cout << "DE MATRIX (1st epsilon):" << endl;
       poly_frac_rk2_print(pfmat[0], dim, dim);
-      }
+    }
       
+    if (ep == 0) {
       cout << endl; cout << "ROOTS (1st epsilon):" << endl;
       cout << "zero_label = " << zero_label[0] << endl;
       cout << nroots[0] << " roots" << endl;
@@ -1993,7 +1993,7 @@ int main(int argc, char *argv[])
     mpfr_t mpfr_tol_orig;
     mpfr_init2(mpfr_tol_orig, wp2);
     mpfr_set(mpfr_tol_orig, mpfr_tol, MPFR_RNDN);
-    mpfr_tol_set_wp(precision*1.2);
+    mpfr_tol_set_wp(precision);
     cout << endl; cout << "check with enlarged mpfr tol:" << endl;
     mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
 

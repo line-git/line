@@ -112,7 +112,7 @@ void solve_zero(
   int *is_mass, int *skip_inv, int ninvs, mpc_t *PS_ini, mpc_t *PS_fin, char *eps_str,
   int try_analytic,
   int **bound_behav, int **mi_eig, int *mi_eig_num,
-  FILE *terminal
+  FILE *logfptr, FILE *terminal
 );
 
 void center_around_pole(
