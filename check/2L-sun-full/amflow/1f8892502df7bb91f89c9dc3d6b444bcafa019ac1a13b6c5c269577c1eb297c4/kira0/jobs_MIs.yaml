@@ -1,9 +1,0 @@
-jobs:
-  - reduce_sectors:
-      reduce:
-        - {r: 4, s: 3}
-      select_integrals:
-        select_mandatory_recursively:
-          - {r: 4, s: 3, d: 0}
-      integral_ordering: 5
-      run_initiate: masters

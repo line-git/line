@@ -1,4 +1,0 @@
-13 placeholder placeholder 1 7 3 0 {p1==p1,p2==p2,p3==p3,p4==p4} {p4==-p2-p3-p1} 0 -1 2 1 1 0
-13 placeholder placeholder 1 7 3 0 {p1==p1,p2==p2,p3==p3,p4==p4} {p4==-p2-p3-p1} 2 -1 0 1 1 0
-14 placeholder placeholder 1 11 3 0 {p1==p1,p2==p2,p3==p3,p4==p4} {p4==-p2-p3-p1} -1 1 0 3 1 0
-14 placeholder placeholder 1 11 3 0 {p1==p1,p2==p2,p3==p3,p4==p4} {p4==-p2-p3-p1} -1 3 0 1 1 0

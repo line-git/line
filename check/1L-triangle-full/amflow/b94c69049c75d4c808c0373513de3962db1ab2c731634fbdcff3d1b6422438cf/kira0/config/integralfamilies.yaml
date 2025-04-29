@@ -1,9 +1,0 @@
-integralfamilies:
-  - name: MI
-    loop_momenta: [k1]
-    top_level_sectors: [7]
-    propagators:
-      - [k1,5]
-      - [k1+p1,7]
-      - [k1+p1+p2,10]
-    cut_propagators: []

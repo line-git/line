@@ -7,4 +7,5 @@ obj/
 check/cards/log/
 test/log/
 **/amflow/*/kira/
+**/amflow/*/kira0/
 **/cache/
