@@ -90,6 +90,16 @@ void init_rk2_mpc(mpc_t **tens, int dim1, int dim2) {
 }
 
 
+void init_rk3_mpq(mpq_t ***tens, int dim1, int dim2, int dim3) {
+  for (int i1=0; i1<dim1; i1++) {
+    for (int i2=0; i2<dim2; i2++) {
+      for (int i3=0; i3<dim3; i3++) {
+        mpq_init(tens[i1][i2][i3]);
+      }
+    }
+  }
+}
+
 void init_rk3_mpc(mpc_t ***tens, int dim1, int dim2, int dim3) {
   for (int i1=0; i1<dim1; i1++) {
     for (int i2=0; i2<dim2; i2++) {
@@ -857,7 +867,7 @@ void int_rk1_to_str(
 }
 
 
-int int_rk1_count_postivie(
+int int_rk1_count_positive(
   // INPUT
   int *vec, int dim
 ) {
@@ -893,6 +903,21 @@ int int_rk1_sum_negative_abs(
   for (int i=0; i<dim; i++) {
     if (vec[i] < 0) {
       sum += -vec[i];
+    }
+  }
+  return sum;
+}
+
+
+int int_rk1_sum_shift(
+  // INPUT
+  int shift, int *vec, int dim
+) {
+  int sum = 0;
+  for (int i=0; i<dim; i++) {
+    // cout << "i, vec, sum = " << i << ", " << vec[i] << ", " << sum << endl;
+    if (vec[i] > shift) {
+      sum += vec[i] - shift;
     }
   }
   return sum;

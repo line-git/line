@@ -6,5 +6,11 @@ line
 obj/
 check/cards/log/
 test/log/
-**/amflow/*/kira/
+**/amflow/*/kira/*
+!check/**/amflow/*/kira/results/
+check/**/amflow/*/kira/results/*
+!check/**/amflow/*/kira/results/MIeta/
+check/**/amflow/*/kira/results/MIeta/*
+!check/**/amflow/*/kira/results/MIeta/kira_target.kira
+**/amflow/*/kira0/
 **/cache/

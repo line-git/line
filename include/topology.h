@@ -116,6 +116,10 @@ int LI_get_s(
   LI *li
 );
 
+int LI_get_d(
+  LI *li
+);
+
 void LI_get_loop_current(
   // OUTPUT
   int **loop_current,
@@ -166,6 +170,10 @@ int LI_rk1_get_r(
 );
 
 int LI_rk1_get_s(
+  LI *li, int dim
+);
+
+int LI_rk1_get_d(
   LI *li, int dim
 );
 

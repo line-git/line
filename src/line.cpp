@@ -54,37 +54,6 @@ double time_el_normalize = 0;
 FILE *dev_null_fptr = NULL;
 
 
-int lock_acquire_if_free(
-  int *lock
-) {
-  // #pragma atomic read
-  // if (*lock == 0) {
-  //   #pragma atomic write
-  //   *lock = 1;
-  // }
-  int expected = 0;
-  int desired = 1;
-  if (
-    __atomic_compare_exchange(
-      lock, &expected, &desired, 0, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED
-    )
-  ) {
-    return 1;  // lock acquired
-  } else {
-    return 0;  // lock acquired
-  }
-}
-
-
-void lock_release(
-  int *lock
-) {
-  // #pragma atomic write
-  // *lock = 0;
-  __atomic_store_n(lock, 0, __ATOMIC_RELEASE);
-}
-
-
 int main(int argc, char *argv[])
 {
   int print = 0;
@@ -661,7 +630,7 @@ int main(int argc, char *argv[])
 
   char *dir_amflow = NULL;
   int *MI_idx, dim_eta_less, dim;
-  LI *MI_eta = NULL;
+  LI *MI_eta = NULL, *MI = NULL;
   if (exit_sing == -1) {
     //////
     // KIRA INTERFACE
@@ -674,7 +643,7 @@ int main(int argc, char *argv[])
     join_path(&dir_common, dir_amflow, (char*)"common/");
 
     call_kira(
-      &MI_eta, &dim, &MI_idx, &dim_eta_less,
+      &MI_eta, &MI, &dim, &MI_idx, &dim_eta_less,
       time_el_kira,
       opt_kira_redo, opt_kira_parallel, opt_kira_print,
       kin[1], dir_parent, dir_amflow,
@@ -1000,13 +969,12 @@ int main(int argc, char *argv[])
 
   cout << endl; cout << "number of MIs: " << dim << endl;
 
-  int *starting_ord = new int[dim];
-
   //////
   // LOAD MIs
   //////
-  LI *MI = NULL;
-  if (file_exists(filepath_MIs)) {
+  LI *MI_target = NULL;
+  int dim_target = 0;
+  if (exit_sing != -1 && file_exists(filepath_MIs)) {
     int MI_dim = 0;
     LI_rk1_from_file(filepath_MIs, &MI, &MI_dim, (char*)"MI");
     if (exit_sing != -1) {
@@ -1017,7 +985,32 @@ int main(int argc, char *argv[])
     cout << "found list of MIs:" << endl;
     if (exit_sing == -1) cout << "(eta-less)" << endl;
     LI_rk1_pows_print(MI, MI_dim);
+  } else if (exit_sing == -1) {
+    if (!file_exists(filepath_MIs)) {
+      fprintf(stderr, "error: selected AMFlow method but no target integral found in %s\n", filepath_MIs);
+    }
+    LI_rk1_from_file(filepath_MIs, &MI_target, &dim_target, (char*)"MI");
+    cout << "found list of target integrals:" << endl;
+    LI_rk1_pows_print(MI_target, dim_target);
   }
+
+  // DECODE COEFFICIENTS OF TARGET INTEGRALS
+  mpq_t ***target_coeffs;
+  malloc_rk3_tens(target_coeffs, eps_num, dim_target, dim);
+  init_rk3_mpq(target_coeffs, eps_num, dim_target, dim);
+  if (exit_sing == -1) {
+    process_Kira_IBP_target(
+      target_coeffs,
+      ninvs, symbols, is_mass,
+      eps_str, eps_num,
+      dim_eta_less, MI,
+      dim_target, MI_target,
+      dir_amflow, terminal
+    );
+  }
+
+  int *starting_ord = new int[dim];
+  int *target_starting_ord = new int[dim_target];
 
   //////
   // PREPARATIONS
@@ -1050,6 +1043,12 @@ int main(int argc, char *argv[])
   mpc_t **sol_at_eps;
   malloc_rk2_tens(sol_at_eps, dim, eps_num);
   init_rk2_mpc(sol_at_eps, dim, eps_num);
+  mpc_t **target_at_eps;
+  malloc_rk2_tens(target_at_eps, dim_target, eps_num);
+  init_rk2_mpc(target_at_eps, dim_target, eps_num);
+  mpc_t **eta_less_at_eps;
+  malloc_rk2_tens(eta_less_at_eps, dim_eta_less, eps_num);
+  init_rk2_mpc(eta_less_at_eps, dim_eta_less, eps_num);
 
   // WRT/CMP
   mpc_t **sol_at_eps_wrt_cmp;
@@ -1624,6 +1623,23 @@ int main(int argc, char *argv[])
     #pragma omp atomic write
     time_el_prop = time_el_prop +timespec_to_double(start_el_prop, end_el_prop);
 
+    // RECONSTRUCT TARGET
+    if (exit_sing == -1) {
+      mpc_t tmpc; mpc_init3(tmpc, wp2, wp2);
+      for (int t=0; t<dim_target; t++) {
+        mpc_set_ui(target_at_eps[t][ep], 0, MPFR_RNDN);
+        for (int m=0; m<dim_eta_less; m++) {
+          mpc_set_q(tmpc, target_coeffs[ep][t][m], MPFR_RNDN);
+          mpc_fma(
+            target_at_eps[t][ep],
+            tmpc, sol_at_eps[MI_idx[m]][ep], target_at_eps[t][ep],
+            MPFR_RNDN
+          );
+        }
+      }
+      mpc_clear(tmpc);
+    }
+
     goto_eps_loop_continue:
     // FREE
     poly_frac_rk2_free(pfmat[ep], dim, dim);
@@ -1709,8 +1725,9 @@ int main(int argc, char *argv[])
   }
 
   if (exit_sing == -1) {
-    malloc_rk2_tens(sol_at_eps_wrt_cmp, dim_eta_less, eps_num);
-    init_rk2_mpc(sol_at_eps_wrt_cmp, dim_eta_less, eps_num);
+    sol_at_eps_wrt_cmp = target_at_eps;
+    dim_wrt_cmp = dim_target;
+
     //////
     // SELECT ETA-LESS MIs FROM SOLUTION
     //////
@@ -1719,11 +1736,10 @@ int main(int argc, char *argv[])
       // cout << "m, MI_idx = " << m << ", " << MI_idx[m] << endl; fflush(stdout);
       for (int ep=0; ep<eps_num; ep++) {
         // print_mpc(&sol_at_eps[MI_idx[m]][ep]); cout << endl; fflush(stdout);
-        mpc_set(sol_at_eps_wrt_cmp[m][ep], sol_at_eps[MI_idx[m]][ep], MPFR_RNDN);
+        mpc_set(eta_less_at_eps[m][ep], sol_at_eps[MI_idx[m]][ep], MPFR_RNDN);
         // print_mpc(&sol_at_eps_wrt_cmp[m][ep]); cout << endl;
       }
     }
-    dim_wrt_cmp = dim_eta_less;
   } else {
     sol_at_eps_wrt_cmp = sol_at_eps;
     dim_wrt_cmp = dim;
@@ -1810,6 +1826,27 @@ int main(int argc, char *argv[])
       mpc_rk2_from_file(filepath, sol_at_eps, dim, eps_num);
       cout << "loaded results (# MI) X (# EPS):" << endl;
       print_rk2_mpc(sol_at_eps, dim, eps_num);
+
+      // RECONSTRUCT TARGET
+      if (exit_sing == -1) {
+        mpc_t tmpc; mpc_init3(tmpc, wp2, wp2);
+        for (int ep=0; ep<eps_num; ep++) {
+          for (int t=0; t<dim_target; t++) {
+            mpc_set_ui(target_at_eps[t][ep], 0, MPFR_RNDN);
+            for (int m=0; m<dim_eta_less; m++) {
+              mpc_set_q(tmpc, target_coeffs[ep][t][m], MPFR_RNDN);
+              mpc_fma(
+                target_at_eps[t][ep],
+                tmpc, sol_at_eps[MI_idx[m]][ep], target_at_eps[t][ep],
+                MPFR_RNDN
+              );
+            }
+          }
+        }
+        mpc_clear(tmpc);
+      }      
+
+
       break;
     default:
       perror("no valid checkpoint option");
@@ -1823,6 +1860,7 @@ int main(int argc, char *argv[])
   malloc_rk2_tens(sol_eps_ord, dim, eps_num);
   init_rk2_mpc(sol_eps_ord, dim, eps_num);
   mpc_t **sol_eps_ord_wrt_cmp;
+  LI *MI_wrt_cmp;
   if (opt_eps_less) {
     for (int i=0; i<dim; i++) {
       mpc_set(sol_eps_ord[i][0], sol_at_eps[i][0], MPFR_RNDN);
@@ -1849,10 +1887,37 @@ int main(int argc, char *argv[])
     }
   }
 
+  mpc_t **target_eps_ord;
+  malloc_rk2_tens(target_eps_ord, dim_target, eps_num);
+  init_rk2_mpc(target_eps_ord, dim_target, eps_num);
+  if (exit_sing == -1) {
+    interpolate_epsilon_orders(
+      target_eps_ord,
+      target_at_eps, eps_str,
+      dim_target, eps_num, nloops,
+      precision,
+      NULL
+    );
+
+    fprintf(logfptr, "\nEPSILON ORDERS (target):\n");
+    for (int i=0; i<dim_target; i++) {
+      fprintf(logfptr, "target n. %d\n", i);
+      for (int ep=0; ep<=order+2*nloops; ep++) {
+        fprintf(logfptr, "eps^%d: ", ep - 2*nloops);
+        // fprintf(logfptr, "eps order %d\n", ep - 2*nloops + starting_ord[i]);
+        mpc_out_str(logfptr, 10, 0, target_eps_ord[i][ep], MPFR_RNDN); fprintf(logfptr, "\n");
+      }
+    }
+  
+  }
+
   mpc_t **sol_eps_ord_pruned;
+  mpc_t **target_eps_ord_pruned;
   if (opt_prune_eps_mode) {
     malloc_rk2_tens(sol_eps_ord_pruned, dim, eps_num);
     init_rk2_mpc(sol_eps_ord_pruned, dim, eps_num);
+    malloc_rk2_tens(target_eps_ord_pruned, dim_target, eps_num);
+    init_rk2_mpc(target_eps_ord_pruned, dim_target, eps_num);
     if (opt_prune_eps_mode == 1) {
       // RELATIVE PRUNE
       cout << endl; cout << "RELATIVE EPSILON PRUNE" << endl;
@@ -1877,6 +1942,32 @@ int main(int argc, char *argv[])
         }
       }
 
+      if (exit_sing == -1) {
+        // RELATIVE PRUNE
+        cout << endl; cout << "RELATIVE EPSILON PRUNE" << endl;
+        interpolate_epsilon_orders_prune(
+          target_eps_ord_pruned,
+          target_at_eps, eps_str,
+          dim_target, eps_num, nloops,
+          precision, order,
+          target_starting_ord
+        );
+  
+        for (int m=0; m<dim_target; m++) {
+          if (target_starting_ord[m] == 0) {
+            continue;
+          }
+  
+          for (int ep=eps_num-1; ep>=target_starting_ord[m]; ep--) {
+            mpc_set(target_eps_ord_pruned[m][ep], target_eps_ord_pruned[m][ep-target_starting_ord[m]], MPFR_RNDN);
+          }
+          for (int ep=0; ep<target_starting_ord[m]; ep++) {
+            mpc_set_ui(target_eps_ord_pruned[m][ep], 0, MPFR_RNDN);
+          }
+        }
+        
+      }
+
     } else {
       // ABSOLUTE PRUNE
       cout << endl; cout << "ABSOLUTE EPSILON PRUNE" << endl;
@@ -1894,6 +1985,24 @@ int main(int argc, char *argv[])
             mpfr_set_ui(mpc_imagref(sol_eps_ord_pruned[i][ep]), 0, MPFR_RNDN);
           } else {
             mpfr_set(mpc_imagref(sol_eps_ord_pruned[i][ep]), mpc_imagref(sol_eps_ord[i][ep]), MPFR_RNDN);
+          }
+        }
+      }
+      if (exit_sing == -1) {
+        for (int i=0; i<dim_target; i++) {
+          for (int ep=0; ep<=order+2*nloops; ep++) {
+            // prune real part
+            if (mpfr_get_exp(mpc_realref(target_eps_ord[i][ep])) < prune_eps_exp2) {
+              mpfr_set_ui(mpc_realref(target_eps_ord_pruned[i][ep]), 0, MPFR_RNDN);
+            } else {
+              mpfr_set(mpc_realref(target_eps_ord_pruned[i][ep]), mpc_realref(target_eps_ord[i][ep]), MPFR_RNDN);
+            }
+            // prune imag part
+            if (mpfr_get_exp(mpc_imagref(target_eps_ord[i][ep])) < prune_eps_exp2) {
+              mpfr_set_ui(mpc_imagref(target_eps_ord_pruned[i][ep]), 0, MPFR_RNDN);
+            } else {
+              mpfr_set(mpc_imagref(target_eps_ord_pruned[i][ep]), mpc_imagref(target_eps_ord[i][ep]), MPFR_RNDN);
+            }
           }
         }
       }
@@ -1921,22 +2030,27 @@ int main(int argc, char *argv[])
   // fprintf(stdout, "MINIMUM EXPONENT: %d\n", min_exp);
 
   if (exit_sing == -1) {
-    malloc_rk2_tens(sol_eps_ord_wrt_cmp, dim_eta_less, eps_num);
-    init_rk2_mpc(sol_eps_ord_wrt_cmp, dim_eta_less, eps_num);
-    //////
-    // SELECT ETA-LESS MIs FROM SOLUTION
-    //////
-    for (int m=0; m<dim_eta_less; m++) {
-      for (int ep=0; ep<eps_num; ep++) {
-        // mpc_set(sol_eps_ord_wrt_cmp[m][ep], sol_eps_ord[MI_idx[m]][ep], MPFR_RNDN);
-        mpc_set(sol_eps_ord_wrt_cmp[m][ep], sol_eps_ord_pruned[MI_idx[m]][ep], MPFR_RNDN);
-      }
-    }
-    dim_wrt_cmp = dim_eta_less;
+    sol_eps_ord_wrt_cmp = target_eps_ord_pruned;
+    dim_wrt_cmp = dim_target;
+    MI_wrt_cmp = MI_target;
+
+    // malloc_rk2_tens(sol_eps_ord_wrt_cmp, dim_eta_less, eps_num);
+    // init_rk2_mpc(sol_eps_ord_wrt_cmp, dim_eta_less, eps_num);
+    // //////
+    // // SELECT ETA-LESS MIs FROM SOLUTION
+    // //////
+    // for (int m=0; m<dim_eta_less; m++) {
+    //   for (int ep=0; ep<eps_num; ep++) {
+    //     // mpc_set(sol_eps_ord_wrt_cmp[m][ep], sol_eps_ord[MI_idx[m]][ep], MPFR_RNDN);
+    //     mpc_set(sol_eps_ord_wrt_cmp[m][ep], sol_eps_ord_pruned[MI_idx[m]][ep], MPFR_RNDN);
+    //   }
+    // }
+    // dim_wrt_cmp = dim_eta_less;
 
   } else {
     sol_eps_ord_wrt_cmp = sol_eps_ord_pruned;
     dim_wrt_cmp = dim;
+    MI_wrt_cmp = MI;
   }
 
   // if (opt_prune_eps_mode || exit_sing == -1) {
@@ -2015,7 +2129,7 @@ int main(int argc, char *argv[])
 
   // FINAL PRINT
   fprintf(logfptr, "\nEPSILON ORDERS (target precision):\n");
-  print_result(logfptr, precision, sol_eps_ord_wrt_cmp, MI, dim_wrt_cmp, order, nloops, opt_eps_less);
+  print_result(logfptr, precision, sol_eps_ord_wrt_cmp, MI_wrt_cmp, dim_wrt_cmp, order, nloops, opt_eps_less);
 
   if (filepath_result) {
     FILE *resfptr = fopen(filepath_result, "w");
@@ -2024,7 +2138,7 @@ int main(int argc, char *argv[])
 		  exit(1);
 	  }
     // print_result(resfptr, precision, sol_eps_ord_prec, dim_wrt_cmp, order, nloops);
-    print_result(resfptr, precision, sol_eps_ord_wrt_cmp, MI, dim_wrt_cmp, order, nloops, opt_eps_less);
+    print_result(resfptr, precision, sol_eps_ord_wrt_cmp, MI_wrt_cmp, dim_wrt_cmp, order, nloops, opt_eps_less);
     fclose(resfptr);
   }
 

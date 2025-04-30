@@ -2181,6 +2181,174 @@ void lnode_poly_coeffs_eval(
 }
 
 
+void process_Kira_IBP_target(
+  // OUPUT
+  mpq_t ***coeffs,
+  // INPUT
+  int ninvs, char **symbols, int *is_mass,
+  char **eps_str, int eps_num,
+  int dim, LI *MI,
+  int dim_target, LI *MI_target,
+  char *dir_amflow,
+  FILE *terminal
+) {
+  int print = 0;
+
+  // prepare epsilon rational values
+  mpq_t mpq_two; mpq_init(mpq_two);
+  mpq_set_ui(mpq_two, 2, 1);
+  mpq_t mpq_stdim; mpq_init(mpq_stdim);
+  mpq_set_ui(mpq_stdim, 4, 1);
+  mpq_t **eps = new mpq_t*[eps_num];
+  for (int ep=0; ep<eps_num; ep++) {
+    eps[ep] = new mpq_t[1];
+    mpq_init(eps[ep][0]);
+    mpq_set_str(eps[ep][0], eps_str[ep], 10);
+    mpq_neg(eps[ep][0], eps[ep][0]);
+    mpq_mul(eps[ep][0], eps[ep][0], mpq_two);
+    mpq_add(eps[ep][0], eps[ep][0], mpq_stdim);
+  }
+
+  char *topo_name = strdup("MI");
+  char *kira_results_filepath = NULL;
+  join_path(&kira_results_filepath, dir_amflow, (char*)"kira0/results/");
+  join_path(&kira_results_filepath, kira_results_filepath, topo_name);
+  join_path(&kira_results_filepath, kira_results_filepath, (char*)"/kira_target.kira");
+
+  int mi_idx, mi_count, c = 0, line_count = 0;
+  int topo_len = strlen(topo_name);
+
+  //////
+  // DEAL WITH TARGETS THAT ARE MIs
+  //////
+  int targets_are_MIs = 1;
+  for (int m=0; m<dim_target; m++) {
+
+    // check whether contribution is a master
+    mi_idx = LI_rk1_get_idx(MI_target[m].pows_str, MI, dim);
+    if (mi_idx != -1) {
+      // contribution is a master
+      if (print) cout << "contribution is a master: " << MI_target[m].pows_str << endl;
+      if (print) cout << "mi_idx = " << mi_idx << endl;
+      
+      for (int ep=0; ep<eps_num; ep++) {
+        mpq_set_ui(coeffs[ep][m][mi_idx], 1, 1);
+      }
+    } else {
+      // contribution is not a master
+      targets_are_MIs = 0;
+      continue;
+    }
+  }
+
+  if (targets_are_MIs) {
+    if (print) cout << "all targets are MIs" << endl;
+    return;
+  }
+
+  char *tmp_str = NULL;
+  size_t len = 0;
+  char *line = NULL;
+  cout << endl; cout << "reading Kira results from " << kira_results_filepath << endl;
+  FILE *fptr = fopen(kira_results_filepath, "r");
+  if (!fptr) {
+    fprintf(stderr, "error: Kira results file not found: %s\n", kira_results_filepath);
+    exit(1);
+  }
+
+
+  //////
+  // READ KIRA RESULTS FILE AND EXTRACT COEFFICIENT TREES
+  //////
+  cout << endl; cout << "READ KIRA RESULTS FILE AND EXTRACT COEFFICIENT TREES" << endl;
+  struct lnode nd; lnode_build(&nd);
+  fprintf(terminal, "decode target reduction: "); fflush(terminal); usleep(sleep_time);
+  for (int m=0; m<dim_target; m++) {
+    if (m > 0) {fprintf(terminal, "\033[15D\033[K");}
+    fprintf(terminal, "target %3d /%3d... ", m, dim_target); fflush(terminal); usleep(sleep_time);
+
+    // read coefficients
+    if(tmp_str) {free(tmp_str);}
+    tmp_str = (char*) malloc(MAX_PATH_LEN*sizeof(char));
+
+    // check whether contribution is a master
+    mi_idx = LI_rk1_get_idx(MI_target[m].pows_str, MI, dim);
+    if (mi_idx != -1) {
+      // contribution is a master
+      if (print) cout << "contribution is a master: " << MI_target[m].pows_str << endl;
+      if (print) cout << "mi_idx = " << mi_idx << endl;
+
+      continue;  
+    }
+
+    // skip first line
+    getline(&line, &len, fptr);
+    line_count++;
+
+    // check whether target is the expected one
+    end_at_char(line+topo_len, '*');
+    if (strcmp(line+topo_len, MI_target[m].pows_str) != 0) {
+      perror("target is not the expected one");
+      cout << "line " << line_count << endl;
+      cout << "read: " << line+topo_len << endl;
+      cout << "expected: " << MI_target[m].pows_str << endl;
+      exit(1);
+    }
+
+    mi_count = 0;
+    while (getline(&line, &len, fptr)) {
+      line_count++;
+      if (strcmp(line, "\n") == 0 || mi_count == dim) {
+        break;
+      }
+
+      // skip topology name
+      c = topo_len;
+      
+      // read power list
+      while (line[c-1] != ']') {
+        tmp_str[c-topo_len] = line[c];
+        c++;
+      }
+      tmp_str[c-topo_len] = '\0';
+
+      // find corresponding MI
+      mi_idx = LI_rk1_get_idx(tmp_str, MI, dim);
+      if (mi_idx == -1) {
+        cout << "error for m  = " << m << endl;
+        perror("target of kira results do not correspond to target");
+        exit(1);
+      }
+
+      // go to math expression
+      while (line[c] != '*') {
+        c++;
+      }
+
+      // parse math espression
+      lnode_free(&nd);
+      lnode_parse_expression(&nd, line+c+1, (const char**) symbols, ninvs+1, 0);
+      // lnode_print(&nd, NULL); cout << endl;
+
+      // decode expression
+      for (int ep=0; ep<eps_num; ep++) {
+        char *nd_str = lnode_to_str(&nd, (char*)", ");
+        decode_tree_mpq(&coeffs[ep][m][mi_idx], eps[ep], &nd_str, (char*)", ");
+        free(nd_str);
+        mpq_canonicalize(coeffs[ep][m][mi_idx]);
+        // mpq_out_str(stdout, 10, coeffs[ep][m][mi_idx]); cout << endl;
+      }
+
+      mi_count++;
+
+    }  
+  }
+  fprintf(terminal, "\033[19D\033[K"); fflush(terminal); usleep(sleep_time);
+  fprintf(terminal, "\033[25D\033[K"); fflush(terminal); usleep(sleep_time);
+
+}
+
+
 void process_kira_IBPs(
   // OUTPUT
   mpz_t ******coeffs_num_den, int ******pows_num_den,
@@ -3475,7 +3643,7 @@ void kira_to_DE_str(
 
 void call_kira(
   // OUTPUT
-  LI **MI_eta, int *dim_eta, int **MI_idx, int *dim,
+  LI **MI_eta, LI **MI, int *dim_eta, int **MI_idx, int *dim,
   double *time,
   // INPUT
   int redo, int opt_kira_parallel, int opt_kira_print,
@@ -3592,18 +3760,19 @@ void call_kira(
   }
 
   // DEFINE MIs
-  char *MIs_filepath = NULL;
-  join_path(&MIs_filepath, dir_common, (char*)"MIs.txt");
-  cout << endl; cout << "read MIs without eta from " << MIs_filepath << endl;
+  char *target_filepath = NULL;
+  join_path(&target_filepath, dir_common, (char*)"MIs.txt");
+  cout << endl; cout << "read target integrals from " << target_filepath << endl;
 
-  LI *MI = NULL;
-  LI_rk1_from_file(MIs_filepath, &MI, dim, (char*)"MI");
-  cout << "eta-less MIs:" << endl;
-  LI_rk1_pows_print(MI, *dim);
+  LI *MI_target = NULL;
+  int dim_target = 0;
+  LI_rk1_from_file(target_filepath, &MI_target, &dim_target, (char*)"MI");
+  cout << "target MIs:" << endl;
+  LI_rk1_pows_print(MI_target, dim_target);
 
   // identify numerator ISP
   int *nISP = new int[prop_nl.nitems];
-  LI_rk1_get_nISP(nISP, MI, *dim);
+  LI_rk1_get_nISP(nISP, MI_target, dim_target);
   cout << "numerator ISPs: [";
   for (int i=0; i<prop_nl.nitems; i++) {
     cout << nISP[i] << ", ";
@@ -3616,19 +3785,7 @@ void call_kira(
   for (int s=0; s<ninvs; s++) {
     mpq_init(PS[s]);
     if (strchr(kin[s], (".")[0])) {
-      // input is real
-
-      // find_cf(3.141592653589793);
-      // find_cf(1.41421356237309504880168872421, 1e-16);
-      // mpfr_t realin;
-      // mpfr_init2(realin, wp2);
-      // mpfr_t delta; mpfr_init2(delta, wp2); mpfr_set_d(delta, 1e-50, MPFR_RNDN);
-      // mpfr_sqrt_ui(realin, 2, MPFR_RNDN);
-      // mpq_t rat; mpq_init(rat);
-      // rationalize_cf(rat, realin, delta);
-      // mpq_out_str(stdout, 10, rat); cout << endl;
-      // rationalize_cf_from_str(PS[s], (char*)"1.41421356237309504880168872421");
-      
+      // input is real      
       rationalize_cf_from_str(PS[s], kin[s]);
 
     } else {
@@ -3645,28 +3802,65 @@ void call_kira(
   cout << "]" << endl;
 
   //////
-  // WRITE KIRA INPUT
+  // WRITE KIRA CONFIG FILES
   //////
+  char topo_name0[] = "MI";
   char topo_name[] = "MIeta";
 
+  char *dir_kira0 = NULL;
+  join_path(&dir_kira0, dir_amflow, (char*)"kira0/");
+  make_dir(dir_kira0);
   char *dir_kira = NULL;
   join_path(&dir_kira, dir_amflow, (char*)"kira/");
   make_dir(dir_kira);
 
-  // write MIs as preferred for Kira
-  char *preferred_filepath = NULL;
-  join_path(&preferred_filepath, dir_kira, (char*)"preferred");
-  cout << endl;
-  cout << "writing eta-less MIs to " << preferred_filepath << endl;
-  LI_rk1_to_file(preferred_filepath, MI, *dim, topo_name);
-
   // set config/ file path
+  char *dir_config0= NULL;
+  join_path(&dir_config0, dir_kira0, (char*)"config/");
+  make_dir(dir_config0);
+  char *kira_kin_filepath0 = NULL, *kira_int_fam_filepath0 = NULL;
+  join_path(&kira_kin_filepath0, dir_config0, (char*)"kinematics.yaml");
+  join_path(&kira_int_fam_filepath0, dir_config0, (char*)"integralfamilies.yaml");
   char *dir_config= NULL;
   join_path(&dir_config, dir_kira, (char*)"config/");
   make_dir(dir_config);
   char *kira_kin_filepath = NULL, *kira_int_fam_filepath = NULL;
   join_path(&kira_kin_filepath, dir_config, (char*)"kinematics.yaml");
   join_path(&kira_int_fam_filepath, dir_config, (char*)"integralfamilies.yaml");
+
+  // config/integral_families.yaml
+  cout << endl;
+  cout << "writing to " << kira_int_fam_filepath0 << endl;
+  fptr = fopen(kira_int_fam_filepath0, "w");
+  fprintf(fptr, "integralfamilies:\n");
+  fprintf(fptr, "  - name: %s\n", topo_name0);
+  fprintf(fptr, "    loop_momenta: %s\n", loop_mom_nl.str);
+  // fprintf(fptr, "    top_level_sectors: [%d]\n", LI_get_sector(&MI[*dim-1]));  // #review
+  fprintf(fptr, "    top_level_sectors: [%d]\n", int_rk1_is_zero_to_decimal(nISP, prop_nl.nitems));  // #review
+  fprintf(fptr, "    propagators:\n");
+  for (int p=0; p<prop_nl.nitems; p++) {
+    if (strcmp(prop_nl.item[p].item[1].str, "0") == 0) {
+      fprintf(fptr, "      - [%s,0]\n", prop_nl.item[p].item[0].str);
+    } else {
+      struct lnode nd;
+      char *tmp_str = strdup(prop_nl.item[p].item[1].str);
+      lnode_parse_expression(
+        &nd,
+        tmp_str,
+        (const char **)inv_sym, kin_inv_nl.nitems, 0
+      );
+      char *nd_str = lnode_to_str(&nd, (char*)", ");
+      mpq_t point; mpq_init(point);
+      decode_tree_mpq(&point, PS, &nd_str, (char*)", ");
+      free(nd_str);
+
+      fprintf(fptr, "      - [%s,", prop_nl.item[p].item[0].str);
+      mpq_out_str(fptr, 10, point);  // insert masses
+      fprintf(fptr, "]\n");
+    }
+  }
+  fprintf(fptr, "    cut_propagators: []\n");
+  fclose(fptr);
 
   // config/integral_families.yaml
   cout << "writing to " << kira_int_fam_filepath << endl;
@@ -3682,13 +3876,14 @@ void call_kira(
       if (nISP[p] == 0) {
         fprintf(fptr, "      - [%s,eta]\n", prop_nl.item[p].item[0].str);  // insert masses
       } else {
-        fprintf(fptr, "      - [%s,0]\n", prop_nl.item[p].item[0].str);  // insert masses
+        fprintf(fptr, "      - [%s,0]\n", prop_nl.item[p].item[0].str);
       }
     } else {
       struct lnode nd;
+      char *tmp_str = strdup(prop_nl.item[p].item[1].str);
       lnode_parse_expression(
         &nd,
-        prop_nl.item[p].item[1].str,
+        tmp_str,
         (const char **)inv_sym, kin_inv_nl.nitems, 0
       );
       char *nd_str = lnode_to_str(&nd, (char*)", ");
@@ -3703,27 +3898,27 @@ void call_kira(
       } else {
         fprintf(fptr, "]\n");
       }
-    }    
+    }
   }
   fprintf(fptr, "    cut_propagators: []\n");
   fclose(fptr);
 
   // config/kinematics.yaml
-  cout << "writing to " << kira_kin_filepath << endl;
-  fptr = fopen(kira_kin_filepath, "w");
+  cout << "writing to " << kira_kin_filepath0 << endl;
+  fptr = fopen(kira_kin_filepath0, "w");
   fprintf(fptr, "kinematics:\n");
   fprintf(fptr, "  incoming_momenta: %s\n", ext_mom_nl.str);
   fprintf(fptr, "  outgoing_momenta: []\n");
   fprintf(fptr, "  momentum_conservation: %s\n", mom_cons_nl.str);
   fprintf(fptr, "  kinematic_invariants:\n");
-  fprintf(fptr, "    - [eta, 2]\n");
   fprintf(fptr, "  scalarproduct_rules:\n");
   for (int i=0; i<sq_mom_nl.nitems; i++) {
     // process eta-less fixed kinematics
     struct lnode nd;
+    char *tmp_str = strdup(sq_mom_nl.item[i].item[1].str);
     lnode_parse_expression(
       &nd,
-      sq_mom_nl.item[i].item[1].str,
+      tmp_str,
       (const char **)inv_sym, kin_inv_nl.nitems, 0
     );
     char *nd_str = lnode_to_str(&nd, (char*)", ");
@@ -3740,16 +3935,248 @@ void call_kira(
   }
   fclose(fptr);
 
-  // write jobs for kira
-  char *kira_jobs_MIs_eta_filepath = NULL, *kira_jobs_filepath = NULL;
-  join_path(&kira_jobs_MIs_eta_filepath, dir_kira, (char*)"jobs_MIs-eta.yaml");
-  join_path(&kira_jobs_filepath, dir_kira, (char*)"jobs.yaml");
+  // config/kinematics.yaml
+  cout << "writing to " << kira_kin_filepath << endl;
+  fptr = fopen(kira_kin_filepath, "w");
+  fprintf(fptr, "kinematics:\n");
+  fprintf(fptr, "  incoming_momenta: %s\n", ext_mom_nl.str);
+  fprintf(fptr, "  outgoing_momenta: []\n");
+  fprintf(fptr, "  momentum_conservation: %s\n", mom_cons_nl.str);
+  fprintf(fptr, "  kinematic_invariants:\n");
+  fprintf(fptr, "    - [eta, 2]\n");
+  fprintf(fptr, "  scalarproduct_rules:\n");
+  for (int i=0; i<sq_mom_nl.nitems; i++) {
+    // process eta-less fixed kinematics
+    struct lnode nd;
+    char *tmp_str = strdup(sq_mom_nl.item[i].item[1].str);
+    lnode_parse_expression(
+      &nd,
+      tmp_str,
+      (const char **)inv_sym, kin_inv_nl.nitems, 0
+    );
+    char *nd_str = lnode_to_str(&nd, (char*)", ");
+    mpq_t point; mpq_init(point);
+    decode_tree_mpq(&point, PS, &nd_str, (char*)", ");
+    free(nd_str);
 
+    fprintf(fptr, "    - [[%s,%s], ",
+      sq_mom_nl.item[i].item[0].str,
+      sq_mom_nl.item[i].item[0].str
+    );
+    mpq_out_str(fptr, 10, point);
+    fprintf(fptr, "]\n");
+  }
+  fclose(fptr);
+
+  //////
+  // WRITE JOBS FOR KIRA
+  //////
   char *dir_common_eta = NULL;
   join_path(&dir_common_eta, dir_amflow, (char*)"common/");
   make_dir(dir_common_eta);
+
+  char *MIs_filepath = NULL;
+  join_path(&MIs_filepath, dir_common_eta, (char*)"MIs_eta-less.txt");
+
+  char *kira_jobs_MIs_filepath = NULL, *kira_jobs_target_filepath = NULL;
+  join_path(&kira_jobs_MIs_filepath, dir_kira0, (char*)"jobs_MIs.yaml");
+  join_path(&kira_jobs_target_filepath, dir_kira0, (char*)"jobs_target.yaml");
+
+  char *kira_MIs_filepath = NULL;
+  join_path(&kira_MIs_filepath, dir_kira0, (char*)"results/");
+  join_path(&kira_MIs_filepath, kira_MIs_filepath, topo_name0);
+  join_path(&kira_MIs_filepath, kira_MIs_filepath, (char*)"/masters");
+  char *kira_MIs_outer_filepath = NULL;
+  join_path(&kira_MIs_outer_filepath, dir_kira, (char*)"masters");
+  char *kira_target0_filepath = NULL;
+  join_path(&kira_target0_filepath, dir_kira0, (char*)"target");
+
+  int r = LI_rk1_get_r(MI_target, dim_target);
+  int s = LI_rk1_get_s(MI_target, dim_target);
+  int d = LI_rk1_get_d(MI_target, dim_target);
+  int kira_r, kira_s, kira_d;
+  kira_r = r + 1;
+  // kira_s = s > 3 ? s : 3;
+  kira_s = loop_mom_nl.nitems > 1 ? (s > 3 ? s : 3) : 1; 
+  kira_d = d > 0 ? d : 0;
+  cout << "from target integrals:" << endl;
+  cout << "r, s, d = " << r << ", " << s << ", " << d << endl;
+
+  // jobs_MIs.yaml
+  cout << "writing to " << kira_jobs_MIs_filepath << endl;
+  fptr = fopen(kira_jobs_MIs_filepath, "w");
+  fprintf(fptr, "jobs:\n");
+  fprintf(fptr, "  - reduce_sectors:\n");
+  fprintf(fptr, "      reduce:\n");
+  fprintf(fptr, "        - {r: %d, s: %d}\n", kira_r, kira_s);
+  fprintf(fptr, "      select_integrals:\n");
+  fprintf(fptr, "        select_mandatory_recursively:\n");
+  fprintf(fptr, "          - {r: %d, s: %d, d: %d}\n", kira_r, kira_s, kira_d);
+  fprintf(fptr, "      integral_ordering: 5\n");
+  fprintf(fptr, "      run_initiate: masters\n");
+  fclose(fptr);
+
+  // jobs_target.yaml
+  cout << "writing to " << kira_jobs_target_filepath << endl;
+  fptr = fopen(kira_jobs_target_filepath, "w");
+  fprintf(fptr, "jobs:\n");
+  fprintf(fptr, "  - reduce_sectors:\n");
+  fprintf(fptr, "      reduce:\n");
+  fprintf(fptr, "        - {r: %d, s: %d}\n", kira_r, kira_s);
+  fprintf(fptr, "      select_integrals:\n");
+  fprintf(fptr, "        select_mandatory_list:\n");
+  fprintf(fptr, "          - [%s, target]\n", topo_name0);
+  fprintf(fptr, "      integral_ordering: 5\n");
+  fprintf(fptr, "      run_initiate: true\n");
+  fprintf(fptr, "      run_triangular: true\n");
+  fprintf(fptr, "      run_back_substitution: true\n");
+  fprintf(fptr, "  - kira2file:\n");
+  fprintf(fptr, "      target:\n");
+  fprintf(fptr, "        - [%s, target]\n", topo_name0);
+  fclose(fptr);
+
+  // write target file for Kira
+  cout << "writing targets to " << kira_target0_filepath << endl;
+  LI_rk1_to_file(kira_target0_filepath, MI_target, dim_target, topo_name0);
+
+  //////
+  // LAUNCH KIRA to find MIs without eta
+  //////
+  char *command = (char*) malloc(MAX_VALUE_LEN*sizeof(char));
+
+  int execute;
+  if (redo == 0) {
+    execute = 0;
+    cout << "skip call to Kira" << endl;
+  } else if (redo == 1) {
+    execute = 1;
+  } else if (redo == -1) {
+    if (file_exists(MIs_filepath)) {
+      execute = 0;
+      cout << "Kira output already exists" << endl;
+      snprintf(
+        command, MAX_VALUE_LEN*sizeof(char),
+        "cp %s %s", MIs_filepath, kira_MIs_outer_filepath
+      );
+      cout << endl; cout << "executing shell command: " << endl; cout << "  $ " << command << endl;
+      cout << endl;
+      system(command);
+    } else {
+      execute = 1;
+    }
+  }
+
+  if (execute) {
+    clock_gettime(CLOCK_MONOTONIC, &start_el_MI);
+    fprintf(terminal, "call Kira to find MIs... "); fflush(terminal); usleep(sleep_time);
+    snprintf(
+      command, MAX_VALUE_LEN*sizeof(char),
+      "cd %s && rm -rf results/ sectormappings/ tmp/; cd -", dir_kira0
+    );
+    cout << endl; cout << "executing shell command: " << endl; cout << "  $ " << command << endl;
+    cout << endl;
+    system(command);
+    snprintf(
+      command, MAX_VALUE_LEN*sizeof(char),
+      "cd %s && kira --parallel=%d jobs_MIs.yaml %s; cd -", dir_kira0, opt_kira_parallel, kira_print
+    );
+    cout << endl; cout << "executing shell command: " << endl; cout << "  $ " << command << endl;
+    cout << endl;
+    if (system(command)) {
+      fprintf(stderr, "error while executing command: %s\n", command);
+		  return exit(1); 
+    }
+    snprintf(
+      command, MAX_VALUE_LEN*sizeof(char),
+      "cp %s %s", kira_MIs_filepath, MIs_filepath
+    );
+    cout << endl; cout << "executing shell command: " << endl; cout << "  $ " << command << endl;
+    cout << endl;
+    system(command);
+    snprintf(
+      command, MAX_VALUE_LEN*sizeof(char),
+      "cp %s %s", kira_MIs_filepath, kira_MIs_outer_filepath
+    );
+    cout << endl; cout << "executing shell command: " << endl; cout << "  $ " << command << endl;
+    cout << endl;
+    system(command);
+    fprintf(terminal, "\033[25D\033[K"); fflush(terminal); usleep(sleep_time);
+    clock_gettime(CLOCK_MONOTONIC, &end_el_MI);
+    time[0] = timespec_to_double(start_el_MI, end_el_MI);
+  }
+
+  //////
+  // READ MIs without eta
+  //////
+  cout << "reading MIs without eta from " << MIs_filepath << endl;
+
+  LI *MI_tmp = NULL;
+  LI_rk1_from_file(MIs_filepath, &MI_tmp, dim, topo_name0);
+  // cout << "unsorted:" << endl;
+  // LI_rk1_pows_print(MI_tmp, *dim);
+
+  // SORT MIs
+  if (*MI) {
+    delete[] *MI;
+  }
+  *MI = NULL;
+  LI_rk1_qsort(MI, MI_tmp, *dim);
+  cout << endl; cout << "MIs without auxiliary mass:" << endl;
+  LI_rk1_pows_print(*MI, *dim);
+
+  // write MIs as preferred for Kira
+  char *preferred_filepath = NULL;
+  join_path(&preferred_filepath, dir_kira, (char*)"preferred");
+  cout << endl;
+  cout << "writing eta-less MIs to " << preferred_filepath << endl;
+  LI_rk1_to_file(preferred_filepath, *MI, *dim, topo_name);
+
+  //////
+  // LAUNCH KIRA to reduce target integrals
+  //////
+  char *reduction_results_filepath = NULL;
+  join_path(&reduction_results_filepath, dir_kira0, (char*)"results/");
+  join_path(&reduction_results_filepath, reduction_results_filepath, topo_name0);
+  join_path(&reduction_results_filepath, reduction_results_filepath, (char*)"/kira_target.kira");
+  
+  if (redo == 0) {
+    execute = 0;
+    cout << "skip call to Kira" << endl;
+  } else if (redo == 1) {
+    execute = 1;
+  } else if (redo == -1) {
+    if (file_exists(reduction_results_filepath)) {
+      execute = 0;
+      cout << "Kira output already exists" << endl;
+    } else {
+      execute = 1;
+    }
+  }
+
+  if (execute) {
+    clock_gettime(CLOCK_MONOTONIC, &start_el_red);
+    fprintf(terminal, "call Kira to reduce targets... "); fflush(terminal); usleep(sleep_time);
+    snprintf(
+      command, MAX_VALUE_LEN*sizeof(char),
+      "cd %s && kira --parallel=%d jobs_target.yaml %s; cd -", dir_kira0, opt_kira_parallel, kira_print
+    );
+    cout << endl; cout << "executing shell command: " << endl; cout << "  $ " << command << endl;
+    cout << endl;
+    if (system(command)) {
+      fprintf(stderr, "error while executing command: %s\n", command);
+		  return exit(1); 
+    }
+    fprintf(terminal, "\033[31D\033[K"); fflush(terminal); usleep(sleep_time);
+    clock_gettime(CLOCK_MONOTONIC, &end_el_red);
+    time[1] = timespec_to_double(start_el_red, end_el_red);
+  }
+
+  //////
+  // WRITE KIRA INPUT
+  //////
   char *MIs_eta_filepath = NULL;
   join_path(&MIs_eta_filepath, dir_common_eta, (char*)"MIs.txt");
+
   char *kira_MIs_eta_filepath = NULL;
   join_path(&kira_MIs_eta_filepath, dir_kira, (char*)"results/");
   join_path(&kira_MIs_eta_filepath, kira_MIs_eta_filepath, topo_name);
@@ -3757,13 +4184,23 @@ void call_kira(
   char *kira_MIs_eta_outer_filepath = NULL;
   join_path(&kira_MIs_eta_outer_filepath, dir_kira, (char*)"masters");
 
-  int r = LI_rk1_get_r(MI, *dim), s = LI_rk1_get_s(MI, *dim), d = 1;
-  int kira_r, kira_s, kira_d;
-  kira_r = r+1;
-  kira_s = s > 3 ? s : 3;
-  kira_d = 1; // d > 0 ? d : 0;
+
+  char *kira_jobs_MIs_eta_filepath = NULL, *kira_jobs_filepath = NULL;
+  join_path(&kira_jobs_MIs_eta_filepath, dir_kira, (char*)"jobs_MIs-eta.yaml");
+  join_path(&kira_jobs_filepath, dir_kira, (char*)"jobs.yaml");
+
+  r = LI_rk1_get_r(*MI, *dim);
+  s = LI_rk1_get_s(*MI, *dim);
+  d = LI_rk1_get_d(*MI, *dim);
+  // int kira_r, kira_s, kira_d;
+  kira_r = r + 1;
+  kira_s = loop_mom_nl.nitems > 1 ? (s+1 > 3 ? s+1 : 3) : 1; 
+  kira_d = d + 1;
+  cout << "from eta-less MIs:" << endl;
+  cout << "r, s, d = " << r << ", " << s << ", " << d << endl;
 
   // jobs_MIs-eta.yaml
+  cout << endl;
   cout << "writing to " << kira_jobs_MIs_eta_filepath << endl;
   fptr = fopen(kira_jobs_MIs_eta_filepath, "w");
   fprintf(fptr, "jobs:\n");
@@ -3801,9 +4238,6 @@ void call_kira(
   //////
   // LAUNCH KIRA to find MIs with eta
   //////
-  char *command = (char*) malloc(MAX_VALUE_LEN*sizeof(char));
-
-  int execute;
   if (redo == 0) {
     execute = 0;
     cout << "skip call to Kira" << endl;
@@ -3885,7 +4319,7 @@ void call_kira(
 
   // STORE INDICES OF eta-LESS MIs
   *MI_idx = new int[*dim];
-  LI_rk1_get_idx_rk1(*MI_idx, MI, *dim, *MI_eta, *dim_eta);
+  LI_rk1_get_idx_rk1(*MI_idx, *MI, *dim, *MI_eta, *dim_eta);
 
   //////
   // GENERATE BOUNDARY FILES
@@ -3945,10 +4379,10 @@ void call_kira(
   //////
   // WRITE TARGETS FOR DEs
   //////
-  char *target_filepath = NULL;
-  join_path(&target_filepath, dir_kira, (char*)"target");
-  cout << "writing targets to " << target_filepath << endl;
-  fptr = fopen(target_filepath, "w");
+  char *kira_target_filepath = NULL;
+  join_path(&kira_target_filepath, dir_kira, (char*)"target");
+  cout << "writing targets to " << kira_target_filepath << endl;
+  fptr = fopen(kira_target_filepath, "w");
   char *tmp_str = (char*) malloc(((MAX_POW_DIGITS+1)*(*dim_eta)+2+1)*sizeof(char));
   char *out_str = NULL;
   int *der_pow = new int[prop_nl.nitems], m = 0;

@@ -9,6 +9,7 @@ using namespace std;
 #include "utils.h"
 #include "tensor_utils.h"
 #include "topology.h"
+#include "global_vars.h"
 extern "C" {
   #include "ex_tree.h"
 }
@@ -362,6 +363,13 @@ int LI_get_s(
 }
 
 
+int LI_get_d(
+  LI *li
+) {
+  return int_rk1_sum_shift(1, li->pows, li->nprop);
+}
+
+
 void LI_get_loop_current(
   // OUTPUT
   int **loop_current,
@@ -392,8 +400,8 @@ int LI_cmp(
   // LI_pows_print(li1); cout << endl;
   // cout << "li2: " << endl;
   // LI_pows_print(li2); cout << endl;  
-  int positive1 = int_rk1_count_postivie(li1->pows, li1->nprop);
-  int positive2 = int_rk1_count_postivie(li2->pows, li2->nprop);
+  int positive1 = int_rk1_count_positive(li1->pows, li1->nprop);
+  int positive2 = int_rk1_count_positive(li2->pows, li2->nprop);
   // cout << "positive1 = " << positive1 << endl;
   // cout << "positive2 = " << positive2 << endl;
   if (positive1 < positive2) {
@@ -410,6 +418,48 @@ int LI_cmp(
     } else if (sec1 > sec2) {
       return 1;
     } else if (sec1 == sec2) {
+      // SAME SECTOR
+      int r1 = LI_get_r(li1);
+      int r2 = LI_get_r(li2);
+      // cout << "r1 = " << r1 << endl;
+      // cout << "r2 = " << r2 << endl;
+      if (r1 < r2) {
+        return -1;
+      } else if (r1 > r2) {
+        return 1;
+      } else if (r1 == r2) {
+        int s1 = LI_get_s(li1);
+        int s2 = LI_get_s(li2);
+        // cout << "s1 = " << s1 << endl;
+        // cout << "s2 = " << s2 << endl;
+        if (s1 < s2) {
+          return -1;
+        } else if (s1 > s2) {
+          return 1;
+        } else if (s1 == s2) {
+          // COMPARE POSITIVE POWERS
+          for (int p=0; p<li1->nprop; p++) {
+            if (li1->pows[p] > 0 & li2->pows[p] > 0) {
+              if (li1->pows[p] < li2->pows[p]) {
+                return -1;
+              } else if (li1->pows[p] > li2->pows[p]) {
+                return 1;
+              }
+            }
+          }
+
+          // COMPARE NEGATIVE POWERS
+          for (int p=0; p<li1->nprop; p++) {
+            if (li1->pows[p] <= 0 & li2->pows[p] <= 0) {
+              if (li1->pows[p] < li2->pows[p]) {
+                return -1;
+              } else if (li1->pows[p] > li2->pows[p]) {
+                return 1;
+              }
+            }
+          }
+        }
+      }
       return 0;
     } else {
       perror("error while comparing LIs sectors");
@@ -574,6 +624,22 @@ int LI_rk1_get_s(
 }
 
 
+int LI_rk1_get_d(
+  LI *li, int dim
+) {
+  int d = LI_get_d(&li[0]);
+  int dp;
+  for (int m=1; m<dim; m++) {
+    dp = LI_get_d(&li[m]);
+    if (dp > d) {
+      d = dp;
+    }
+  }
+
+  return d;
+}
+
+
 void LI_rk1_from_file(
   char *filepath,
   // OUTPUT
@@ -602,7 +668,7 @@ void LI_rk1_from_file(
   int nprop, c = 0, m = 0, topo_len = strlen(topo_name);
   char **pows_str = NULL;
   char *line = (char*) malloc(line_size);
-  char *tmp_str = (char*) malloc(((MAX_POW_DIGITS+1)*(*dim)+2)*sizeof(char));
+  char *tmp_str = (char*) malloc(MAX_PATH_LEN*sizeof(char));
 	while (fgets(line, MAX_VALUE_LEN, fptr)) {
     // // skip in-line comment
     // end_at_char(line, '#');
@@ -638,8 +704,7 @@ void LI_rk1_from_file(
       (*li)[m].pows[p] = atoi(pows_str[p]);
     }
     // cout << endl;
-    (*li)[m].pows_str = (char*) malloc((strlen(tmp_str)+1)*sizeof(char));
-    strcpy((*li)[m].pows_str, tmp_str);
+    (*li)[m].pows_str = strdup(tmp_str);
     // cout << "copied power list: " << (*li)[m].pows_str << endl;
 
     m++;

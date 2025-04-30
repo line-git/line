@@ -3,6 +3,14 @@
 
 #include "topology.h"
 
+int lock_acquire_if_free(
+  int *lock
+);
+
+void lock_release(
+  int *lock
+);
+
 double clock_t_to_double(
   clock_t start, clock_t end
 );
