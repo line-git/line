@@ -1,5 +1,5 @@
 #include <iostream>
-// #include <complex>
+// #include <complex.h>
 #include "mpc.h"
 
 using namespace std;
@@ -25,6 +25,126 @@ extern "C" {
 
 // needed for csvd
 static int c__0 = 0;
+
+
+double estimate_convergence(
+  mpc_t *coeffs, int dim, mpc_t *val
+) {
+	mpfr_t tmpfr; mpfr_init2(tmpfr, wp2);
+  mpc_abs(tmpfr, *val, MPFR_RNDN);
+  mpfr_log2(tmpfr, tmpfr, MPFR_RNDN);
+  double val_exp2 = mpfr_get_d(tmpfr, MPFR_RNDN);
+  // cout << "val = "; print_mpc(val); cout << endl;
+  // cout << "val_exp2 = " << val_exp2 << endl;
+  // cout << "val_exp = " << val_exp2 * log10(2) << endl;
+  int coeff_exp2;
+  double total_exp2;
+  int kp = 0;
+  for (kp = 0; kp < dim; kp++) {
+    if (!mpc_zero_p(coeffs[kp])) {
+      break;
+    }
+  }
+  if (kp == dim) {
+    return 0;
+  }
+  double first_exp2 = ((double) mpc_get_exp2(coeffs[kp])) + ((double) kp)*val_exp2;
+  // cout << "kp = " << kp << endl;
+  // cout << "coeff = "; print_mpc(&coeffs[kp]); cout << endl;
+  // cout << "first_exp2 = " << first_exp2 << endl;
+  double min_exp2 = first_exp2;
+  for (int k = kp+1; k < dim; ++k) {
+    if (mpc_zero_p(coeffs[k])) {
+      continue;
+    }
+		coeff_exp2 = mpc_get_exp2(coeffs[k]);
+		total_exp2 = ((double) coeff_exp2)+ ((double) k)*val_exp2;
+    // cout << "k = " << k << endl;
+    // cout << "coeff = "; print_mpc(&coeffs[k]); cout << endl;
+    // cout << "coeff_exp2, total_exp2 = " << coeff_exp2 << ", " << total_exp2 << endl;
+    // cout << "coeff_exp, total_exp = " << coeff_exp2 * log10(2) << ", " << total_exp2 * log10(2) << endl;
+		if (total_exp2 < min_exp2)
+			min_exp2 = total_exp2;
+	}
+
+	// conversione in cifre decimali: log10(2) ≈ 0.30103
+	return (min_exp2 - first_exp2)* log10(2);
+}
+
+
+int mpc_rk1_max_non_zero_idx(
+  mpc_t *tens, int dim
+) {
+  int i;
+  for (i = dim-1; i >= 0; i--) {
+    if (!mpc_zero_p(tens[i])) {
+      break;
+    }
+  }
+  return i;
+}
+
+
+double norm1_dcomplex(complex_d **mat , int m, int n) {
+	double max_col_sum = 0.0;
+	for (int j = 0; j < n; ++j) {
+		double col_sum = 0.0;
+		for (int i = 0; i < m; ++i) {
+			col_sum += abs(mat[i][j]);
+		}
+		if (col_sum > max_col_sum)
+			max_col_sum = col_sum;
+	}
+	return max_col_sum;
+}
+
+
+void mpc_rk2_to_double(
+  // OUTPUT
+  complex_d **out,
+  // INPUT
+  mpc_t **in, int dim1, int dim2
+) {
+  for (int i1=0; i1<dim1; i1++) {
+    for (int i2=0; i2<dim2; i2++) {
+      out[i1][i2] = (complex_d) {
+        mpfr_get_d(mpc_realref(in[i1][i2]), MPFR_RNDN),
+        mpfr_get_d(mpc_imagref(in[i1][i2]), MPFR_RNDN)
+      };
+    }
+  }
+}
+
+double complex_d_mat_condition_number(
+  complex_d **mat_d, complex_d **mat_inv_d, int dim
+) {
+
+  double norm1_mat = norm1_dcomplex(mat_d, dim, dim);
+  double norm1_mat_inv = norm1_dcomplex(mat_inv_d, dim, dim);
+  
+  return norm1_mat*norm1_mat_inv;
+
+}
+
+
+double mpc_mat_condition_number(
+  mpc_t **mat, mpc_t **mat_inv, int dim
+) {
+  complex_d **mat_d, **mat_inv_d;
+  malloc_rk2_tens(mat_d, dim, dim);
+  malloc_rk2_tens(mat_inv_d, dim, dim);
+  mpc_rk2_to_double(mat_d, mat, dim, dim);
+  mpc_rk2_to_double(mat_inv_d, mat_inv, dim, dim);
+
+  double cond_num = complex_d_mat_condition_number(mat_d, mat_inv_d, dim);
+
+  // FREE
+  del_rk2_tens(mat_d, dim);
+  del_rk2_tens(mat_inv_d, dim);
+  
+  return cond_num;
+
+}
 
 
 int factorial(int n) {
@@ -100,6 +220,69 @@ void mpc_rk2_to_math(
     *output += "\n";
   }
   *output +="};\n";
+}
+
+
+void solution_derivative(
+  // OUTPUT
+  mpc_t ****der,
+  // INPUT
+  mpc_t ****sol,
+  mpc_t *eig_list, int num_eig, int *eig_labels, int num_classes, int lam0,
+  int *log_prof,
+  int b_len, int eta_ord
+) {
+  mpc_t tmpc; mpc_init3(tmpc, wp2, wp2);
+  int k_start = 0;
+
+  for (int i=0; i<b_len; i++) {
+    // DERIVATIVE OF ETA POWER
+    for (int lam, n=0; n<num_eig; n++) {
+      lam = eig_labels[n];
+      k_start = (lam == lam0) ? 1 : 0;
+      for (int l=0; l<log_prof[lam]-1; l++) {
+        if (lam == lam0) {
+          mpc_set_ui(der[lam][l][i][0], 0, MPFR_RNDN);
+        }
+        for (int k=k_start; k<=eta_ord; k++) {
+          mpc_add_ui(
+            der[lam][l][i][k],
+            eig_list[lam], k,
+            MPFR_RNDN
+          );
+          mpc_mul(
+            der[lam][l][i][k],
+            der[lam][l][i][k],
+            sol[lam][l][i][k],
+            MPFR_RNDN
+          );
+        }
+      }
+    }
+
+    // DERIVATIVE OF LOG POWER
+    for (int lam, n=0; n<num_eig; n++) {
+      lam = eig_labels[n];
+      for (int l=0; l<log_prof[lam]-2; l++) {
+        for (int k=k_start; k<=eta_ord; k++) {
+          mpc_mul_ui(
+            tmpc,
+            sol[lam][l+1][i][k],
+            l+1,
+            MPFR_RNDN
+          );
+          mpc_add(
+            der[lam][l][i][k],
+            der[lam][l][i][k],
+            tmpc,
+            MPFR_RNDN
+          );
+        }
+      }
+    }
+  }
+  
+  mpc_clear(tmpc);
 }
 
 
@@ -779,6 +962,9 @@ void zero_solve_block(mpc_t *****solutions,
                 MPFR_RNDN
               );
             }
+            // if (mpc_lessthan_tol(solutions[n][l][i][j][k])) {
+            //   mpc_set_ui(solutions[n][l][i][j][k], 0, MPFR_RNDN);
+            // }
           }
         }
 
@@ -811,6 +997,9 @@ void zero_solve_block(mpc_t *****solutions,
 
 
 void match_next_eta(
+  // OUTPUT
+  mpc_t *out,
+  // INPUT
   mpc_t *eta_values, int et,
   mpc_t **solutions, int dim, int eta_ord
 ) {
@@ -823,6 +1012,11 @@ void match_next_eta(
   mpc_set_ui(eta_power, 1, MPFR_RNDN);
   mpc_t tmp_match;
   mpc_init3(tmp_match, wp2, wp2);
+
+  for (int i=0; i<dim; i++) {
+    mpc_set(out[i], solutions[i][0], MPFR_RNDN);
+  }
+  
   for (int j=1; j<eta_ord; j++) {
     mpc_mul(eta_power, eta_power, eta_diff, MPFR_RNDN);
     for (int i=0; i<dim; i++) {
@@ -836,8 +1030,11 @@ void match_next_eta(
 
 void propagate_regular(
   // IN-OUT
-  mpc_t ***solutions,
+  double *mul_eta_ord,
+  // OUTPUT
+  mpc_t *sol,
   // INPUT
+  mpc_t *bound,
   int neta_values, mpc_t *eta_values,
   int dim, struct poly_frac **mat_ep,
   int npoles, mpc_t *poles,
@@ -846,10 +1043,6 @@ void propagate_regular(
   int print = 0;
   int prt_ord = 10;
 
-  //////
-  // START ETA VALUES
-  //////
-  // numeric etav;
   mpc_t eta_shift;
   mpc_init3(eta_shift, wp2, wp2);
   int b_len, sb_len, *b_idx, *sb_idx;
@@ -879,7 +1072,27 @@ void propagate_regular(
   poly_frac_rk2_set_pf_rk2(lcm_mat_ep, mat_ep, dim, dim);
   // poly_frac_rk2_mul_sym_pow(lcm_mat_ep, 1+p_rank, dim, dim);
 
+  mpc_t *tmp_vec = new mpc_t[eta_ord+1];
+  init_rk1_mpc(tmp_vec, eta_ord+1);
+
+  mpc_t *sol_next = new mpc_t[dim];
+  init_rk1_mpc(sol_next, dim);
+
+  int wp_bin = - mpfr_log2_int(mpfr_tol);
+  int wp = wp_bin * log10(2);
+  mpc_t eta_diff; mpc_init3(eta_diff, wp2, wp2);
+
+  // SOLUTIONS
+  mpc_t ***solutions;
+  solutions = new mpc_t**[1];
+  malloc_rk2_tens(*solutions, dim, eta_ord+1);
+  init_rk2_mpc(*solutions, dim, eta_ord+1);
   
+  // COPY BOUNDARY
+  for (int i=0; i<dim; i++) {
+    mpc_set(solutions[0][i][0], bound[i], MPFR_RNDN);
+  }
+
   timespec start_el_regular, end_el_regular;
   double time_el_regular_local = 0;
   for (int et=0; et<neta_values-1; et++) {
@@ -946,11 +1159,14 @@ void propagate_regular(
       }
       }
 
-      solve_block(*solutions,
+      // SOLVE
+      solve_block(
+        *solutions,
         lcm[b], block, const_term[0][0],
         b_idx, b_len, sb_len,
-        eta_ord, lcm_deg[b], block_max_deg[b]);
-      
+        eta_ord, lcm_deg[b], block_max_deg[b]
+      );
+
       if (print) {
       cout << endl;
       cout << "block solution:"  << endl;
@@ -984,8 +1200,33 @@ void propagate_regular(
     // print_poly(solutions[15], 5);
     // print_poly(solutions[15]+eta_ord-3, 3);
 
+    // CHECK CONVERGENCE
+    int *eff_orders = new int[dim];
+    double *eff_digits_bin = new double[dim];
+    mpc_sub(eta_diff, eta_values[et+1], eta_values[et], MPFR_RNDN);
+    for (int i=0; i<dim; i++) {
+      copy_rk1_mpc(tmp_vec, (*solutions)[i], eta_ord+1);
+      mpc_rk1_prune_re_im(tmp_vec, wp_bin, eta_ord+1);
+      mpc_rk1_prune_radius(tmp_vec, eta_ord+1, wp_bin*0.5, &eta_diff);  // #hard-coded
+      mpc_rk1_prune_rel_tol_real_max(tmp_vec, eta_ord+1, wp_bin, &eta_diff);
+      eff_orders[i] = mpc_rk1_max_non_zero_idx(tmp_vec, eta_ord+1);
+      eff_digits_bin[i] = estimate_convergence(tmp_vec, eta_ord+1, &eta_diff);
+      if (eff_orders[i] == eta_ord && eff_digits_bin[i] < wp) {
+        fprintf(
+          stderr, 
+          "WARNING: MI n. %d has convergence on %f out of %d digits.\n",
+          i, eff_digits_bin[i], wp
+        );
+      }
+    }
+
     // MATCH WITH NEXT ETA VALUE
-    match_next_eta(eta_values, et, *solutions, dim, eta_ord);
+    match_next_eta(sol_next, eta_values, et, *solutions, dim, eta_ord);
+    for (int i=0; i<dim; i++) {
+      cout << "master n." << i << ": ";
+      print_mpc(&(*solutions)[i][0]);
+      cout << endl;
+    }
 
     // cout << endl << "MI computed in eta_" << et+1 << ":" << endl;
     // for (int i=0; i<dim; i++) {
@@ -999,7 +1240,16 @@ void propagate_regular(
     time_el_regular += time_el_regular_local;
   }
 
+  // copy solutions to output
+  for (int i=0; i<dim; i++) {
+    mpc_set(sol[i], (*solutions)[i][0], MPFR_RNDN);
+  }
+
   // FREE
+  mpc_rk2_clear(*solutions, dim, eta_ord+1);
+  del_rk2_tens(*solutions, dim);  
+  delete[] solutions;
+
   for (int b=0; b<nblocks; b++) {
     build_block_indices(b_idx, sb_idx, &b_len, &sb_len, b, prof, sb_grid);
     for (int i=0; i<b_len; i++) {
@@ -1170,7 +1420,8 @@ void evaluate_series_around_zero(
   int *match_constr_dim = NULL, int **match_constr_idx = NULL, bool particular = true,
   int analytic_continuation = 0
 ) {
-  int print=0;
+  int print = 0;
+  if (print) {cout << "eval point: "; print_mpc(mpc_eta); cout << endl;}
   // ANALYTIC CONTINUATION CONTROL SWITCH
   if (mpfr_sign_within_tol(mpc_realref(*mpc_eta)) > 0 ||\
     mpfr_sign_within_tol(mpc_imagref(*mpc_eta)) != 0) {
@@ -1692,7 +1943,7 @@ void build_csvd_mat(
 int compute_rank(
   mpc_t *mat, int row_dim, int col_dim
 ) {
-  int print=0;
+  int print = 0;
   int min_dim = min(row_dim, col_dim);
   if (print) cout << "min dim = " << min_dim << endl;
   mpfr_t told, tmp;
@@ -3522,7 +3773,14 @@ void match_sol_around_zero(
     if (print) print_rk2_mpc(constr_final, num_constr, num_constr);
     malloc_rk2_tens(constr_inv, num_constr, num_constr);
     init_rk2_mpc(constr_inv, num_constr, num_constr);
+    complex_d **mat_d, **mat_inv_d;
+    malloc_rk2_tens(mat_d, num_constr, num_constr);
+    malloc_rk2_tens(mat_inv_d, num_constr, num_constr);
+    mpc_rk2_to_double(mat_d, constr_final, num_constr, num_constr);
     mp_inverse(constr_inv, constr_final, num_constr);
+    mpc_rk2_to_double(mat_inv_d, constr_inv, num_constr, num_constr);    
+    double cond_num; cond_num = complex_d_mat_condition_number(mat_d, mat_inv_d, num_constr);
+    cout << "condition number = " << cond_num << endl;
     if (print) cout << "linear system inverse matrix:" << endl;
     if (print) print_rk2_mpc(constr_inv, num_constr, num_constr);
     mpc_t *final_const_term;
@@ -3705,7 +3963,14 @@ void match_sol_around_zero(
     cout << endl; cout << "linear system matrix:" << endl;
     print_rk2_mpc(match_constr_mat, b_len, b_len);
     }
+    complex_d **mat_d, **mat_inv_d;
+    malloc_rk2_tens(mat_d, b_len, b_len);
+    malloc_rk2_tens(mat_inv_d, b_len, b_len);
+    mpc_rk2_to_double(mat_d, match_constr_mat, b_len, b_len);
     mp_inverse(match_constr_inv_mat, match_constr_mat, b_len);
+    mpc_rk2_to_double(mat_inv_d, match_constr_inv_mat, b_len, b_len);
+    double cond_num; cond_num = complex_d_mat_condition_number(mat_d, mat_inv_d, b_len);
+    cout << "condition number = " << cond_num << endl;
     if (print) {
     cout << endl; cout << "linear system inverse matrix:" << endl;
     print_rk2_mpc(match_constr_inv_mat, b_len, b_len);
@@ -4289,10 +4554,11 @@ void get_massless_bubble(
 
 
 void solve_zero(
-  // IN-OUTPUT
-  mpc_t ***solutions,
+  // OUTPUT
+  mpc_t *out_sol,
   // INPUT
-  int dim, struct poly_frac **mat_ep,
+  mpc_t *bound,
+  int dim, struct poly_frac **mat_ep, struct poly_frac **mat_ep_orig,
   struct poly_frac **tmat, struct poly_frac **inv_tmat,
   int npoles, mpc_t *poles,
   mpc_t *matching_point,
@@ -4352,13 +4618,38 @@ void solve_zero(
   mpc_t **tmat_eval;
   malloc_rk2_tens(tmat_eval, dim, dim);
   init_rk2_mpc(tmat_eval, dim, dim);
+  mpc_t **mat_ep_eval;
+  malloc_rk2_tens(mat_ep_eval, dim, dim);
+  init_rk2_mpc(mat_ep_eval, dim, dim);
+  mpc_t **tmp_mat;;
+  malloc_rk2_tens(tmp_mat, dim, dim);
+  init_rk2_mpc(tmp_mat, dim, dim);
   mpc_t *tmp_vec = new mpc_t[dim];
   init_rk1_mpc(tmp_vec, dim);
+  mpc_t *tmp_vec1 = new mpc_t[dim];
+  init_rk1_mpc(tmp_vec1, dim);
+  mpc_t *tmp_vec2 = new mpc_t[dim];
+  init_rk1_mpc(tmp_vec2, dim);
+  mpc_t *der_eval = new mpc_t[dim];
+  init_rk1_mpc(der_eval, dim);
+  mpc_t *DE_times_sol_eval = new mpc_t[dim];
+  init_rk1_mpc(DE_times_sol_eval, dim);
+  struct poly_frac tmp_pf;
+  poly_frac_build(&tmp_pf);
+  // struct poly_frac **tmp_pfmat;
+  // malloc_rk2_tens(tmp_pfmat, dim, dim);
+  // poly_frac_rk2_build(tmp_pfmat, dim, dim);
+
+  // SOLUTIONS
+  mpc_t ***solutions;
+  solutions = new mpc_t**[1];
+  malloc_rk2_tens(*solutions, dim, eta_ord+1);
+  init_rk2_mpc(*solutions, dim, eta_ord+1);
 
   if (print) {
   cout << "UNTRANSFORMED BOUNDARY:" << endl;
   for (int i=0; i<dim; i++) {
-    print_mpc(&(*solutions)[i][0]); cout << endl;
+    print_mpc(&bound[i]); cout << endl;
   }
   }
   if (match_in_zero == 0) {
@@ -4375,14 +4666,19 @@ void solve_zero(
     // init_rk2_mpc(prova, dim, dim);
     // mpc_rk2_from_file((char*)"eval_tmat.txt", prova, dim, dim);
     // mpc_rk2_compare(prova, inv_tmat_eval, dim, dim);
-    mpc_rk2_mul_mpc_rk2_slice(
-      tmp_vec, tmat_eval, *solutions,
-      dim, dim, 0
+    mpc_rk2_mul_mpc_rk1(
+      tmp_vec, tmat_eval, bound,
+      dim, dim
     );
     if (print) cout << "TRANSFORMED BOUNDARY:" << endl;
     for (int i=0; i<dim; i++) {
       mpc_set((*solutions)[i][0], tmp_vec[i], MPFR_RNDN);
       if (print) {print_mpc(&(*solutions)[i][0]); cout << endl;}
+    }
+  } else {
+    // COPY BOUNDARY
+    for (int i=0; i<dim; i++) {
+      mpc_set(solutions[0][i][0], bound[i], MPFR_RNDN);
     }
   }
 
@@ -4399,10 +4695,14 @@ void solve_zero(
   int log_len_max = b_len_max+2;
   malloc_rk4_tens(sol, num_classes, log_len_max, dim, eta_ord+1);
   init_rk4_mpc(sol, num_classes, log_len_max, dim, eta_ord+1);
+  mpc_t ****sol_der;
+  malloc_rk4_tens(sol_der, num_classes, log_len_max, dim, eta_ord+1);
+  init_rk4_mpc(sol_der, num_classes, log_len_max, dim, eta_ord+1);
   // initialize to zero
   for (int i=0; i<dim; i++) {
     for (int k=0; k<eta_ord+1; k++) {
       mpc_set_d(sol[lam0][0][i][k], 0, MPFR_RNDN);
+      mpc_set_d(sol_der[lam0][0][i][k], 0, MPFR_RNDN);
     }
   }
 
@@ -4485,9 +4785,22 @@ void solve_zero(
 
   mpc_t **sol_at_target;
   mpc_t ***cross_zero;
-  if (cross) {
+  // if (cross) {
     malloc_rk2_tens(sol_at_target, dim, 1);
     init_rk2_mpc(sol_at_target, dim, 1);
+  // }
+  mpc_t **der_at_target;
+  mpc_t ***der_cross_zero;
+  // if (cross) {
+    malloc_rk2_tens(der_at_target, dim, 1);
+    init_rk2_mpc(der_at_target, dim, 1);
+  // }
+
+  mpc_t *eta_check;
+  if (cross) {
+    eta_check = eta_target;
+  } else {
+    eta_check = matching_point;
   }
 
   // needed for limit in zero
@@ -4495,7 +4808,7 @@ void solve_zero(
   mpc_abs(tmpfr, *matching_point, MPFR_RNDN);
   int rad_exp = mpfr_get_exp(tmpfr);
   struct poly_frac *pf_sol = new struct poly_frac[dim];
-
+  
   for (int b=0; b<nblocks; b++) {
     // for (int b=0; b<1; b++) {
     if (b > 0) {fprintf(terminal, "\033[18D\033[K");}// fflush(terminal); usleep(sleep_time);}
@@ -4804,17 +5117,15 @@ void solve_zero(
       
       if (print) {
       cout << endl; cout << "SOLUTION OF THE HOMOGENEOUS" << endl;
-      if (1) {
-        for (int lam, n=0; n<num_cum_eig; n++) {
-          lam = cum_eig[n];
-          if (block_log_len[lam] == 0) {
-            continue;
-          }
-          cout << "lam = " << lam << endl;
-          for (int l=0; l<sol_log_len[lam]; l++) {
-            cout << "l = " << l << endl;
-            print_rk3_mpc(hsol[n][l], b_len, b_len, prt_ord+1);
-          }
+      for (int lam, n=0; n<num_cum_eig; n++) {
+        lam = cum_eig[n];
+        if (block_log_len[lam] == 0) {
+          continue;
+        }
+        cout << "lam = " << lam << endl;
+        for (int l=0; l<sol_log_len[lam]; l++) {
+          cout << "l = " << l << endl;
+          print_rk3_mpc(hsol[n][l], b_len, b_len, prt_ord+1);
         }
       }
       }
@@ -4835,17 +5146,15 @@ void solve_zero(
 
         if (print) {
         cout << endl; cout << "SOLUTION OF THE PARTICULAR" << endl;
-        if (1) {
-          for (int lam, n=0; n<num_cum_eig; n++) {
-            lam = cum_eig[n];
-            if (sol_log_len[lam] == 0) {
-              continue;
-            }
-            cout << "lam = " << lam << endl;
-            for (int l=0; l<sol_log_len[lam]; l++) {
-              cout << "l = " << l << endl;
-              print_rk3_mpc(psol[n][l], b_len, 1, prt_ord+1);
-            }
+        for (int lam, n=0; n<num_cum_eig; n++) {
+          lam = cum_eig[n];
+          if (sol_log_len[lam] == 0) {
+            continue;
+          }
+          cout << "lam = " << lam << endl;
+          for (int l=0; l<sol_log_len[lam]; l++) {
+            cout << "l = " << l << endl;
+            print_rk3_mpc(psol[n][l], b_len, 1, prt_ord+1);
           }
         }
         }
@@ -4928,33 +5237,58 @@ void solve_zero(
       }
     }
 
-    if (cross) {
       // EVALUATE SOLUTIONS BEYOND ZERO
       if (print) cout << endl << "evaluate beyond zero" << endl;
       malloc_rk3_tens(cross_zero, num_cum_eig, b_len, 1);
       init_rk3_mpc(cross_zero, num_cum_eig, b_len, 1);
+      malloc_rk3_tens(der_cross_zero, num_cum_eig, b_len, 1);
+      init_rk3_mpc(der_cross_zero, num_cum_eig, b_len, 1);
       for (int lam, n=0; n<num_cum_eig; n++) {
         lam = cum_eig[n];
         for (int l=0; l<sol_log_len[lam]; l++) {
           sol[lam][l] += offset;
+          sol_der[lam][l] += offset;
         }
       }
-      evaluate_series_around_zero(cross_zero, eta_target, NULL,
+      evaluate_series_around_zero(
+        cross_zero, eta_check, NULL,
         eig_list, num_cum_eig, cum_eig, sol_log_len, b_len, 1, eta_ord, num_classes, lam0,
         true, sol,
         NULL, NULL, true,
-        analytic_cont);
+        analytic_cont
+      );
+      // evaluate derivative too
+      mpc_t *eig_list_shifted = new mpc_t[num_classes];
+      init_rk1_mpc(eig_list_shifted, num_classes);
+      for (int n=0; n<num_classes; n++) {
+        mpc_sub_ui(eig_list_shifted[n], eig_list[n], 1, MPFR_RNDN);
+      }
+      solution_derivative(
+        sol_der,
+        sol,
+        eig_list, num_cum_eig, cum_eig, num_classes, lam0,
+        sol_log_len, b_len, eta_ord
+      );
+      evaluate_series_around_zero(
+        der_cross_zero, eta_check, NULL,
+        eig_list_shifted, num_cum_eig, cum_eig, sol_log_len, b_len, 1, eta_ord, num_classes, lam0,
+        true, sol_der,
+        NULL, NULL, true,
+        analytic_cont
+      );
       if (print) cout << "evaluated series around zero" << endl;
       for (int lam, n=0; n<num_cum_eig; n++) {
         lam = cum_eig[n];
         for (int l=0; l<sol_log_len[lam]; l++) {
           sol[lam][l] -= offset;
+          sol_der[lam][l] -= offset;
         }
       }
       if (print) cout << "solution at target:" << endl;
       for (int i=0; i<b_len; i++) {
         if (print) cout << "i = " << i << endl;
         mpc_set_ui(sol_at_target[offset+i][0], 0, MPFR_RNDN);
+        mpc_set_ui(der_at_target[offset+i][0], 0, MPFR_RNDN);
         for (int lam, n=0; n<num_cum_eig; n++) {
           lam = cum_eig[n];
           if (print) cout << "lam = " << lam << endl;
@@ -4962,9 +5296,11 @@ void solve_zero(
             continue;
           }
           if (print) {
-          cout << "cross zero: "; print_mpc(&cross_zero[n][i][0]); cout << endl;
+            cout << "cross zero: "; print_mpc(&cross_zero[n][i][0]); cout << endl;
+            cout << "der cross zero: "; print_mpc(&der_cross_zero[n][i][0]); cout << endl;
           }
           mpc_add(sol_at_target[offset+i][0], sol_at_target[offset+i][0], cross_zero[n][i][0], MPFR_RNDN);
+          mpc_add(der_at_target[offset+i][0], der_at_target[offset+i][0], der_cross_zero[n][i][0], MPFR_RNDN);
         }
         if (print) {
         print_mpc(&sol_at_target[offset+i][0]); cout << endl;
@@ -4972,6 +5308,8 @@ void solve_zero(
       }
       mpc_rk3_clear(cross_zero, num_cum_eig, b_len, 1);
       del_rk3_tens(cross_zero, num_cum_eig, b_len);
+      mpc_rk3_clear(der_cross_zero, num_cum_eig, b_len, 1);
+      del_rk3_tens(der_cross_zero, num_cum_eig, b_len);
 
       // evaluate_series_around_zero(cross_zero, &eta_target, psol,
       //   eig_list, num_cum_eig, cum_eig, sol_log_len, b_len, 1, eta_ord, num_classes);
@@ -5023,7 +5361,7 @@ void solve_zero(
 
       // cout << "transformed solution at target:" << endl;
       tmat += offset;
-      poly_frac_rk2_eval_value(tmat_eval, tmat, roots, eta_target, b_len, offset+b_len);
+      poly_frac_rk2_eval_value(tmat_eval, tmat, roots, eta_check, b_len, offset+b_len);
       // if (b==6) {exit(0);}
       mpc_rk2_mul_mpc_rk2_slice(
         tmp_vec, tmat_eval, sol_at_target,
@@ -5038,8 +5376,8 @@ void solve_zero(
       //   tmat[i] -= offset;
       // }
       tmat -= offset;
-    }
-    else {
+
+
       // cout << "COMPUTE LIMIT IN ZERO (BY BLOCK)" << endl;
       // pf_limit_in_zero_block(
       //   tmp_vec,
@@ -5052,7 +5390,7 @@ void solve_zero(
       // for (int i=0; i<b_len; i++) {
       //   mpc_set(solutions[0][offset+i][0], tmp_vec[i], MPFR_RNDN);
       // }
-    }
+
     if (print) {
     cout << endl; cout << "enter to SOLUTION" << endl;
     // getchar();
@@ -5062,6 +5400,15 @@ void solve_zero(
       for (int l=0; l<sol_log_len[lam]-1; l++) {
         cout << "l = " << l << endl;
         print_rk2_mpc(sol[lam][l] + offset, b_len, prt_ord+1);
+      }
+    }
+    cout << endl; cout << "enter to DERIVATIVE" << endl;
+    for (int lam, n=0; n<num_cum_eig; n++) {
+      lam = cum_eig[n];
+      cout << "lam = " << lam << endl;
+      for (int l=0; l<sol_log_len[lam]-1; l++) {
+        cout << "l = " << l << endl;
+        print_rk2_mpc(sol_der[lam][l] + offset, b_len, prt_ord+1);
       }
     }
     }
@@ -5109,6 +5456,52 @@ void solve_zero(
     // if (b == 18) {break;}
   }
   fprintf(terminal, "\033[18D\033[K"); fflush(terminal); usleep(sleep_time);
+
+  // ESTIMATE CONVERGENCE
+  cout << "CONVERGENCE" << endl;
+  cout << "eta_check = "; print_mpc(eta_check); cout << endl;
+  cout << "mpfr_tol = "; print_mpfr(&mpfr_tol); cout << endl;
+  int wp_bin = - mpfr_log2_int(mpfr_tol);
+  cout << "wp_bin = " << wp_bin << endl;
+  for (int lam, n=0; n<num_cum_eig; n++) {
+    lam = cum_eig[n];
+    double min_exp;
+    mpc_t *tmp_vec = new mpc_t[eta_ord+1];
+    init_rk1_mpc(tmp_vec, eta_ord+1);
+    for (int m=0; m<dim; m++) {
+      for (int l=0; l<log_prof[lam][m]-1; l++) {
+        if (l != 0) {
+          continue;
+        }
+        cout << "lam, m, l = " << lam << ", " << m << ", " << l << endl;
+        // cout << "lam, m, l, conv = " << lam << ", " << m << ", " << l << ", ";
+        copy_rk1_mpc(tmp_vec, sol[lam][l][m], eta_ord+1);
+        // cout << "unpruned:" << endl;
+        // print_rk1_mpc(sol[lam][l][m], eta_ord+1);
+
+        // cout << "prune_re_im:" << endl;
+        mpc_rk1_prune_re_im(tmp_vec, wp_bin, eta_ord+1);
+        // print_rk1_mpc(tmp_vec, eta_ord+1);
+
+        // cout << "prune_radius:" << endl;
+        mpc_rk1_prune_radius(tmp_vec, eta_ord+1, wp_bin*0.5, eta_check);  // #hard-coded
+        // print_rk1_mpc(tmp_vec, eta_ord+1);
+
+        // cout << "prune_rel_tol_real_max:" << endl;
+        mpc_rk1_prune_rel_tol_real_max(tmp_vec, eta_ord+1, wp_bin, eta_check);        
+        // print_rk1_mpc(tmp_vec, eta_ord+1);
+        cout << "max non-zero idx = " << mpc_rk1_max_non_zero_idx(tmp_vec, eta_ord+1) << endl;
+        
+        min_exp = estimate_convergence(tmp_vec, eta_ord+1, eta_check);
+        cout << "conv = " <<  min_exp << endl;
+        // cout <<  min_exp << endl;
+        // exit(0);
+      }
+    }
+    mpc_rk1_clear(tmp_vec, eta_ord+1);
+    delete[] tmp_vec;
+  }
+  // exit(0);
 
   if (debug) {
   //////
@@ -5191,6 +5584,14 @@ void solve_zero(
   }
   }
 
+  poly_frac_rk2_eval_value(tmat_eval, tmat, roots, eta_check, dim, dim);
+  // cout << "tmat_eval:" << endl;
+  // print_rk2_mpc(tmat_eval, dim, dim);
+  mpc_rk2_mul_mpc_rk2_slice(
+    tmp_vec, tmat_eval, sol_at_target,
+    dim, dim, 0
+  );
+
   if (cross) {
     // TRANSFORM BACK MI AT TARGET IN THE ORIGINAL GAUGE
     if (print) {
@@ -5203,11 +5604,7 @@ void solve_zero(
     }
     cout << endl;
     }
-    poly_frac_rk2_eval_value(tmat_eval, tmat, roots, eta_target, dim, dim);
-    mpc_rk2_mul_mpc_rk2_slice(
-      tmp_vec, tmat_eval, sol_at_target,
-      dim, dim, 0
-    );
+
     // cout << "untransformed solution at target:" << endl;
     // the copy tmp_vec is unnecessary, we could avoid it if inside
     // pf_limit_in_zero we perform the rk2_mul_rk1 with a slice on the output
@@ -5215,13 +5612,11 @@ void solve_zero(
       mpc_set(solutions[0][i][0], tmp_vec[i], MPFR_RNDN);
       // print_mpc(&solutions[0][i][0]); cout << endl;
     }
-    mpc_rk2_clear(sol_at_target, dim, 1);
-    del_rk2_tens(sol_at_target, dim);
   } else {
     // COMPUTE LIMIT IN ZERO AND TRANSFORM BACK TO ORIGINAL GAUGE
     if (print) cout << "COMPUTE LIMIT IN ZERO" << endl;
     pf_limit_in_zero(
-      tmp_vec,
+      tmp_vec2,
       sol, tmat,
       dim, lam0, tp_rank,
       roots, npoles,
@@ -5230,11 +5625,112 @@ void solve_zero(
     // the copy tmp_vec is unnecessary, we could avoid it if inside
     // pf_limit_in_zero we perform the rk2_mul_rk1 with a slice on the output
     for (int i=0; i<dim; i++) {
-      mpc_set(solutions[0][i][0], tmp_vec[i], MPFR_RNDN);
+      mpc_set(solutions[0][i][0], tmp_vec2[i], MPFR_RNDN);
     }
   }
 
+
+  //////
+  // CHECK PRECISION
+  //////
+  fprintf(stdout, "CHECK PRECISION\n");
+  mpc_t *residual_mpc = new mpc_t[dim];
+  init_rk1_mpc(residual_mpc, dim);
+  mpfr_t *residual = new mpfr_t[dim];
+  init_rk1_mpfr(residual, dim);
+  
+  // RESIDUAL IN FUCHSIAN BASIS
+  poly_frac_rk2_eval_value(mat_ep_eval, mat_ep, roots, eta_check, dim, dim);
+  mpc_rk2_mul_mpc_rk2_slice(
+    DE_times_sol_eval, mat_ep_eval, sol_at_target,
+    dim, dim, 0
+  );
+  // cout << "sol_at_target (fuchs):" << endl;
+  // for (int i=0; i<dim; i++) {
+  //   print_mpc(&sol_at_target[i][0]); cout << endl;
+  // }
+  // cout << "der_at_target (fuchs):" << endl;
+  // for (int i=0; i<dim; i++) {
+  //   print_mpc(&der_at_target[i][0]); cout << endl;
+  // }
+
+  cout << "residual in Fuchsian basis:" << endl;
+  for (int i=0; i<dim; i++) {
+    mpc_sub(residual_mpc[i], der_at_target[i][0], DE_times_sol_eval[i], MPFR_RNDN);
+    if (!mpc_zero_p(DE_times_sol_eval[i])) {
+      mpc_div(residual_mpc[i], residual_mpc[i], DE_times_sol_eval[i], MPFR_RNDN);
+    }
+    mpc_abs(residual[i], residual_mpc[i], MPFR_RNDN);
+    print_mpfr(&residual[i]); cout << endl;
+  }
+
+  // RESIDUAL IN ORIGINAL BASIS
+  // transform derivative at target
+  mpc_rk2_mul_mpc_rk2_slice(
+    der_eval, tmat_eval, der_at_target,
+    dim, dim, 0
+  );
+  // cout << "derivative of tmat:" << endl;
+  for (int i=0; i<dim; i++) {
+    for (int j=0; j<dim; j++) {
+      poly_frac_derivative(&tmp_pf, &tmat[i][j], roots);
+      // poly_frac_print_to_math(&tmp_pf, roots); cout << endl;
+      poly_frac_eval_value(&tmp_mat[i][j], &tmp_pf, roots, eta_check);
+    }
+  }
+  mpc_rk2_mul_mpc_rk2_slice(
+    tmp_vec1, tmp_mat, sol_at_target,
+    dim, dim, 0
+  );
+  for (int i=0; i<dim; i++) {
+    mpc_add(der_eval[i], der_eval[i], tmp_vec1[i], MPFR_RNDN);
+  }
+
+  // apply DE matrix to solution at target
+  poly_frac_rk2_eval_value(mat_ep_eval, mat_ep_orig, roots, eta_check, dim, dim);
+  mpc_rk2_mul_mpc_rk1(
+    DE_times_sol_eval, mat_ep_eval, tmp_vec,
+    dim, dim
+  );
+  // cout << "mat (orig):" << endl;
+  // poly_frac_rk2_print_to_math(mat_ep_orig, dim, dim, roots);
+  // cout << "matEval (orig):" << endl;
+  // print_rk2_mpc(mat_ep_eval, dim, dim);
+  
+  // int wp_bin = - mpfr_log2_int(mpfr_tol);
+  mpc_rk1_prune_re_im(der_eval, wp_bin, dim);
+  mpc_rk1_prune_re_im(DE_times_sol_eval, wp_bin, dim);
+  // cout << "derivative:" << endl;
+  // print_rk1_mpc(der_eval, dim);
+  // cout << "DE times solution:" << endl;
+  // print_rk1_mpc(DE_times_sol_eval, dim);
+  cout << "residual:" << endl;
+  for (int i=0; i<dim; i++) {
+    mpc_sub(residual_mpc[i], der_eval[i], DE_times_sol_eval[i], MPFR_RNDN);
+    if (!mpc_zero_p(DE_times_sol_eval[i])) {
+      mpc_div(residual_mpc[i], residual_mpc[i], DE_times_sol_eval[i], MPFR_RNDN);
+    }
+    mpc_abs(residual[i], residual_mpc[i], MPFR_RNDN);
+    print_mpfr(&residual[i]); cout << endl;
+  }
+
+  // copy solution to output
+  for (int i=0; i<dim; i++) {
+    mpc_set(out_sol[i], (*solutions)[i][0], MPFR_RNDN);
+  }
+
+  // compare
+  // mpc_rk1_compare(der_eval, DE_times_sol_eval, dim);
+
+  mpc_rk2_clear(sol_at_target, dim, 1);
+  del_rk2_tens(sol_at_target, dim);
+  mpc_rk2_clear(der_at_target, dim, 1);
+  del_rk2_tens(der_at_target, dim);
+
   // FREE
+  mpc_rk2_clear(*solutions, dim, eta_ord+1);
+  del_rk2_tens(*solutions, dim);  
+  delete[] solutions;  
   mpfr_clear(tmpfr);
   delete[] cum_eig;
   delete[] block_log_len;
@@ -5244,9 +5740,22 @@ void solve_zero(
   }
   delete[] lcm;
   delete[] lcm_orig;
+  mpc_rk1_clear(tmp_vec, dim);
   delete[] tmp_vec;
+  mpc_rk1_clear(tmp_vec1, dim);
+  delete[] tmp_vec1;
+  mpc_rk1_clear(tmp_vec2, dim);
+  delete[] tmp_vec2;
+  mpc_rk1_clear(der_eval, dim);
+  delete[] der_eval;
+  mpc_rk1_clear(DE_times_sol_eval, dim);
+  delete[] DE_times_sol_eval;
   mpc_rk2_clear(tmat_eval, dim, dim);
   del_rk2_tens(tmat_eval, dim);
+  mpc_rk2_clear(mat_ep_eval, dim, dim);
+  del_rk2_tens(mat_ep_eval, dim);
+  mpc_rk2_clear(tmp_mat, dim, dim);
+  del_rk2_tens(tmp_mat, dim);
   del_rk3_tens(mpc_lcm_mat_ep, dim, dim);
   poly_frac_rk2_free(lcm_mat_ep, dim, dim);
   del_rk2_tens(lcm_mat_ep, dim);
@@ -5396,8 +5905,8 @@ void set_analytic_cont_sign(
 
 
 void propagate_infty(
-  // IN-OUT
-  mpc_t ***solutions,
+  // OUTPUT
+  mpc_t *sol,
   // INPUT
   char *eps_str,
   mpc_t *bound, mpc_t *path,
@@ -5705,10 +6214,10 @@ void propagate_infty(
   // numeric epv = (numeric) eps_str;
   mpc_set_ui(bound_pt, 0, MPFR_RNDN);
   mpc_pow_si(target_pt, path[0], -1,  MPFR_RNDN);
-  for (int i=0; i<dim; i++) {
-    // mpc_init3(solutions[0][i][0], wp2, wp2);
-    mpc_set(solutions[0][i][0], bound[i], MPFR_RNDN);
-  }
+  // for (int i=0; i<dim; i++) {
+  //   // mpc_init3(solutions[0][i][0], wp2, wp2);
+  //   mpc_set(solutions[0][i][0], bound[i], MPFR_RNDN);
+  // }
 
   int ninvs = 1;
   int *is_mass = new int[1]; is_mass[0] = 0;
@@ -5723,8 +6232,9 @@ void propagate_infty(
   timespec start_el_singular, end_el_singular;
   clock_gettime(CLOCK_MONOTONIC, &start_el_singular);
   solve_zero(
-    solutions,
-    dim, pfmat_infty,
+    sol,
+    bound,
+    dim, pfmat_infty, pfmat_infty,
     tmat, inv_tmat,
     nroots, roots_infty,
     &bound_pt,
@@ -5752,12 +6262,17 @@ void propagate_infty(
     mpc_pow(eta_pow, path[0], pow_infty[i], MPFR_RNDN);
     // cout << "pow_infty = "; print_mpc(&pow_infty[i]); cout << endl;
     // cout << "eta_pow = "; print_mpc(&eta_pow); cout << endl;
-    mpc_mul(solutions[0][i][0], solutions[0][i][0], eta_pow, MPFR_RNDN);
+    mpc_mul(sol[i], sol[i], eta_pow, MPFR_RNDN);
 
     // print
-    mpc_out_str(logfptr, 10, 0, solutions[0][i][0], MPFR_RNDN); fprintf(logfptr, "\n");
+    mpc_out_str(logfptr, 10, 0, sol[i], MPFR_RNDN); fprintf(logfptr, "\n");
   }
 
+  // copy solution to output
+  for (int i=0; i<dim; i++) {
+    mpc_set(bound[i], sol[i], MPFR_RNDN);
+  }
+  
   fprintf(terminal, "\033[10D\033[K"); fflush(terminal); usleep(sleep_time);
   fprintf(terminal, "\033[10D\033[K"); fflush(terminal); usleep(sleep_time);
 
@@ -5775,9 +6290,8 @@ void propagate_infty(
 void propagate_along_path(
   // OUTPUT
   mpc_t **sol_at_eps,
-  // IN-OUT
-  mpc_t ***solutions,
   // INPUT
+  mpc_t *bound,
   int dim, int eta_ord,
   int ep, char *eps_str,
   int neta_values, mpc_t *path, int *path_tags, int nsings,
@@ -5798,17 +6312,22 @@ void propagate_along_path(
   // double wp2_rel_decr = 0.93;
   // double wp2_rel_decr = 0.90;
   // double wp2_rel_decr = 0.85;
+  // double wp2_rel_decr = 0.85;
   // double wp2_rel_decr = 0.81;
-  // double wp2_rel_decr = 0.80;
-  double wp2_rel_decr = 0.77;
+  double wp2_rel_decr = 0.80;
+  // double wp2_rel_decr = 0.77;
   // double wp2_rel_decr = 0.70;
   // double wp2_rel_decr = 0.64;
-  double wp2_rel_decr_orig = wp2_rel_decr;
+  // double wp2_rel_decr_orig = wp2_rel_decr;
+  double wp2_rel_decr_orig = 1;
+  // double wp2_rel_decr_prune = 0.98;
+  // double wp2_rel_decr_prune = 0.95;
   // double wp2_rel_decr_prune = 0.90;
+  // double wp2_rel_decr_prune = 0.85;
   double wp2_rel_decr_prune = 0.80;
   // double wp2_rel_decr_prune = 0.77;
   // double wp2_rel_decr_prune = 0.70;
-  double wp2_rel_decr_prune_orig = wp2_rel_decr_prune;
+  double wp2_rel_decr_prune_orig = 1;
 
   // needed for analytic continuation
   int *analytic_cont;
@@ -5821,6 +6340,9 @@ void propagate_along_path(
   struct poly_frac **sh_pfmat;
   malloc_rk2_tens(sh_pfmat, dim, dim);
   poly_frac_rk2_build(sh_pfmat, dim, dim);
+  struct poly_frac **sh_pfmat_norm;
+  malloc_rk2_tens(sh_pfmat_norm, dim, dim);
+  poly_frac_rk2_build(sh_pfmat_norm, dim, dim);
   mpc_t *sh_roots;
   sh_roots = new mpc_t[nroots];
   init_rk1_mpc(sh_roots, nroots);
@@ -5852,6 +6374,9 @@ void propagate_along_path(
   timespec start_el_normalize, end_el_normalize;
 
   int solve_tag, count_sings = 0, nreg_steps = 1;
+
+  mpc_t *sol = new mpc_t[dim];
+  init_rk1_mpc(sol, dim);
 
   // fprintf(logfptr, "{\n");
   for (int et=0; et<neta_values; et++) {
@@ -5928,22 +6453,35 @@ void propagate_along_path(
       fprintf(logfptr, "\nregular propagation...\n");
       fprintf(logfptr, "n. steps: %d\n", nreg_steps);
       fflush(logfptr);
-      propagate_regular(
-        solutions,
-        nreg_steps+1, path+et-nreg_steps,
-        dim, pfmat,
-        nroots, roots,
-        nblocks, prof, sb_grid, eta_ord
-      );
+      double eta_ord_mul = 1;
+      // while (eta_ord_mul == 1) {
+        propagate_regular(
+          &eta_ord_mul,
+          sol, bound,
+          nreg_steps+1, path+et-nreg_steps,
+          dim, pfmat,
+          nroots, roots,
+          nblocks, prof, sb_grid, eta_ord
+        );
+
+        // if (eta_ord_mul != 1) {
+          
+        // }
+      // }
       nreg_steps = 1;
       // print
       fprintf(logfptr, "\nresult of regular propagation:\n");
       for (int i=0; i<dim; i++) {
         fprintf(logfptr, "i = %d: ", i);
-        mpc_out_str(logfptr, 10, 0, solutions[0][i][0], MPFR_RNDN); fprintf(logfptr, "\n");
+        mpc_out_str(logfptr, 10, 0, sol[i], MPFR_RNDN); fprintf(logfptr, "\n");
         // print_mpc(&solutions[0][i][0]); cout << endl;
       }
       fflush(logfptr);
+
+      // copy solution to boundary
+      for (int i=0; i<dim; i++) {
+        mpc_set(bound[i], sol[i], MPFR_RNDN);
+      }
       // exit(0);
     } else if (solve_tag == 0) {
       fprintf(terminal, "singular: "); fflush(terminal); usleep(sleep_time);
@@ -6065,6 +6603,12 @@ void propagate_along_path(
       // poly_frac_rk2_prune(sh_pfmat, dim, dim, wp2_rel_decr_prune);
       poly_frac_rk2_normal(sh_pfmat, dim, dim);
 
+      // copy
+      poly_frac_rk2_set_pf_rk2(
+        sh_pfmat_norm, sh_pfmat,
+        dim, dim
+      );
+
       // # NORMALIZE MATRIX
       fprintf(logfptr, "\nnormalize matrix...\n"); fflush(logfptr);
       // cout << "input matrix:" << endl;
@@ -6089,7 +6633,7 @@ void propagate_along_path(
       pf_NormalizeMat(
         tmat, inv_tmat,
         &num_classes, eq_class, &eig_list, eig_grid,
-        sh_pfmat,
+        sh_pfmat_norm,
         dim, nblocks, prof, sb_grid,
         sh_roots, nroots,
         terminal
@@ -6098,7 +6642,7 @@ void propagate_along_path(
       double time_el_normalize_local = timespec_to_double(start_el_normalize, end_el_normalize);
       time_el_normalize += time_el_normalize_local;
 
-      if (0 && print) {
+      if (print) {
       cout << "tmat=";
       poly_frac_rk2_print_to_math(tmat, dim, dim, sh_roots);
       // cout << "tmat:" << endl;
@@ -6108,7 +6652,7 @@ void propagate_along_path(
       // cout << "inv tmat:" << endl;
       // poly_frac_rk2_print(inv_tmat, dim, dim);
       cout << "mat=";
-      poly_frac_rk2_print_to_math(sh_pfmat, dim, dim, sh_roots);
+      poly_frac_rk2_print_to_math(sh_pfmat_norm, dim, dim, sh_roots);
       }
       if (print) {
         cout << endl << "EIGENVALUES:" << endl;
@@ -6144,7 +6688,7 @@ void propagate_along_path(
       int **sb_grid_norm;
       generate_sub_diag_grid(
         &sb_grid_norm,
-        prof, nblocks, sh_pfmat
+        prof, nblocks, sh_pfmat_norm
       );
 
       if (0 && print) {
@@ -6163,8 +6707,9 @@ void propagate_along_path(
       // if (et == 0) {try_analytic = 1;}
       clock_gettime(CLOCK_MONOTONIC, &start_el_singular);
       solve_zero(
-        solutions,
-        dim, sh_pfmat,
+        sol,
+        bound,
+        dim, sh_pfmat_norm, sh_pfmat,
         tmat, inv_tmat,
         nroots, sh_roots,
         &bound_pt,
@@ -6185,11 +6730,16 @@ void propagate_along_path(
       fprintf(logfptr, "\nresult of singular propagation:\n");
       for (int i=0; i<dim; i++) {
         fprintf(logfptr, "i = %d: ", i);
-        mpc_out_str(logfptr, 10, 0, solutions[0][i][0], MPFR_RNDN); fprintf(logfptr, "\n");
+        mpc_out_str(logfptr, 10, 0, sol[i], MPFR_RNDN); fprintf(logfptr, "\n");
         // print_mpc(&solutions[0][i][0]); cout << endl;
       }
       fflush(logfptr);
       // exit(0);
+
+      // copy solution to boundary
+      for (int i=0; i<dim; i++) {
+        mpc_set(bound[i], sol[i], MPFR_RNDN);
+      }
 
       count_sings++;
       // // update tolerance // DEBUG
@@ -6201,12 +6751,14 @@ void propagate_along_path(
   fprintf(terminal, "\033[23D\033[K"); fflush(terminal); usleep(sleep_time);
   // copy to output
   for (int i=0; i<dim; i++) {
-    mpc_set(sol_at_eps[i][ep], solutions[0][i][0], MPFR_RNDN);
+    mpc_set(sol_at_eps[i][ep], sol[i], MPFR_RNDN);
   }
 
   fprintf(logfptr, "}\n"); fflush(logfptr);
 
   // FREE
+  mpc_rk1_clear(sol, dim);
+  delete[] sol;
   delete[] eq_class;
   delete[] eig_grid;
   poly_frac_rk2_free(tmat, dim, dim);
@@ -6215,6 +6767,8 @@ void propagate_along_path(
   del_rk2_tens(inv_tmat, dim);
   poly_frac_rk2_free(sh_pfmat, dim, dim);
   del_rk2_tens(sh_pfmat, dim);
+  poly_frac_rk2_free(sh_pfmat_norm, dim, dim);
+  del_rk2_tens(sh_pfmat_norm, dim);
   mpc_rk1_clear(sh_roots, nroots);
   delete[] sh_roots;
 }
@@ -6228,7 +6782,7 @@ void propagate_eps(
   poly_frac ***pfmat,
   int *zero_label, int *nroots, mpc_t **roots,
   int *neta_values, mpc_t **path, int **path_tags, int *nsings, int **sing_lab,
-  mpc_t ***solutions, int dim, int eta_ord,
+  int dim, int eta_ord,
   int eps_num, char **eps_str,
   int ninvs, mpc_t *PS_ini, mpc_t *PS_fin, char **symbols,
   int *is_mass, int *skip_inv,
@@ -6249,7 +6803,7 @@ void propagate_eps(
   // poly_frac_rk2_build(pfmat, dim, dim);
   // int nroots, zero_label;
   // mpc_t *roots;
-  FILE *boundfptr;
+  // FILE *boundfptr;
   // ex gnc_tol_orig = gnc_tol;  // #uncomment-for-ginac
   mpfr_t mpfr_tol_orig;
   mpfr_init2(mpfr_tol_orig, wp2);
@@ -6292,42 +6846,45 @@ void propagate_eps(
   // init_rk1_mpc(roots[ep], nroots[ep]);
   // int_rk0_mpc_rk1_from_file(tmp_filepath_roots, roots[ep], nroots[ep], &zero_label[ep]);
 
-  //////
-  // LOAD BOUNDARY
-  //////
-  if (gen_bound == 0) {
-    snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_bound, ep, file_ext);
-    fprintf(logfptr, "\nloading boundary from %s\n", tmp_filepath); fflush(logfptr);
-    boundfptr = fopen(tmp_filepath, "r");
-    if (boundfptr == NULL) {
-      printf("Could not open file %s\n", tmp_filepath);
-      exit(1);
-    }
-    for (int i=0; i<dim; i++) {
-      // mpc_init3(solutions[0][i][0], wp2, wp2);
-      mpc_inp_str(solutions[0][i][0], boundfptr, 0, 10, MPFR_RNDN);
-    }
-    fclose(boundfptr);
-  } else {
-    for (int i=0; i<dim; i++) {
-      // mpc_init3(solutions[0][i][0], wp2, wp2);
-      mpc_set(solutions[0][i][0], bound[ep][i], MPFR_RNDN);
-    }
-  }
-  if (print) {
-  cout << "BOUNDARY:" << endl;
-  for (int i=0; i<dim; i++) {
-    cout << "BC n." << i << ": "; print_mpc(&solutions[0][i][0]); cout << endl;
-  }
-  }
+  // #2B-removed
+  // //////
+  // // LOAD BOUNDARY
+  // //////
+  // if (gen_bound == 0) {
+  //   snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_bound, ep, file_ext);
+  //   fprintf(logfptr, "\nloading boundary from %s\n", tmp_filepath); fflush(logfptr);
+  //   boundfptr = fopen(tmp_filepath, "r");
+  //   if (boundfptr == NULL) {
+  //     printf("Could not open file %s\n", tmp_filepath);
+  //     exit(1);
+  //   }
+  //   for (int i=0; i<dim; i++) {
+  //     // mpc_init3(solutions[0][i][0], wp2, wp2);
+  //     mpc_inp_str(solutions[0][i][0], boundfptr, 0, 10, MPFR_RNDN);
+  //   }
+  //   fclose(boundfptr);
+  // } else {
+  //   for (int i=0; i<dim; i++) {
+  //     // mpc_init3(solutions[0][i][0], wp2, wp2);
+  //     mpc_set(solutions[0][i][0], bound[ep][i], MPFR_RNDN);
+  //   }
+  // }
+  // if (print) {
+  // cout << "BOUNDARY:" << endl;
+  // for (int i=0; i<dim; i++) {
+  //   cout << "BC n." << i << ": "; print_mpc(&solutions[0][i][0]); cout << endl;
+  // }
+  // }
 
   if (exit_sing == -1) {
     //////
     // EXIT SINGULARITY AT INFINITY
     //////
+    mpc_t *sol = new mpc_t[dim];
+    init_rk1_mpc(sol, dim);
     fprintf(logfptr, "\nEXIT SINGULARITY AT INFINITY...\n"); fflush(logfptr);
     propagate_infty(
-      solutions,
+      sol,
       eps_str[ep],
       bound[ep], path[ep],
       dim, pfmat[ep],
@@ -6336,6 +6893,14 @@ void propagate_eps(
       nloops, eta_ord,
       logfptr, terminal
     );
+
+    // copy solution to boundary
+    for (int i=0; i<dim; i++) {
+      mpc_set(bound[ep][i], sol[i], MPFR_RNDN);
+    }
+
+    mpc_rk1_clear(sol, dim);
+    delete[] sol;
   }
 
   //////
@@ -6376,7 +6941,7 @@ void propagate_eps(
   // exit(0);
   propagate_along_path(
     sol_at_eps,
-    solutions,
+    bound[ep],
     dim, eta_ord,
     ep, eps_str[ep],
     neta_values[ep], path[ep], path_tags[ep], nsings[ep],
@@ -6410,7 +6975,7 @@ void propagate_eps(
   // wp2 = wp2_orig;
   // if (ep == 2) exit(0); // #dbg
 
-  // // FREE
+  // FREE
   // poly_frac_rk2_free(pfmat[ep], dim, dim);
   // del_rk2_tens(pfmat[ep], dim);
   // mpc_rk1_clear(roots[ep], nroots[ep]);

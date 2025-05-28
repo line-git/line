@@ -1092,6 +1092,9 @@ void poly_frac_prune_rel_tol_no_zero_p(
 void poly_frac_prune_rel_tol(
   struct poly_frac *pf, int wp_bin
 ) {
+  /*
+  prune according to relative exponent w.r.t. neighboring exponent
+  */
   if (pf->num_vdeg < 1) {
     poly_frac_prune(pf);
     return;
@@ -1231,6 +1234,9 @@ void poly_frac_trim_zero_p(
 void poly_frac_prune_rel_tol_real_max(
   struct poly_frac *pf, int wp_bin
 ) {
+  /*
+  prune according to relative exponent w.r.t. max exponent
+  */
   if (pf->num_vdeg < 1) {
     poly_frac_prune(pf);
     return;
@@ -1279,6 +1285,84 @@ void poly_frac_prune_rel_tol_real_max(
 
   // TRIM
   poly_frac_trim_zero_p(pf);
+
+}
+
+
+// #pair
+void mpc_rk1_prune_rel_tol_real_max(
+  mpc_t *coeffs, int dim, int wp_bin, mpc_t *val
+) {
+  /*
+  prune according to relative exponent w.r.t. max exponent
+  */
+  mpfr_t tmpfr; mpfr_init2(tmpfr, wp2);
+  mpc_abs(tmpfr, *val, MPFR_RNDN);
+  mpfr_log2(tmpfr, tmpfr, MPFR_RNDN);
+  double val_exp2 = mpfr_get_d(tmpfr, MPFR_RNDN);
+
+  // extract exponents and find maximum
+  double *exps_re = new double[dim];
+  double *exps_im = new double[dim];
+  double exp_max;
+  int kp = 0;
+  for (kp = 0; kp < dim; kp++) {
+    if (!mpc_zero_p(coeffs[kp])) {
+      break;
+    }
+  }
+  if (kp == dim) {
+    return;
+  }
+  exps_re[kp] = ((double) mpfr_get_exp(mpc_realref(coeffs[kp]))) + ((double) kp)*val_exp2;
+  exps_im[kp] = ((double) mpfr_get_exp(mpc_imagref(coeffs[kp]))) + ((double) kp)*val_exp2;
+  if (mpfr_zero_p(mpc_realref(coeffs[kp]))) {
+    exp_max = exps_im[kp];
+  } else {
+    exp_max = exps_re[kp];
+    if (mpfr_zero_p(mpc_imagref(coeffs[kp]))) {
+      if (exps_im[kp] > exp_max) {
+        exp_max = exps_im[kp];
+      }
+    }
+  }
+  
+  int k;
+  for (k=1; k<dim; k++) {
+    if (mpc_zero_p(coeffs[k])) {
+      continue;
+    }
+    exps_re[k] = ((double) mpfr_get_exp(mpc_realref(coeffs[k]))) + ((double) k)*val_exp2;
+    exps_im[k] = ((double) mpfr_get_exp(mpc_imagref(coeffs[k]))) + ((double) k)*val_exp2;
+
+    if (exps_re[k] > exp_max) {
+      if (!mpfr_zero_p(mpc_realref(coeffs[k]))) {
+        exp_max = exps_re[k];
+      }
+    }
+    if (exps_im[k] > exp_max) {
+      if (!mpfr_zero_p(mpc_imagref(coeffs[k]))) {
+        exp_max = exps_im[k];
+      }
+    }
+  }
+  // cout << "exp max = " << exp_max << endl;
+  // cout << "val_exp2 = " << val_exp2 << endl;
+
+  // PRUNE IN RELATIVE TO MAX
+  for (k=0; k<dim; k++) {
+    // cout << "k = " << k << endl;
+    // cout << "exp_re = " << exps_re[k] << endl;
+    // cout << "exp_im = " << exps_im[k] << endl;
+    if (exp_max - exps_re[k] > wp_bin) {
+      // cout << "prune real of k = " << k << endl;
+      mpfr_set_ui(mpc_realref(coeffs[k]), 0, MPFR_RNDN);
+    }
+    if (exp_max - exps_im[k] > wp_bin) {
+      // cout << "prune imag of k = " << k << endl;
+      mpfr_set_ui(mpc_imagref(coeffs[k]), 0, MPFR_RNDN);
+    }
+  }
 
 }
 
@@ -1600,6 +1684,338 @@ void poly_frac_prune_radius(
   // cout << "after trim:" << endl;
   // poly_frac_print(pf);
   
+}
+
+
+// #pair
+void mpc_rk1_prune_radius_real(
+  mpc_t *coeffs, int dim, int wp_bin, mpc_t *val
+) {
+  /*
+  prune according to relative exponent w.r.t. neighboring exponent
+  */  
+  mpfr_t tmpfr; mpfr_init2(tmpfr, wp2);
+  mpc_abs(tmpfr, *val, MPFR_RNDN);
+  mpfr_log2(tmpfr, tmpfr, MPFR_RNDN);
+  double val_exp2 = mpfr_get_d(tmpfr, MPFR_RNDN);
+
+  int kp = 0;
+  for (kp = 0; kp < dim; kp++) {
+    if (!mpfr_zero_p(mpc_realref(coeffs[kp]))) {
+      break;
+    }
+  }
+  // cout << "kp = " << kp << endl;
+  if (kp == dim) {
+    return;
+  }
+
+  int zero_p = mpfr_zero_p(mpc_realref(coeffs[kp]));
+  int zero_p_next;
+  double exp2 = (double) mpfr_get_exp(mpc_realref(coeffs[kp]));
+  double exp2_next, exp2_diff;
+  int k, drop_idx = -1, drop_diff;
+  for (k=kp+1; k<dim; k++) {
+    zero_p_next = mpfr_zero_p(mpc_realref(coeffs[k]));
+    exp2_next = (double) mpfr_get_exp(mpc_realref(coeffs[k]));
+    
+    if (zero_p && zero_p_next) {
+      continue;
+    }
+    
+    exp2_diff = exp2_next + val_exp2 - exp2;
+    if (exp2_diff >= 0) {
+      if (exp2_diff > wp_bin) {
+        if (!zero_p_next) {
+          if (drop_idx == -1) {
+            break;
+          } else {
+            drop_idx = -1;
+          }
+        }
+      } else {
+        if (zero_p) {
+          if (drop_idx == -1) {
+            break;
+          } else {
+            drop_idx = -1;
+          }
+        } else if (zero_p_next) {
+          drop_idx = k;
+        }
+      }
+    } else {
+      exp2_diff *= -1;
+      if (exp2_diff > wp_bin) {
+        if (!zero_p) {
+          drop_idx = k;
+        }
+      } else {
+        if (zero_p) {
+          if (drop_idx == -1) {
+            break;
+          } else {
+            drop_idx = -1;
+          }          
+        } else if (zero_p_next) {
+          drop_idx = k;
+        }
+      }
+    }
+
+    zero_p = zero_p_next;
+    exp2 = exp2_next;
+    continue;
+    
+  }
+
+  if (k == dim) {
+    // no need to prune
+    return;
+  }
+
+  // cout << "prune up to k = " << k << endl;
+  for (int kpp=kp; kpp<k; kpp++) {
+    mpfr_set_ui(mpc_realref(coeffs[kpp]), 0,  MPFR_RNDN);
+  }
+
+}
+
+
+// #pair
+void mpc_rk1_prune_radius_imag(
+  mpc_t *coeffs, int dim, int wp_bin, mpc_t *val
+) {
+  /*
+  prune according to relative exponent w.r.t. neighboring exponent
+  */  
+  mpfr_t tmpfr; mpfr_init2(tmpfr, wp2);
+  mpc_abs(tmpfr, *val, MPFR_RNDN);
+  mpfr_log2(tmpfr, tmpfr, MPFR_RNDN);
+  double val_exp2 = mpfr_get_d(tmpfr, MPFR_RNDN);
+
+  int kp = 0;
+  for (kp = 0; kp<dim; kp++) {
+    if (!mpfr_zero_p(mpc_imagref(coeffs[kp]))) {
+      break;
+    }
+  }
+  // cout << "kp = " << kp << endl;
+  if (kp == dim) {
+    return;
+  }
+  
+  int zero_p = mpfr_zero_p(mpc_imagref(coeffs[kp]));
+  int zero_p_next;
+  double exp2 = (double) mpfr_get_exp(mpc_imagref(coeffs[kp]));
+  double exp2_next, exp2_diff;
+  int k, drop_idx = -1, drop_diff;
+  for (k=kp+1; k<dim; k++) {
+    zero_p_next = mpfr_zero_p(mpc_imagref(coeffs[k]));
+    exp2_next = (double) mpfr_get_exp(mpc_imagref(coeffs[k]));
+    
+    if (zero_p && zero_p_next) {
+      continue;
+    }
+    
+    exp2_diff = exp2_next + val_exp2 - exp2;
+    if (exp2_diff >= 0) {
+      if (exp2_diff > wp_bin) {
+        if (!zero_p_next) {
+          if (drop_idx == -1) {
+            break;
+          } else {
+            drop_idx = -1;
+          }
+        }
+      } else {
+        if (zero_p) {
+          if (drop_idx == -1) {
+            break;
+          } else {
+            drop_idx = -1;
+          }
+        } else if (zero_p_next) {
+          drop_idx = k;
+        }
+      }
+    } else {
+      exp2_diff *= -1;
+      if (exp2_diff > wp_bin) {
+        if (!zero_p) {
+          drop_idx = k;
+        }
+      } else {
+        if (zero_p) {
+          if (drop_idx == -1) {
+            break;
+          } else {
+            drop_idx = -1;
+          }          
+        } else if (zero_p_next) {
+          drop_idx = k;
+        }
+      }
+    }
+
+    zero_p = zero_p_next;
+    exp2 = exp2_next;
+    continue;
+    
+  }
+  
+  if (k == dim) {
+    // no need to prune
+    return;
+  }
+
+  // cout << "prune up to k = " << k << endl;
+  for (int kpp=kp; kpp<k; kpp++) {
+    mpfr_set_ui(mpc_imagref(coeffs[kpp]), 0, MPFR_RNDN);
+  }
+
+}
+
+
+void mpc_rk1_prune_radius_real_imag(
+  mpc_t *coeffs, int dim, int wp_bin, mpc_t *val, int start_real
+) {
+  /*
+  prune according to relative exponent w.r.t. neighboring exponent
+  */  
+  mpfr_t tmpfr; mpfr_init2(tmpfr, wp2);
+  mpc_abs(tmpfr, *val, MPFR_RNDN);
+  mpfr_log2(tmpfr, tmpfr, MPFR_RNDN);
+  double val_exp2 = mpfr_get_d(tmpfr, MPFR_RNDN);
+
+  double exp2;
+  int zero_p, real = start_real;
+
+  int kp = 0;
+  for (kp = 0; kp < dim; kp++) {
+    if (real) {
+      if (!mpfr_zero_p(mpc_realref(coeffs[kp]))) {
+        break;
+      }
+      real = 0;
+    } else {
+      if (!mpfr_zero_p(mpc_imagref(coeffs[kp]))) {
+        break;
+      }
+      real = 1;
+    }
+  }
+  // cout << "kp = " << kp << endl;
+  if (kp == dim) {
+    return;
+  }
+
+  start_real = real;
+  if (real) {
+    zero_p = mpfr_zero_p(mpc_realref(coeffs[kp]));
+    exp2 = (double) mpfr_get_exp(mpc_realref(coeffs[kp]));
+    real = 0;
+  } else {
+    zero_p = mpfr_zero_p(mpc_imagref(coeffs[kp]));
+    exp2 = (double) mpfr_get_exp(mpc_imagref(coeffs[kp]));
+    real = 1;
+  }
+
+  int zero_p_next;  
+  double exp2_next, exp2_diff;
+  int k, drop_idx = -1, drop_diff;
+  for (k=kp+1; k<dim; k++) {
+    if (real) {
+      zero_p_next = mpfr_zero_p(mpc_realref(coeffs[k]));
+      exp2_next = (double) mpfr_get_exp(mpc_realref(coeffs[k]));
+      real = 0;
+    } else {
+      zero_p_next = mpfr_zero_p(mpc_imagref(coeffs[k]));
+      exp2_next = (double) mpfr_get_exp(mpc_imagref(coeffs[k]));
+      real = 1;
+    }
+    
+    if (zero_p && zero_p_next) {
+      continue;
+    }
+    
+    exp2_diff = exp2_next + val_exp2 - exp2;
+    if (exp2_diff >= 0) {
+      if (exp2_diff > wp_bin) {
+        if (!zero_p_next) {
+          if (drop_idx == -1) {
+            break;
+          } else {
+            drop_idx = -1;
+          }
+        }
+      } else {
+        if (zero_p) {
+          if (drop_idx == -1) {
+            break;
+          } else {
+            drop_idx = -1;
+          }
+        } else if (zero_p_next) {
+          drop_idx = k;
+        }
+      }
+    } else {
+      exp2_diff *= -1;
+      if (exp2_diff > wp_bin) {
+        if (!zero_p) {
+          drop_idx = k;
+        }
+      } else {
+        if (zero_p) {
+          if (drop_idx == -1) {
+            break;
+          } else {
+            drop_idx = -1;
+          }          
+        } else if (zero_p_next) {
+          drop_idx = k;
+        }
+      }
+    }
+
+    zero_p = zero_p_next;
+    exp2 = exp2_next;
+    continue;
+    
+  }
+
+  if (k == dim) {
+    // no need to prune
+    return;
+  }
+
+  // cout << "prune up to k = " << k << endl;
+  real = start_real;
+  for (int kpp=kp; kpp<k; kpp++) {
+    if (real) {
+      mpfr_set_ui(mpc_realref(coeffs[kpp]), 0,  MPFR_RNDN);
+      real = 0;
+    } else {
+      mpfr_set_ui(mpc_imagref(coeffs[kpp]), 0,  MPFR_RNDN);
+      real = 1;
+    }
+  }
+
+}
+
+
+// #pair
+void mpc_rk1_prune_radius(
+  mpc_t *coeffs, int dim, int wp_bin, mpc_t *val
+) {
+  // prune real part
+  mpc_rk1_prune_radius_real(coeffs, dim, wp_bin, val);
+  // prune imag part
+  mpc_rk1_prune_radius_imag(coeffs, dim, wp_bin, val);
+  // prune alternate
+  mpc_rk1_prune_radius_real_imag(coeffs, dim, wp_bin, val, 1);
+  mpc_rk1_prune_radius_real_imag(coeffs, dim, wp_bin, val, 0);
 }
 
 

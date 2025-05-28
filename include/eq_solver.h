@@ -18,13 +18,20 @@ void zero_solve_block(mpc_t *****solutions,
 );
 
 void match_next_eta(
+  // OUTPUT
+  mpc_t *out,
+  // INPUT
   mpc_t *eta_values, int et,
   mpc_t **solutions, int dim, int eta_ord
 );
 
 void propagate_regular(
   // IN-OUT
-  mpc_t ***solutions,
+  double *mul_eta_ord,
+  // OUTPUT
+  mpc_t *sol,
+  // INPUT
+  mpc_t *bound,
   // INPUT
   int neta_values, mpc_t *eta_values,
   int dim, struct poly_frac **mat_ep,
@@ -99,9 +106,10 @@ void pf_limit_in_zero_block(
 
 void solve_zero(
   // IN-OUTPUT
-  mpc_t ***solutions,
+  mpc_t *out_sol,
+  mpc_t *bound,
   // INPUT
-  int dim, struct poly_frac **mat_ep,
+  int dim, struct poly_frac **mat_ep, struct poly_frac **mat_ep_orig,
   struct poly_frac **tmat, struct poly_frac **inv_tmat,
   int npoles, mpc_t *poles,
   mpc_t *matching_point,
@@ -134,9 +142,8 @@ void set_analytic_cont_sign(
 void propagate_along_path(
   // OUTPUT
   mpc_t **sol_at_eps,
-  // IN-OUT
-  mpc_t ***solutions,
   // INPUT
+  mpc_t *bound,
   int dim, int eta_ord,
   int ep, char *eps_str,
   int neta_values, mpc_t *path, int *path_tags, int nsings,
@@ -157,7 +164,7 @@ void propagate_eps(
   poly_frac ***pfmat,
   int *zero_label, int *nroots, mpc_t **roots,
   int *neta_values, mpc_t **path, int **path_tags, int *nsings, int **sing_lab,
-  mpc_t ***solutions, int dim, int eta_ord,
+  int dim, int eta_ord,
   int eps_num, char **eps_str,
   int ninvs, mpc_t *PS_ini, mpc_t *PS_fin, char **symbols,
   int *is_mass, int *skip_inv,

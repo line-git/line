@@ -210,8 +210,16 @@ void poly_frac_prune_tol(
   struct poly_frac *pf, double wp2_rel_decr
 );
 
+int mpc_get_exp2(
+  mpc_t in
+);
+
 void poly_frac_prune_rel_tol(
   struct poly_frac *pf, int wp_bin
+);
+
+void mpc_rk1_prune_rel_tol_real_max(
+  mpc_t *coeffs, int dim, int wp_bin, mpc_t *val
 );
 
 void poly_frac_rk2_prune_rel_tol_real_max(
@@ -236,6 +244,10 @@ void poly_frac_rk2_normal(
 
 void poly_frac_prune_radius(
   struct poly_frac *pf, int wp_bin, int rad_exp
+);
+
+void mpc_rk1_prune_radius(
+  mpc_t *coeffs, int dim, int wp_bin, mpc_t *val
 );
 
 void poly_frac_rk1_prune_radius(

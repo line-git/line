@@ -112,6 +112,8 @@ int main(int argc, char *argv[])
   int opt_kira_redo = -1;
   int opt_kira_print = 1;
   double opt_incr_prec = 1;
+  double opt_incr_wp = 1;
+  double opt_incr_eta_ord = 1;
   int opt_prune_eps_abs = -20, opt_prune_eps_abs_from_terminal = 0;
   int opt_prune_eps_mode = 1, opt_prune_eps_mode_from_terminal = 0;
   int opt_eps_log = 0;
@@ -135,6 +137,8 @@ int main(int argc, char *argv[])
 		{"kira-redo", required_argument, NULL, 0},
 		{"kira-print", required_argument, NULL, 0},
 		{"incr-prec", required_argument, NULL, 0},
+		{"incr-wp", required_argument, NULL, 0},
+		{"incr-eta-ord", required_argument, NULL, 0},
 		{"prune-eps-abs", required_argument, NULL, 0},
 		{"prune-eps-mode", required_argument, NULL, 0},
 		{"eps-log", required_argument, NULL, 0},
@@ -236,6 +240,22 @@ int main(int argc, char *argv[])
 						return 1;
 					}
 					printf("Option --incr-prec has arg: %f\n", opt_incr_prec);
+        } else if (strcmp("incr-wp", long_options[long_index].name) == 0) {
+					char *endptr;
+					opt_incr_wp = strtod(optarg, &endptr);
+					if (*endptr != '\0' || opt_incr_wp < 0 ) {
+						fprintf(stderr, "Invalid value for --incr-wp: %s. Must be a positive double.\n", optarg);
+						return 1;
+					}
+					printf("Option --incr-wp has arg: %f\n", opt_incr_prec);
+        } else if (strcmp("incr-eta-ord", long_options[long_index].name) == 0) {
+					char *endptr;
+					opt_incr_eta_ord = strtod(optarg, &endptr);
+					if (*endptr != '\0' || opt_incr_eta_ord < 0 ) {
+						fprintf(stderr, "Invalid value for --incr-eta-ord: %s. Must be a positive double.\n", optarg);
+						return 1;
+					}
+					printf("Option --incr-eta-ord has arg: %f\n", opt_incr_prec);
         } else if (strcmp("prune-eps-abs", long_options[long_index].name) == 0) {
 					char *endptr;
 					long value = strtol(optarg, &endptr, 10);
@@ -583,8 +603,10 @@ int main(int argc, char *argv[])
     order, precision, nloops
   );
   wp2 = (10*workprec)/3; // binary working precision
-  wp2 *= opt_incr_prec;
-  eta_ord *= opt_incr_prec;
+  wp2 *= opt_incr_prec * opt_incr_wp;
+  eta_ord *= opt_incr_prec * opt_incr_eta_ord;
+  // wp2 *= 0.66;
+  // eta_ord *= 3;
 
   mpfr_tol_set();
 
@@ -1074,10 +1096,12 @@ int main(int argc, char *argv[])
   }
 
   mpc_t **bound = NULL; // NULL needed
+  malloc_rk2_tens(bound, eps_num, dim);
+  init_rk2_mpc(bound, eps_num, dim);
   if (gen_bound == 1) {
     cout << endl; cout << "GENERATE BOUNDARIES" << endl;
-    malloc_rk2_tens(bound, eps_num, dim);
-    init_rk2_mpc(bound, eps_num, dim);
+    // malloc_rk2_tens(bound, eps_num, dim);
+    // init_rk2_mpc(bound, eps_num, dim);
     generate_boundaries(
       bound,
       filepath_bound_build, eps_num, dim, nloops,
@@ -1309,7 +1333,7 @@ int main(int argc, char *argv[])
   #pragma omp parallel for num_threads(nthreads)
   for (int ep=0; ep<eps_num; ep++) {
   // for (int ep=5; ep<=5; ep++) {
-      clock_gettime(CLOCK_MONOTONIC, &start_el_eps_iter);
+    clock_gettime(CLOCK_MONOTONIC, &start_el_eps_iter);
     
     //////
     // HANDLE PROGRESS BAR
@@ -1358,17 +1382,30 @@ int main(int argc, char *argv[])
     fprintf(terminal, "eps value %3d /%3d... ", count_eps, eps_num); fflush(terminal); usleep(sleep_time);
     fprintf(logfptr, "\n############################################## ep = %d\n", ep);
     
+    //////
+    // LOAD BOUNDARY
+    //////
+    if (gen_bound == 0) {
+      char tmp_filepath[MAX_PATH_LEN];
+      snprintf(tmp_filepath, sizeof(tmp_filepath), "%s%d%s", filepath_bound, ep, file_ext);
+      fprintf(logfptr, "\nloading boundary from %s\n", tmp_filepath); fflush(logfptr);
+      FILE *boundfptr = fopen(tmp_filepath, "r");
+      if (boundfptr == NULL) {
+        printf("Could not open file %s\n", tmp_filepath);
+        exit(1);
+      }
+      for (int i=0; i<dim; i++) {
+        // mpc_init3(solutions[0][i][0], wp2, wp2);
+        mpc_inp_str(bound[ep][i], boundfptr, 0, 10, MPFR_RNDN);
+      }
+      fclose(boundfptr);
+    }
+
     for (int s=1; s<=ninvs; s++) {
       poly_frac_set_pf(&pspf_ep[ep][s], &pspf[s]);
       ep_kin_ep[ep][0][s] = strdup(ep_kin[0][s]);
       ep_kin_ep[ep][1][s] = strdup(ep_kin[1][s]);
     }
-
-    // SOLUTIONS
-    mpc_t ***solutions;
-    solutions = new mpc_t**[1];
-    malloc_rk2_tens(*solutions, dim, eta_ord+1);
-    init_rk2_mpc(*solutions, dim, eta_ord+1);
 
     if (opt_checkpoint == 1) {
       goto goto_eps_loop_checkpoint;
@@ -1605,7 +1642,7 @@ int main(int argc, char *argv[])
       pfmat,
       zero_label, nroots, roots,
       neta_values, path, path_tags, nsings, sing_lab,
-      solutions, dim, eta_ord,
+      dim, eta_ord,
       eps_num, eps_str,
       ninvs, PS_ini, PS_fin, symbols,
       is_mass, skip_inv,
@@ -1646,9 +1683,6 @@ int main(int argc, char *argv[])
     del_rk2_tens(pfmat[ep], dim);
     mpc_rk1_clear(roots[ep], nroots[ep]);
     delete[] roots[ep];
-    mpc_rk2_clear(*solutions, dim, eta_ord+1);
-    del_rk2_tens(*solutions, dim);  
-    delete[] solutions;
 
     if (lock_acquired) lock_release(&lock);
 
