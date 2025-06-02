@@ -856,6 +856,15 @@ int mpfr_log2_int(mpfr_t in) {
 }
 
 
+int mpfr_log10_int(mpfr_t in) {
+  mpfr_t log10_mpfr; mpfr_init2(log10_mpfr, wp2);
+  mpfr_log10(log10_mpfr, in, MPFR_RNDN);
+  int log10_int = mpfr_get_si(log10_mpfr, MPFR_RNDN);
+  mpfr_clear(log10_mpfr);
+  return log10_int;
+}
+
+
 size_t mpfr_get_memory_usage(mpfr_t x) {
 	// sizeof(mpfr_t) restituisce la dimensione statica della struttura
 	size_t static_size = sizeof(mpfr_t);

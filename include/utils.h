@@ -117,7 +117,9 @@ void mpfr_tol_enlarge(double wp2_rel_decr);
 
 void mpfr_tol_enlarge_rel(double wp2_rel_decr);
 
-int mpfr_log2_int(mpfr_t log2_mpfr);
+int mpfr_log2_int(mpfr_t in);
+
+int mpfr_log10_int(mpfr_t in);
 
 size_t mpfr_get_memory_usage(mpfr_t x);
 

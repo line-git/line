@@ -1069,8 +1069,10 @@ int main(int argc, char *argv[])
   malloc_rk2_tens(target_at_eps, dim_target, eps_num);
   init_rk2_mpc(target_at_eps, dim_target, eps_num);
   mpc_t **eta_less_at_eps;
-  malloc_rk2_tens(eta_less_at_eps, dim_eta_less, eps_num);
-  init_rk2_mpc(eta_less_at_eps, dim_eta_less, eps_num);
+  if (exit_sing == -1) {
+    malloc_rk2_tens(eta_less_at_eps, dim_eta_less, eps_num);
+    init_rk2_mpc(eta_less_at_eps, dim_eta_less, eps_num);
+  }
 
   // WRT/CMP
   mpc_t **sol_at_eps_wrt_cmp;
@@ -2213,6 +2215,11 @@ int main(int argc, char *argv[])
   }
   mpc_rk2_clear(sol_at_eps, dim, eps_num);
   del_rk2_tens(sol_at_eps, dim);
+
+  if (exit_sing == -1) {
+    mpc_rk2_clear(eta_less_at_eps, dim_eta_less, eps_num);
+    del_rk2_tens(eta_less_at_eps, dim_eta_less);
+  }
 
   // CLOSE PROGRESS BAR
   fprintf(terminal, "\033[2K\r"); fflush(terminal); usleep(sleep_time);

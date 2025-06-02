@@ -67,8 +67,8 @@ double estimate_convergence(
 			min_exp2 = total_exp2;
 	}
 
-	// conversione in cifre decimali: log10(2) ≈ 0.30103
-	return (min_exp2 - first_exp2)* log10(2);
+	// return as no. decimal digits
+	return (first_exp2 - min_exp2)* log10(2);
 }
 
 
@@ -1030,7 +1030,7 @@ void match_next_eta(
 
 void propagate_regular(
   // IN-OUT
-  double *mul_eta_ord,
+  double *eta_ord_mul,
   // OUTPUT
   mpc_t *sol,
   // INPUT
@@ -1079,7 +1079,11 @@ void propagate_regular(
   init_rk1_mpc(sol_next, dim);
 
   int wp_bin = - mpfr_log2_int(mpfr_tol);
-  int wp = wp_bin * log10(2);
+  cout << "mpfr_tol = "; print_mpfr(&mpfr_tol); cout << endl;
+  int wp = wp_bin * log10(2);  
+  // cout << "wp = " << wp << endl;
+  // wp = - mpfr_log10_int(mpfr_tol);
+  // cout << "wp = " << wp << endl;
   mpc_t eta_diff; mpc_init3(eta_diff, wp2, wp2);
 
   // SOLUTIONS
@@ -1087,6 +1091,10 @@ void propagate_regular(
   solutions = new mpc_t**[1];
   malloc_rk2_tens(*solutions, dim, eta_ord+1);
   init_rk2_mpc(*solutions, dim, eta_ord+1);
+
+  // CONVERGENCE
+  int *eff_orders = new int[dim];
+  double *eff_digits = new double[dim];
   
   // COPY BOUNDARY
   for (int i=0; i<dim; i++) {
@@ -1201,23 +1209,48 @@ void propagate_regular(
     // print_poly(solutions[15]+eta_ord-3, 3);
 
     // CHECK CONVERGENCE
-    int *eff_orders = new int[dim];
-    double *eff_digits_bin = new double[dim];
+    cout << "CHECK CONVERGENCE" << endl;
     mpc_sub(eta_diff, eta_values[et+1], eta_values[et], MPFR_RNDN);
+    *eta_ord_mul = 1;
     for (int i=0; i<dim; i++) {
       copy_rk1_mpc(tmp_vec, (*solutions)[i], eta_ord+1);
       mpc_rk1_prune_re_im(tmp_vec, wp_bin, eta_ord+1);
       mpc_rk1_prune_radius(tmp_vec, eta_ord+1, wp_bin*0.5, &eta_diff);  // #hard-coded
       mpc_rk1_prune_rel_tol_real_max(tmp_vec, eta_ord+1, wp_bin, &eta_diff);
       eff_orders[i] = mpc_rk1_max_non_zero_idx(tmp_vec, eta_ord+1);
-      eff_digits_bin[i] = estimate_convergence(tmp_vec, eta_ord+1, &eta_diff);
-      if (eff_orders[i] == eta_ord && eff_digits_bin[i] < wp) {
+      eff_digits[i] = round(estimate_convergence(tmp_vec, eta_ord+1, &eta_diff));
+      if (eff_orders[i] == eta_ord && eff_digits[i] < wp) {
         fprintf(
           stderr, 
-          "WARNING: MI n. %d has convergence on %f out of %d digits.\n",
-          i, eff_digits_bin[i], wp
+          "WARNING: MI n. %d has convergence on %f out of %d digits\n",
+          i, eff_digits[i], wp
         );
+        if (*eta_ord_mul < wp/eff_digits[i]) {
+          *eta_ord_mul = wp/eff_digits[i];
+        }
       }
+    }
+    if (*eta_ord_mul > 1.02) {  // #hard-coded
+      fprintf(stderr, "WARNING: eta orders must be increased by a factor %f\n", *eta_ord_mul);
+
+      // INCREASE ETA ORDERS
+      int new_eta_ord = eta_ord * (*eta_ord_mul) * 1.1;  // #hard-coded
+      mpc_t *holder;
+      for (int i=0; i<dim; i++) {
+        holder = (*solutions)[i];
+        (*solutions)[i] = new mpc_t[new_eta_ord+1];
+        init_rk1_mpc((*solutions)[i], new_eta_ord+1);
+        mpc_set((*solutions)[i][0], holder[0], MPFR_RNDN);
+        mpc_rk1_clear(holder, eta_ord+1);
+        delete[] holder;
+      }
+      mpc_rk1_clear(tmp_vec, eta_ord+1);
+      delete[] tmp_vec;
+      tmp_vec = new mpc_t[new_eta_ord+1];
+      init_rk1_mpc(tmp_vec, new_eta_ord+1);
+      eta_ord = new_eta_ord;
+      et--;
+      continue;
     }
 
     // MATCH WITH NEXT ETA VALUE
@@ -1246,6 +1279,7 @@ void propagate_regular(
   }
 
   // FREE
+  goto_return:
   mpc_rk2_clear(*solutions, dim, eta_ord+1);
   del_rk2_tens(*solutions, dim);  
   delete[] solutions;
@@ -1279,6 +1313,8 @@ void propagate_regular(
   delete[] lcm_orig;
   delete[] lcm_roots;
   del_rk2_tens(const_term, 1);
+  delete[] eff_orders;
+  delete[] eff_digits;
 
   // print solutions at last eta value
   // etav = (numeric) eta_values[neta_values-1].real() + I * (numeric) eta_values[neta_values-1].imag();
@@ -3780,7 +3816,7 @@ void match_sol_around_zero(
     mp_inverse(constr_inv, constr_final, num_constr);
     mpc_rk2_to_double(mat_inv_d, constr_inv, num_constr, num_constr);    
     double cond_num; cond_num = complex_d_mat_condition_number(mat_d, mat_inv_d, num_constr);
-    cout << "condition number = " << cond_num << endl;
+    if (print) cout << "condition number = " << cond_num << endl;
     if (print) cout << "linear system inverse matrix:" << endl;
     if (print) print_rk2_mpc(constr_inv, num_constr, num_constr);
     mpc_t *final_const_term;
@@ -3970,7 +4006,7 @@ void match_sol_around_zero(
     mp_inverse(match_constr_inv_mat, match_constr_mat, b_len);
     mpc_rk2_to_double(mat_inv_d, match_constr_inv_mat, b_len, b_len);
     double cond_num; cond_num = complex_d_mat_condition_number(mat_d, mat_inv_d, b_len);
-    cout << "condition number = " << cond_num << endl;
+    if (print) cout << "condition number = " << cond_num << endl;
     if (print) {
     cout << endl; cout << "linear system inverse matrix:" << endl;
     print_rk2_mpc(match_constr_inv_mat, b_len, b_len);
@@ -5923,8 +5959,10 @@ void propagate_infty(
   //////
   // ENLARGE TOLERANCE
   //////
+  // double wp2_rel_decr = 0.95;
   double wp2_rel_decr = 0.80;
   double wp2_rel_decr_orig = wp2_rel_decr;
+  // double wp2_rel_decr_prune = 0.95;
   double wp2_rel_decr_prune = 0.80;
   double wp2_rel_decr_prune_orig = wp2_rel_decr_prune;
 
@@ -6454,7 +6492,7 @@ void propagate_along_path(
       fprintf(logfptr, "n. steps: %d\n", nreg_steps);
       fflush(logfptr);
       double eta_ord_mul = 1;
-      // while (eta_ord_mul == 1) {
+      // while (1) {
         propagate_regular(
           &eta_ord_mul,
           sol, bound,
@@ -6464,9 +6502,12 @@ void propagate_along_path(
           nblocks, prof, sb_grid, eta_ord
         );
 
-        // if (eta_ord_mul != 1) {
-          
-        // }
+      //   if (eta_ord_mul > 1.02) {  // #hard-coded
+      //     eta_ord *= eta_ord_mul * 1.1;  // #hard-coded
+      //     continue;
+      //   } else {
+      //     break;
+      //   }
       // }
       nreg_steps = 1;
       // print

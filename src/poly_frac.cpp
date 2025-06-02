@@ -1351,6 +1351,9 @@ void mpc_rk1_prune_rel_tol_real_max(
 
   // PRUNE IN RELATIVE TO MAX
   for (k=0; k<dim; k++) {
+    if (mpc_zero_p(coeffs[k])) {
+      continue;
+    }
     // cout << "k = " << k << endl;
     // cout << "exp_re = " << exps_re[k] << endl;
     // cout << "exp_im = " << exps_im[k] << endl;
@@ -1363,6 +1366,10 @@ void mpc_rk1_prune_rel_tol_real_max(
       mpfr_set_ui(mpc_imagref(coeffs[k]), 0, MPFR_RNDN);
     }
   }
+
+  // FREE
+  delete[] exps_re;
+  delete[] exps_im;
 
 }
 

@@ -27,7 +27,7 @@ void match_next_eta(
 
 void propagate_regular(
   // IN-OUT
-  double *mul_eta_ord,
+  double *eta_ord_mul,
   // OUTPUT
   mpc_t *sol,
   // INPUT
