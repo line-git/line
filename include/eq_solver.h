@@ -107,6 +107,7 @@ void pf_limit_in_zero_block(
 
 void solve_zero(
   // IN-OUTPUT
+  double *eta_ord_mul,
   mpc_t *out_sol,
   mpc_t *bound,
   // INPUT

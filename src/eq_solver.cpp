@@ -1080,8 +1080,8 @@ void propagate_regular(
   init_rk1_mpc(sol_next, dim);
 
   int wp_bin = - mpfr_log2_int(mpfr_tol);
-  cout << "mpfr_tol = "; print_mpfr(&mpfr_tol); cout << endl;
-  int wp = wp_bin * log10(2);  
+  // cout << "mpfr_tol = "; print_mpfr(&mpfr_tol); cout << endl;
+  int wp = wp_bin * log10(2);
   // cout << "wp = " << wp << endl;
   // wp = - mpfr_log10_int(mpfr_tol);
   // cout << "wp = " << wp << endl;
@@ -1286,8 +1286,8 @@ void propagate_regular(
     mpc_set(sol[i], (*solutions)[i][0], MPFR_RNDN);
   }
 
-  // FREE
   goto_return:
+  // FREE
   mpc_rk2_clear(*solutions, dim, eta_ord+1);
   del_rk2_tens(*solutions, dim);  
   delete[] solutions;
@@ -4599,6 +4599,7 @@ void get_massless_bubble(
 
 void solve_zero(
   // OUTPUT
+  double *eta_ord_mul,
   mpc_t *out_sol,
   // INPUT
   mpc_t *bound,
@@ -4852,6 +4853,10 @@ void solve_zero(
   mpc_abs(tmpfr, *matching_point, MPFR_RNDN);
   int rad_exp = mpfr_get_exp(tmpfr);
   struct poly_frac *pf_sol = new struct poly_frac[dim];
+
+  // needed for convergence
+  int *eff_orders = new int[dim];
+  double *eff_digits = new double[dim];
   
   for (int b=0; b<nblocks; b++) {
     // for (int b=0; b<1; b++) {
@@ -5501,43 +5506,57 @@ void solve_zero(
   }
   fprintf(terminal, "\033[18D\033[K"); fflush(terminal); usleep(sleep_time);
 
-  // ESTIMATE CONVERGENCE
-  cout << "CONVERGENCE" << endl;
-  cout << "eta_check = "; print_mpc(eta_check); cout << endl;
-  cout << "mpfr_tol = "; print_mpfr(&mpfr_tol); cout << endl;
+  // CHECK CONVERGENCE
+  // cout << "CONVERGENCE" << endl;
+  // cout << "eta_check = "; print_mpc(eta_check); cout << endl;
+  // cout << "mpfr_tol = "; print_mpfr(&mpfr_tol); cout << endl;
   int wp_bin = - mpfr_log2_int(mpfr_tol);
-  cout << "wp_bin = " << wp_bin << endl;
+  // cout << "wp_bin = " << wp_bin << endl;
+  int wp = wp_bin * log10(2);
   for (int lam, n=0; n<num_cum_eig; n++) {
     lam = cum_eig[n];
     double min_exp;
     mpc_t *tmp_vec = new mpc_t[eta_ord+1];
     init_rk1_mpc(tmp_vec, eta_ord+1);
+    *eta_ord_mul = 1;
     for (int m=0; m<dim; m++) {
       for (int l=0; l<log_prof[lam][m]-1; l++) {
-        if (l != 0) {
-          continue;
-        }
-        cout << "lam, m, l = " << lam << ", " << m << ", " << l << endl;
+        if (l != 0) continue;  // #review
+        // cout << "lam, m, l = " << lam << ", " << m << ", " << l << endl;
         // cout << "lam, m, l, conv = " << lam << ", " << m << ", " << l << ", ";
         copy_rk1_mpc(tmp_vec, sol[lam][l][m], eta_ord+1);
         // cout << "unpruned:" << endl;
         // print_rk1_mpc(sol[lam][l][m], eta_ord+1);
-
         // cout << "prune_re_im:" << endl;
         mpc_rk1_prune_re_im(tmp_vec, wp_bin, eta_ord+1);
         // print_rk1_mpc(tmp_vec, eta_ord+1);
-
         // cout << "prune_radius:" << endl;
         mpc_rk1_prune_radius(tmp_vec, eta_ord+1, wp_bin*0.5, eta_check);  // #hard-coded
         // print_rk1_mpc(tmp_vec, eta_ord+1);
-
         // cout << "prune_rel_tol_real_max:" << endl;
         mpc_rk1_prune_rel_tol_real_max(tmp_vec, eta_ord+1, wp_bin, eta_check);        
         // print_rk1_mpc(tmp_vec, eta_ord+1);
-        cout << "max non-zero idx = " << mpc_rk1_max_non_zero_idx(tmp_vec, eta_ord+1) << endl;
-        
+        eff_orders[m] = mpc_rk1_max_non_zero_idx(tmp_vec, eta_ord+1);
+        eff_digits[m] = round(estimate_convergence(tmp_vec, eta_ord+1, eta_check));
+        if (eff_orders[m] == eta_ord && eff_digits[m] < wp) {
+          fprintf(
+            stderr, 
+            "WARNING: MI n. %d has convergence on %f out of %d digits\n",
+            m, eff_digits[m], wp
+          );
+          if (*eta_ord_mul < wp/eff_digits[m]) {
+            *eta_ord_mul = wp/eff_digits[m];
+          }
+        }
+
+        if (*eta_ord_mul > 1.02) {  // #hard-coded
+          fprintf(stderr, "WARNING: eta orders must be increased by a factor %f\n", *eta_ord_mul);
+          goto goto_return;
+        }
+
+
         min_exp = estimate_convergence(tmp_vec, eta_ord+1, eta_check);
-        cout << "conv = " <<  min_exp << endl;
+        // cout << "conv = " <<  min_exp << endl;
         // cout <<  min_exp << endl;
         // exit(0);
       }
@@ -5578,7 +5597,8 @@ void solve_zero(
   }
   
   // #debug
-  int nmi = dim, kplus = 1;
+  int nmi, kplus;
+  nmi = dim, kplus = 1;
   struct poly_frac **pf_sol_dbg;
   malloc_rk2_tens(pf_sol_dbg, num_classes, dim);
   if (print) {
@@ -5678,9 +5698,11 @@ void solve_zero(
   // CHECK PRECISION
   //////
   fprintf(stdout, "CHECK PRECISION\n");
-  mpc_t *residual_mpc = new mpc_t[dim];
+  mpc_t *residual_mpc;
+  residual_mpc = new mpc_t[dim];
   init_rk1_mpc(residual_mpc, dim);
-  mpfr_t *residual = new mpfr_t[dim];
+  mpfr_t *residual;
+  residual = new mpfr_t[dim];
   init_rk1_mpfr(residual, dim);
   
   // RESIDUAL IN FUCHSIAN BASIS
@@ -5771,6 +5793,7 @@ void solve_zero(
   mpc_rk2_clear(der_at_target, dim, 1);
   del_rk2_tens(der_at_target, dim);
 
+  goto_return:
   // FREE
   mpc_rk2_clear(*solutions, dim, eta_ord+1);
   del_rk2_tens(*solutions, dim);  
@@ -6279,26 +6302,37 @@ void propagate_infty(
   mpc_t *PS_fin = new mpc_t[1];
   mpc_init3(PS_fin[0], wp2, wp2);
   mpc_set_ui(PS_fin[0], 1, MPFR_RNDN);
+  double eta_ord_mul = 1;
   fprintf(logfptr, "singular propagation at infinity...\n");
   timespec start_el_singular, end_el_singular;
-  clock_gettime(CLOCK_MONOTONIC, &start_el_singular);
-  solve_zero(
-    sol,
-    bound,
-    dim, pfmat_infty, pfmat_infty,
-    tmat, inv_tmat,
-    nroots, roots_infty,
-    &bound_pt,
-    nblocks, prof, sb_grid_norm, eta_ord,
-    num_classes, eig_list, eq_class, eig_grid,
-    roots_infty, nroots,
-    1, &target_pt, 1,
-    is_mass, skip_inv, ninvs, PS_ini, PS_fin, eps_str,
-    0,
-    bound_behav_reg, mi_eig, mi_eig_num,
-    logfptr, terminal
-  );
-  clock_gettime(CLOCK_MONOTONIC, &end_el_singular);
+  while(1) {
+    clock_gettime(CLOCK_MONOTONIC, &start_el_singular);
+    solve_zero(
+      &eta_ord_mul,
+      sol,
+      bound,
+      dim, pfmat_infty, pfmat_infty,
+      tmat, inv_tmat,
+      nroots, roots_infty,
+      &bound_pt,
+      nblocks, prof, sb_grid_norm, eta_ord,
+      num_classes, eig_list, eq_class, eig_grid,
+      roots_infty, nroots,
+      1, &target_pt, 1,
+      is_mass, skip_inv, ninvs, PS_ini, PS_fin, eps_str,
+      0,
+      bound_behav_reg, mi_eig, mi_eig_num,
+      logfptr, terminal
+    );
+    clock_gettime(CLOCK_MONOTONIC, &end_el_singular);
+
+    if (eta_ord_mul > 1.02) {  // #hard-coded
+      eta_ord *= eta_ord_mul * 1.1;  // #hard-coded
+      continue;
+    } else {
+      break;
+    }
+  }
   double time_el_singular_local = timespec_to_double(start_el_singular, end_el_singular);
   time_el_singular += time_el_singular_local;
 
@@ -6760,24 +6794,35 @@ void propagate_along_path(
       fprintf(logfptr, "singular propagation...\n"); fflush(logfptr);
       int try_analytic = 0;
       // if (et == 0) {try_analytic = 1;}
-      clock_gettime(CLOCK_MONOTONIC, &start_el_singular);
-      solve_zero(
-        sol,
-        bound,
-        dim, sh_pfmat_norm, sh_pfmat,
-        tmat, inv_tmat,
-        nroots, sh_roots,
-        &bound_pt,
-        nblocks, prof, sb_grid_norm, eta_ord,
-        num_classes, eig_list, eq_class, eig_grid,
-        sh_roots, nroots,
-        crossr, &target_pt, analytic_cont[count_sings],
-        is_mass, skip_inv, ninvs, PS_ini, PS_fin, eps_str,
-        try_analytic,
-        bound_behav, mi_eig, mi_eig_num,
-        logfptr, terminal
-      );
-      clock_gettime(CLOCK_MONOTONIC, &end_el_singular);
+      double eta_ord_mul = 1;
+      while(1) {
+        clock_gettime(CLOCK_MONOTONIC, &start_el_singular);
+        solve_zero(
+          &eta_ord_mul,
+          sol,
+          bound,
+          dim, sh_pfmat_norm, sh_pfmat,
+          tmat, inv_tmat,
+          nroots, sh_roots,
+          &bound_pt,
+          nblocks, prof, sb_grid_norm, eta_ord,
+          num_classes, eig_list, eq_class, eig_grid,
+          sh_roots, nroots,
+          crossr, &target_pt, analytic_cont[count_sings],
+          is_mass, skip_inv, ninvs, PS_ini, PS_fin, eps_str,
+          try_analytic,
+          bound_behav, mi_eig, mi_eig_num,
+          logfptr, terminal
+        );
+        clock_gettime(CLOCK_MONOTONIC, &end_el_singular);
+
+        if (eta_ord_mul > 1.02) {  // #hard-coded
+          eta_ord *= eta_ord_mul * 1.1;  // #hard-coded
+          continue;
+        } else {
+          break;
+        }
+      }
       double time_el_singular_local = timespec_to_double(start_el_singular, end_el_singular);
       time_el_singular += time_el_singular_local;
 
