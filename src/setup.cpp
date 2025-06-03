@@ -201,7 +201,7 @@ void compute_setup(
 void mpfr_tol_set() {
   mpfr_init2(mpfr_tol, wp2);
   mpfr_set_d(mpfr_tol, 2, MPFR_RNDN);
-	mpfr_pow_si(mpfr_tol, mpfr_tol, -0.90*((int) wp2), MPFR_RNDN);
+	mpfr_pow_si(mpfr_tol, mpfr_tol, -0.90*((int) wp2), MPFR_RNDN);  // #hard-coded
   // mpfr_to_gnc(&gnc_tol, &mpfr_tol);  // #uncomment-for-ginac
 }
 

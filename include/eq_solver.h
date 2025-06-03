@@ -36,7 +36,8 @@ void propagate_regular(
   int neta_values, mpc_t *eta_values,
   int dim, struct poly_frac **mat_ep,
   int npoles, mpc_t *poles,
-  int nblocks, int **prof, int **sb_grid, int eta_ord
+  int nblocks, int **prof, int **sb_grid, int eta_ord,
+  int neta_values_offset, int neta_values_global, FILE *terminal
 );
 
 void get_block_log_len(

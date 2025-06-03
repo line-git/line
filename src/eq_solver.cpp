@@ -1038,7 +1038,8 @@ void propagate_regular(
   int neta_values, mpc_t *eta_values,
   int dim, struct poly_frac **mat_ep,
   int npoles, mpc_t *poles,
-  int nblocks, int **prof, int **sb_grid, int eta_ord
+  int nblocks, int **prof, int **sb_grid, int eta_ord,
+  int neta_values_offset, int neta_values_global, FILE *terminal
 ) {
   int print = 0;
   int prt_ord = 10;
@@ -1101,9 +1102,13 @@ void propagate_regular(
     mpc_set(solutions[0][i][0], bound[i], MPFR_RNDN);
   }
 
+  int del_bar = 0;
   timespec start_el_regular, end_el_regular;
   double time_el_regular_local = 0;
   for (int et=0; et<neta_values-1; et++) {
+    fprintf(terminal, "path point %3d /%3d... ", neta_values_offset+et, neta_values_global); fflush(terminal); usleep(sleep_time);
+    del_bar = 1;
+    
     // for (int et=0; et<1; et++) {
     clock_gettime(CLOCK_MONOTONIC, &start_el_regular);
     // etav = (numeric) eta_values[et].real() + I * (numeric) eta_values[et].imag();
@@ -1250,6 +1255,7 @@ void propagate_regular(
       init_rk1_mpc(tmp_vec, new_eta_ord+1);
       eta_ord = new_eta_ord;
       et--;
+      fprintf(terminal, "\033[23D\033[K"); fflush(terminal); usleep(sleep_time);
       continue;
     }
 
@@ -1271,6 +1277,8 @@ void propagate_regular(
     clock_gettime(CLOCK_MONOTONIC, &end_el_regular);
     time_el_regular_local = timespec_to_double(start_el_regular, end_el_regular);
     time_el_regular += time_el_regular_local;
+
+    fprintf(terminal, "\033[23D\033[K"); fflush(terminal); usleep(sleep_time);
   }
 
   // copy solutions to output
@@ -5963,13 +5971,11 @@ void propagate_infty(
   double wp2_rel_decr = 0.80;
   double wp2_rel_decr_orig = wp2_rel_decr;
   // double wp2_rel_decr_prune = 0.95;
-  double wp2_rel_decr_prune = 0.80;
-  double wp2_rel_decr_prune_orig = wp2_rel_decr_prune;
-
-  wp2_rel_decr *= wp2_rel_decr_orig;
-  mpfr_tol_enlarge(wp2_rel_decr);
-  // mpfr_to_gnc(&gnc_tol, &mpfr_tol);  // #uncomment-for-ginac
-  // cout << "tol: "; mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
+  // double wp2_rel_decr_prune = 0.80;
+  // double wp2_rel_decr_prune_orig = wp2_rel_decr_prune;
+  mpfr_t mpfr_tol_orig;
+  mpfr_init2(mpfr_tol_orig, wp2);
+  mpfr_set(mpfr_tol_orig, mpfr_tol, MPFR_RNDN);
 
   int wp_bin = - mpfr_log2_int(mpfr_tol);
 
@@ -6124,7 +6130,7 @@ void propagate_infty(
   fprintf(terminal, "singular: "); fflush(terminal); usleep(sleep_time);
 
   // prune
-  wp2_rel_decr_prune *= wp2_rel_decr_prune_orig;
+  // wp2_rel_decr_prune *= wp2_rel_decr_prune_orig;
   // poly_frac_rk2_prune(pfmat_infty, dim, dim, wp2_rel_decr_prune);
   poly_frac_rk2_normal(pfmat_infty, dim, dim);
 
@@ -6169,6 +6175,10 @@ void propagate_infty(
   int *eq_class = new int[dim];
   int *eig_grid = new int[dim];
   fprintf(logfptr, "\nnormalize at infinity...\n");
+  wp2_rel_decr *= wp2_rel_decr_orig;
+  mpfr_tol_enlarge(wp2_rel_decr);
+  // mpfr_to_gnc(&gnc_tol, &mpfr_tol);  // #uncomment-for-ginac
+  // cout << "tol: "; mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
   timespec start_el_normalize, end_el_normalize;
   clock_gettime(CLOCK_MONOTONIC, &start_el_normalize);
   pf_NormalizeMat(
@@ -6182,6 +6192,9 @@ void propagate_infty(
   clock_gettime(CLOCK_MONOTONIC, &end_el_normalize);
   double time_el_normalize_local = timespec_to_double(start_el_normalize, end_el_normalize);
   time_el_normalize += time_el_normalize_local;
+
+  // restore tolerance
+  mpfr_set(mpfr_tol, mpfr_tol_orig, MPFR_RNDN);
 
   if (print) {
   cout << "tmat=";
@@ -6362,10 +6375,10 @@ void propagate_along_path(
   // double wp2_rel_decr_prune = 0.95;
   // double wp2_rel_decr_prune = 0.90;
   // double wp2_rel_decr_prune = 0.85;
-  double wp2_rel_decr_prune = 0.80;
+  // double wp2_rel_decr_prune = 0.80;
   // double wp2_rel_decr_prune = 0.77;
   // double wp2_rel_decr_prune = 0.70;
-  double wp2_rel_decr_prune_orig = 1;
+  // double wp2_rel_decr_prune_orig = 1;
 
   // needed for analytic continuation
   int *analytic_cont;
@@ -6406,6 +6419,9 @@ void propagate_along_path(
   mpc_t m1, m2;
   mpc_init3(m1, wp2, wp2);
   mpc_init3(m2, wp2, wp2);
+  mpfr_t mpfr_tol_orig;
+  mpfr_init2(mpfr_tol_orig, wp2);
+  mpfr_set(mpfr_tol_orig, mpfr_tol, MPFR_RNDN);
 
   // needed for timing
   timespec start_el_singular, end_el_singular;
@@ -6418,9 +6434,6 @@ void propagate_along_path(
 
   // fprintf(logfptr, "{\n");
   for (int et=0; et<neta_values; et++) {
-    if (et  > 0) {fprintf(terminal, "\033[23D\033[K");}// fflush(terminal); usleep(sleep_time);}
-    fprintf(terminal, "path point %3d /%3d... ", et, neta_values); fflush(terminal); usleep(sleep_time);
-
     // if (et != neta_values - 1) continue;
     // FILE *bc_ptr = fopen("sol_at_eta-last_box1.txt", "r");
     // for (int i=0; i<dim; i++) {
@@ -6499,7 +6512,8 @@ void propagate_along_path(
           nreg_steps+1, path+et-nreg_steps,
           dim, pfmat,
           nroots, roots,
-          nblocks, prof, sb_grid, eta_ord
+          nblocks, prof, sb_grid, eta_ord,
+          et-nreg_steps, neta_values, terminal
         );
 
       //   if (eta_ord_mul > 1.02) {  // #hard-coded
@@ -6525,21 +6539,11 @@ void propagate_along_path(
       }
       // exit(0);
     } else if (solve_tag == 0) {
-      fprintf(terminal, "singular: "); fflush(terminal); usleep(sleep_time);
-      // update tolerance
-      // cout << endl; cout << "update tol" << endl;
-      // mpfr_mul_d(mpfr_tol, mpfr_tol, 1e30, MPFR_RNDN);
-      // gnc_tol *= 1e30;
-      wp2_rel_decr *= wp2_rel_decr_orig;
-      // cout << "orig tol: "; mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
-      // cout << "wp2_rel_decr = " << wp2_rel_decr << endl;
-      mpfr_tol_enlarge(wp2_rel_decr);
-      // mpfr_to_gnc(&gnc_tol, &mpfr_tol);  // #uncomment-for-ginac
-      // cout << "tol: "; mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
+      fprintf(terminal, "path point %3d /%3d... ", et, neta_values); fflush(terminal); usleep(sleep_time);
       
-      // int wp_bin = - mpfr_log2_int(mpfr_tol);
-
+      fprintf(terminal, "singular: "); fflush(terminal); usleep(sleep_time);
       // cout << endl; cout << "sing. point = "; print_mpc(&roots[sing_lab[count_sings]]); cout << endl;
+      
       //////
       // SINGULAR PROPAGATION
       //////
@@ -6640,7 +6644,7 @@ void propagate_along_path(
       }
 
       // prune
-      wp2_rel_decr_prune *= wp2_rel_decr_prune_orig;
+      // wp2_rel_decr_prune *= wp2_rel_decr_prune_orig;
       // poly_frac_rk2_prune(sh_pfmat, dim, dim, wp2_rel_decr_prune);
       poly_frac_rk2_normal(sh_pfmat, dim, dim);
 
@@ -6652,6 +6656,13 @@ void propagate_along_path(
 
       // # NORMALIZE MATRIX
       fprintf(logfptr, "\nnormalize matrix...\n"); fflush(logfptr);
+      // update tolerance
+      // cout << endl; cout << "update tol" << endl;
+      wp2_rel_decr *= wp2_rel_decr_orig;
+      // cout << "orig tol: "; mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
+      // cout << "wp2_rel_decr = " << wp2_rel_decr << endl;
+      mpfr_tol_enlarge(wp2_rel_decr);
+      // cout << "tol: "; mpfr_out_str(stdout, 10, 0, mpfr_tol, MPFR_RNDN); cout << endl;
       // cout << "input matrix:" << endl;
       // poly_frac_rk2_print(sh_pfmat, dim, dim);
       // mpfr_mul_d(mpfr_tol, mpfr_tol, 1e10, MPFR_RNDN);
@@ -6682,6 +6693,9 @@ void propagate_along_path(
       clock_gettime(CLOCK_MONOTONIC, &end_el_normalize);
       double time_el_normalize_local = timespec_to_double(start_el_normalize, end_el_normalize);
       time_el_normalize += time_el_normalize_local;
+
+      // restore tolerance
+      mpfr_set(mpfr_tol, mpfr_tol_orig, MPFR_RNDN);
 
       if (print) {
       cout << "tmat=";
@@ -6787,6 +6801,7 @@ void propagate_along_path(
       // mpfr_mul_d(mpfr_tol, mpfr_tol, 1e-30, MPFR_RNDN);
       // gnc_tol *= 1e-30;
       fprintf(terminal, "\033[10D\033[K"); fflush(terminal); usleep(sleep_time);
+      fprintf(terminal, "\033[23D\033[K"); fflush(terminal); usleep(sleep_time);
     }
   }
   fprintf(terminal, "\033[23D\033[K"); fflush(terminal); usleep(sleep_time);
