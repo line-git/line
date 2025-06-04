@@ -1224,7 +1224,8 @@ void propagate_regular(
       mpc_rk1_prune_rel_tol_real_max(tmp_vec, eta_ord+1, wp_bin, &eta_diff);
       eff_orders[i] = mpc_rk1_max_non_zero_idx(tmp_vec, eta_ord+1);
       eff_digits[i] = round(estimate_convergence(tmp_vec, eta_ord+1, &eta_diff));
-      if (eff_orders[i] == eta_ord && eff_digits[i] < wp) {
+      // #pair
+      if (eff_orders[i] == eta_ord && eff_digits[i] < wp && wp/eff_digits[i] > 1.05) {  // #hard-coded
         fprintf(
           stderr, 
           "WARNING: MI n. %d has convergence on %f out of %d digits\n",
@@ -1235,7 +1236,7 @@ void propagate_regular(
         }
       }
     }
-    if (*eta_ord_mul > 1.02) {  // #hard-coded
+    if (*eta_ord_mul > 1.05) {  // #hard-coded
       fprintf(stderr, "WARNING: eta orders must be increased by a factor %f\n", *eta_ord_mul);
 
       // INCREASE ETA ORDERS
@@ -5538,7 +5539,8 @@ void solve_zero(
         // print_rk1_mpc(tmp_vec, eta_ord+1);
         eff_orders[m] = mpc_rk1_max_non_zero_idx(tmp_vec, eta_ord+1);
         eff_digits[m] = round(estimate_convergence(tmp_vec, eta_ord+1, eta_check));
-        if (eff_orders[m] == eta_ord && eff_digits[m] < wp) {
+        // #pair
+        if (eff_orders[m] == eta_ord && eff_digits[m] < wp && wp/eff_digits[m] > 1.05) {  // #hard-coded
           fprintf(
             stderr, 
             "WARNING: MI n. %d has convergence on %f out of %d digits\n",
@@ -5549,7 +5551,7 @@ void solve_zero(
           }
         }
 
-        if (*eta_ord_mul > 1.02) {  // #hard-coded
+        if (*eta_ord_mul > 1.05) {  // #hard-coded
           fprintf(stderr, "WARNING: eta orders must be increased by a factor %f\n", *eta_ord_mul);
           goto goto_return;
         }
@@ -5991,7 +5993,7 @@ void propagate_infty(
   // ENLARGE TOLERANCE
   //////
   // double wp2_rel_decr = 0.95;
-  double wp2_rel_decr = 0.80;
+  double wp2_rel_decr = 0.70;
   double wp2_rel_decr_orig = wp2_rel_decr;
   // double wp2_rel_decr_prune = 0.95;
   // double wp2_rel_decr_prune = 0.80;
@@ -6326,7 +6328,7 @@ void propagate_infty(
     );
     clock_gettime(CLOCK_MONOTONIC, &end_el_singular);
 
-    if (eta_ord_mul > 1.02) {  // #hard-coded
+    if (eta_ord_mul > 1.05) {  // #hard-coded
       eta_ord *= eta_ord_mul * 1.1;  // #hard-coded
       continue;
     } else {
@@ -6399,9 +6401,9 @@ void propagate_along_path(
   // double wp2_rel_decr = 0.85;
   // double wp2_rel_decr = 0.85;
   // double wp2_rel_decr = 0.81;
-  double wp2_rel_decr = 0.80;
+  // double wp2_rel_decr = 0.80;
   // double wp2_rel_decr = 0.77;
-  // double wp2_rel_decr = 0.70;
+  double wp2_rel_decr = 0.70;
   // double wp2_rel_decr = 0.64;
   // double wp2_rel_decr_orig = wp2_rel_decr;
   double wp2_rel_decr_orig = 1;
@@ -6482,6 +6484,7 @@ void propagate_along_path(
     mpc_out_str(logfptr, 10, 0, path[et], MPFR_RNDN);
     fprintf(logfptr, "\n");
     fprintf(logfptr, "tag = %d\n", path_tags[et]);
+    // if (et == 5) exit(0);
 
     // print invariants at eta point
     // if (path_tags[et] == 0) {
@@ -6550,7 +6553,7 @@ void propagate_along_path(
           et-nreg_steps, neta_values, terminal
         );
 
-      //   if (eta_ord_mul > 1.02) {  // #hard-coded
+      //   if (eta_ord_mul > 1.05) {  // #hard-coded
       //     eta_ord *= eta_ord_mul * 1.1;  // #hard-coded
       //     continue;
       //   } else {
@@ -6816,7 +6819,7 @@ void propagate_along_path(
         );
         clock_gettime(CLOCK_MONOTONIC, &end_el_singular);
 
-        if (eta_ord_mul > 1.02) {  // #hard-coded
+        if (eta_ord_mul > 1.05) {  // #hard-coded
           eta_ord *= eta_ord_mul * 1.1;  // #hard-coded
           continue;
         } else {

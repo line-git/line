@@ -603,9 +603,9 @@ int main(int argc, char *argv[])
     &workprec, &eta_ord, &eps_num, &eps_str,
     order, precision, nloops
   );
-  wp2 = (10*workprec)/3; // binary working precision
-  wp2 *= opt_incr_prec * opt_incr_wp;
   eta_ord *= opt_incr_prec * opt_incr_eta_ord;
+  workprec *= opt_incr_prec * opt_incr_wp;
+  wp2 = (10*workprec)/3;  // binary working precision
   // wp2 *= 0.66;
   // eta_ord *= 3;
 
@@ -1477,6 +1477,8 @@ int main(int argc, char *argv[])
     if (print && ep == 0) {
       cout << endl; cout << "DE MATRIX (1st epsilon):" << endl;
       poly_frac_rk2_print(pfmat[0], dim, dim);
+      cout << "demat=";
+      poly_frac_rk2_print_to_math(pfmat[0], dim, dim, roots[0]);
     }
       
     if (ep == 0) {

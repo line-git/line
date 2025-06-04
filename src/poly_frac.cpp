@@ -1275,10 +1275,12 @@ void poly_frac_prune_rel_tol_real_max(
   for (k=0; k<=pf->num_vdeg; k++) {
     if (exp_max - exps_re[k] > wp_bin ) {
       // cout << "prune real of k = " << k << endl;
+      // print_mpc(&pf->coeffs[k]); cout << endl;
       mpfr_set_ui(mpc_realref(pf->coeffs[k]), 0, MPFR_RNDN);
     }
     if (exp_max - exps_im[k] > wp_bin ) {
       // cout << "prune imag of k = " << k << endl;
+      // print_mpc(&pf->coeffs[k]); cout << endl;
       mpfr_set_ui(mpc_imagref(pf->coeffs[k]), 0, MPFR_RNDN);
     }
   }
