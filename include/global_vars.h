@@ -45,5 +45,9 @@ extern FILE *dev_null_fptr;
 // used when rationalizing with continued fractions
 #define MAX_NUM_CONT_FRAC 100
 
+// used to check convergence
+#define CONV_THRESHOLD 1.05
+#define CONV_ORD_INCR 1.15
+
 #endif /* GLOBAL_VARS_H_ */
 

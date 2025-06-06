@@ -1090,7 +1090,7 @@ void interpolate_epsilon_orders_prune(
   mpc_t *sol_eps_ord_red = new mpc_t[eps_num];
   init_rk1_mpc(sol_eps_ord_red, eps_num);
   for (int m=0; m<dim; m++) {
-    // cout << "m = " << m << endl;    
+    // cout << "m = " << m << endl;
     // INTERPOLATE AND FIND LEADING ORDER
 
     // compute epsilon orders with no shift

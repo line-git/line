@@ -115,6 +115,7 @@ int main(int argc, char *argv[])
   double opt_incr_prec = 1;
   double opt_incr_wp = 1;
   double opt_incr_eta_ord = 1;
+  int opt_check_conv = 0;
   int opt_prune_eps_abs = -20, opt_prune_eps_abs_from_terminal = 0;
   int opt_prune_eps_mode = 1, opt_prune_eps_mode_from_terminal = 0;
   int opt_eps_log = 0;
@@ -140,6 +141,7 @@ int main(int argc, char *argv[])
 		{"incr-prec", required_argument, NULL, 0},
 		{"incr-wp", required_argument, NULL, 0},
 		{"incr-eta-ord", required_argument, NULL, 0},
+		{"check-conv", no_argument, NULL, 0},
 		{"prune-eps-abs", required_argument, NULL, 0},
 		{"prune-eps-mode", required_argument, NULL, 0},
 		{"eps-log", required_argument, NULL, 0},
@@ -248,7 +250,7 @@ int main(int argc, char *argv[])
 						fprintf(stderr, "Invalid value for --incr-wp: %s. Must be a positive double.\n", optarg);
 						return 1;
 					}
-					printf("Option --incr-wp has arg: %f\n", opt_incr_prec);
+					printf("Option --incr-wp has arg: %f\n", opt_incr_wp);
         } else if (strcmp("incr-eta-ord", long_options[long_index].name) == 0) {
 					char *endptr;
 					opt_incr_eta_ord = strtod(optarg, &endptr);
@@ -256,8 +258,11 @@ int main(int argc, char *argv[])
 						fprintf(stderr, "Invalid value for --incr-eta-ord: %s. Must be a positive double.\n", optarg);
 						return 1;
 					}
-					printf("Option --incr-eta-ord has arg: %f\n", opt_incr_prec);
-        } else if (strcmp("prune-eps-abs", long_options[long_index].name) == 0) {
+					printf("Option --incr-eta-ord has arg: %f\n", opt_incr_eta_ord);
+				} else if (strcmp("check-conv", long_options[long_index].name) == 0) {
+					printf("Option --check-conv activated.\n");
+					opt_check_conv = 1;
+				} else if (strcmp("prune-eps-abs", long_options[long_index].name) == 0) {
 					char *endptr;
 					long value = strtol(optarg, &endptr, 10);
 					if (*endptr != '\0') {
@@ -1658,6 +1663,7 @@ int main(int argc, char *argv[])
       // filepath_matrix, filepath_roots, // filepath_branch_sing_lab,
       filepath_path, filepath_path_tags, filepath_sol, dir_partial,
       file_ext, logfptr, opt_write, opt_checkpoint,
+      opt_check_conv,
       terminal
     );
     fprintf(terminal, "\033[11D\033[K"); fflush(terminal); usleep(sleep_time);

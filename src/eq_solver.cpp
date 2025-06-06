@@ -1039,6 +1039,8 @@ void propagate_regular(
   int dim, struct poly_frac **mat_ep,
   int npoles, mpc_t *poles,
   int nblocks, int **prof, int **sb_grid, int eta_ord,
+  int opt_check_conv,
+  FILE *logfptr,
   int neta_values_offset, int neta_values_global, FILE *terminal
 ) {
   int print = 0;
@@ -1214,7 +1216,7 @@ void propagate_regular(
     // print_poly(solutions[15]+eta_ord-3, 3);
 
     // CHECK CONVERGENCE
-    cout << "CHECK CONVERGENCE" << endl;
+    // cout << "CHECK CONVERGENCE" << endl;
     mpc_sub(eta_diff, eta_values[et+1], eta_values[et], MPFR_RNDN);
     *eta_ord_mul = 1;
     for (int i=0; i<dim; i++) {
@@ -1225,22 +1227,22 @@ void propagate_regular(
       eff_orders[i] = mpc_rk1_max_non_zero_idx(tmp_vec, eta_ord+1);
       eff_digits[i] = round(estimate_convergence(tmp_vec, eta_ord+1, &eta_diff));
       // #pair
-      if (eff_orders[i] == eta_ord && eff_digits[i] < wp && wp/eff_digits[i] > 1.05) {  // #hard-coded
+      if (eff_orders[i] == eta_ord && eff_digits[i] < wp && wp/eff_digits[i] > CONV_THRESHOLD) {  // #hard-coded
         fprintf(
-          stderr, 
-          "WARNING: MI n. %d has convergence on %f out of %d digits\n",
-          i, eff_digits[i], wp
+          logfptr,
+          "WARNING: et = %d, MI n. %d has convergence on %d out of %d digits\n",
+          neta_values_offset+et, i, (int) eff_digits[i], wp
         );
         if (*eta_ord_mul < wp/eff_digits[i]) {
           *eta_ord_mul = wp/eff_digits[i];
         }
       }
     }
-    if (*eta_ord_mul > 1.05) {  // #hard-coded
-      fprintf(stderr, "WARNING: eta orders must be increased by a factor %f\n", *eta_ord_mul);
+    if (*eta_ord_mul > CONV_THRESHOLD && opt_check_conv) {  // #hard-coded
+      fprintf(terminal, "\nWARNING: eta orders should be increased by a factor %f\n", *eta_ord_mul);
 
       // INCREASE ETA ORDERS
-      int new_eta_ord = eta_ord * (*eta_ord_mul) * 1.1;  // #hard-coded
+      int new_eta_ord = eta_ord * (*eta_ord_mul) * CONV_ORD_INCR;  // #hard-coded
       mpc_t *holder;
       for (int i=0; i<dim; i++) {
         holder = (*solutions)[i];
@@ -1262,11 +1264,9 @@ void propagate_regular(
 
     // MATCH WITH NEXT ETA VALUE
     match_next_eta(sol_next, eta_values, et, *solutions, dim, eta_ord);
-    for (int i=0; i<dim; i++) {
-      cout << "master n." << i << ": ";
-      print_mpc(&(*solutions)[i][0]);
-      cout << endl;
-    }
+    // for (int i=0; i<dim; i++) {
+    //   cout << "master n." << i << ": "; print_mpc(&(*solutions)[i][0]); cout << endl;
+    // }
 
     // cout << endl << "MI computed in eta_" << et+1 << ":" << endl;
     // for (int i=0; i<dim; i++) {
@@ -4615,6 +4615,7 @@ void solve_zero(
   int *is_mass, int *skip_inv, int ninvs, mpc_t *PS_ini, mpc_t *PS_fin, char *eps_str,
   int try_analytic,
   int **bound_behav, int **mi_eig, int *mi_eig_num,
+  int opt_check_conv,
   FILE *logfptr, FILE *terminal
 ) {
   /*
@@ -5540,22 +5541,20 @@ void solve_zero(
         eff_orders[m] = mpc_rk1_max_non_zero_idx(tmp_vec, eta_ord+1);
         eff_digits[m] = round(estimate_convergence(tmp_vec, eta_ord+1, eta_check));
         // #pair
-        if (eff_orders[m] == eta_ord && eff_digits[m] < wp && wp/eff_digits[m] > 1.05) {  // #hard-coded
+        if (eff_orders[m] == eta_ord && eff_digits[m] < wp && wp/eff_digits[m] > CONV_THRESHOLD) {  // #hard-coded
           fprintf(
-            stderr, 
-            "WARNING: MI n. %d has convergence on %f out of %d digits\n",
-            m, eff_digits[m], wp
+            logfptr,
+            "WARNING: lam = %d, MI n. %d has convergence on %d out of %d digits\n",
+            lam, m, (int) eff_digits[m], wp
           );
           if (*eta_ord_mul < wp/eff_digits[m]) {
             *eta_ord_mul = wp/eff_digits[m];
           }
         }
 
-        if (*eta_ord_mul > 1.05) {  // #hard-coded
-          fprintf(stderr, "WARNING: eta orders must be increased by a factor %f\n", *eta_ord_mul);
+        if (*eta_ord_mul > CONV_THRESHOLD && opt_check_conv) {  // #hard-coded
           goto goto_return;
         }
-
 
         min_exp = estimate_convergence(tmp_vec, eta_ord+1, eta_check);
         // cout << "conv = " <<  min_exp << endl;
@@ -5699,7 +5698,7 @@ void solve_zero(
   //////
   // CHECK PRECISION
   //////
-  fprintf(stdout, "CHECK PRECISION\n");
+  // fprintf(stdout, "CHECK PRECISION\n");
   mpc_t *residual_mpc;
   residual_mpc = new mpc_t[dim];
   init_rk1_mpc(residual_mpc, dim);
@@ -5722,14 +5721,14 @@ void solve_zero(
   //   print_mpc(&der_at_target[i][0]); cout << endl;
   // }
 
-  cout << "residual in Fuchsian basis:" << endl;
+  // cout << "residual in Fuchsian basis:" << endl;
   for (int i=0; i<dim; i++) {
     mpc_sub(residual_mpc[i], der_at_target[i][0], DE_times_sol_eval[i], MPFR_RNDN);
     if (!mpc_zero_p(DE_times_sol_eval[i])) {
       mpc_div(residual_mpc[i], residual_mpc[i], DE_times_sol_eval[i], MPFR_RNDN);
     }
     mpc_abs(residual[i], residual_mpc[i], MPFR_RNDN);
-    print_mpfr(&residual[i]); cout << endl;
+    // print_mpfr(&residual[i]); cout << endl;
   }
 
   // RESIDUAL IN ORIGINAL BASIS
@@ -5772,14 +5771,14 @@ void solve_zero(
   // print_rk1_mpc(der_eval, dim);
   // cout << "DE times solution:" << endl;
   // print_rk1_mpc(DE_times_sol_eval, dim);
-  cout << "residual:" << endl;
+  // cout << "residual:" << endl;
   for (int i=0; i<dim; i++) {
     mpc_sub(residual_mpc[i], der_eval[i], DE_times_sol_eval[i], MPFR_RNDN);
     if (!mpc_zero_p(DE_times_sol_eval[i])) {
       mpc_div(residual_mpc[i], residual_mpc[i], DE_times_sol_eval[i], MPFR_RNDN);
     }
     mpc_abs(residual[i], residual_mpc[i], MPFR_RNDN);
-    print_mpfr(&residual[i]); cout << endl;
+    // print_mpfr(&residual[i]); cout << endl;
   }
 
   // copy solution to output
@@ -5983,6 +5982,7 @@ void propagate_infty(
   int nroots, mpc_t *roots,
   int **bound_behav, int **mi_eig, int *mi_eig_num,
   int nloops, int eta_ord,
+  int opt_check_conv,
   FILE *logfptr, FILE *terminal
 ) {
   int print = 0;
@@ -6324,12 +6324,14 @@ void propagate_infty(
       is_mass, skip_inv, ninvs, PS_ini, PS_fin, eps_str,
       0,
       bound_behav_reg, mi_eig, mi_eig_num,
+      opt_check_conv,
       logfptr, terminal
     );
     clock_gettime(CLOCK_MONOTONIC, &end_el_singular);
 
-    if (eta_ord_mul > 1.05) {  // #hard-coded
-      eta_ord *= eta_ord_mul * 1.1;  // #hard-coded
+    if (eta_ord_mul > CONV_THRESHOLD && opt_check_conv) {  // #hard-coded
+      fprintf(terminal, "\nWARNING: eta orders should be increased by a factor %f\n", eta_ord_mul);
+      eta_ord *= eta_ord_mul * CONV_ORD_INCR;  // #hard-coded
       continue;
     } else {
       break;
@@ -6388,6 +6390,7 @@ void propagate_along_path(
   int ninvs, mpc_t *PS_ini, mpc_t *PS_fin, char **symbols,
   int *is_mass, int *skip_inv,
   int **bound_behav, int **mi_eig, int *mi_eig_num,
+  int opt_check_conv,
   FILE *logfptr, FILE *terminal
 ) {
   int print = 0;
@@ -6550,11 +6553,13 @@ void propagate_along_path(
           dim, pfmat,
           nroots, roots,
           nblocks, prof, sb_grid, eta_ord,
+          opt_check_conv,
+          logfptr,
           et-nreg_steps, neta_values, terminal
         );
 
-      //   if (eta_ord_mul > 1.05) {  // #hard-coded
-      //     eta_ord *= eta_ord_mul * 1.1;  // #hard-coded
+      //   if (eta_ord_mul > CONV_THRESHOLD) {  // #hard-coded
+      //     eta_ord *= eta_ord_mul * CONV_ORD_INCR;  // #hard-coded
       //     continue;
       //   } else {
       //     break;
@@ -6815,12 +6820,14 @@ void propagate_along_path(
           is_mass, skip_inv, ninvs, PS_ini, PS_fin, eps_str,
           try_analytic,
           bound_behav, mi_eig, mi_eig_num,
+          opt_check_conv,
           logfptr, terminal
         );
         clock_gettime(CLOCK_MONOTONIC, &end_el_singular);
 
-        if (eta_ord_mul > 1.05) {  // #hard-coded
-          eta_ord *= eta_ord_mul * 1.1;  // #hard-coded
+        if (eta_ord_mul > CONV_THRESHOLD && opt_check_conv) {  // #hard-coded
+          fprintf(terminal, "\nWARNING: eta orders should be increased by a factor %f\n", eta_ord_mul);
+          eta_ord *= eta_ord_mul * CONV_ORD_INCR;  // #hard-coded
           continue;
         } else {
           break;
@@ -6897,6 +6904,7 @@ void propagate_eps(
   // char *filepath_matrix, char *filepath_roots, // char *filepath_branch_sing_lab,
   char *filepath_path, char *filepath_path_tags, char *filepath_sol, char* dir_partial,
   char *file_ext, FILE *logfptr, int opt_write, int opt_checkpoint,
+  int opt_check_conv,
   FILE *terminal
 ) {
   int print = 0;
@@ -6995,6 +7003,7 @@ void propagate_eps(
       nroots[ep], roots[ep],
       bound_behav, mi_eig, mi_eig_num,
       nloops, eta_ord,
+      opt_check_conv,
       logfptr, terminal
     );
 
@@ -7055,6 +7064,7 @@ void propagate_eps(
     ninvs, PS_ini, PS_fin, symbols,
     is_mass, skip_inv,
     bound_behav, mi_eig, mi_eig_num,
+    opt_check_conv,
     logfptr, terminal
   );
   fprintf(logfptr, "\nresult of ep = %d\n", ep);

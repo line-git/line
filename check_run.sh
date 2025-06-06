@@ -137,12 +137,14 @@ run_test() {
   done
 
   # redirect stderr when executing in parallel
+  clean_stderr=0
   if [ "$nthreads" -gt 1 ]; then
     stderr_file=${logfile}_stderr
     if [ -f "${stderr_file}" ]; then
       rm "${stderr_file}"
     fi
     stderr_redirect="${stderr_file}"
+    clean_stderr=1
   else
     echo -e "- \033[36m${card}\033[0m: "
     stderr_redirect="/dev/tty"
@@ -180,6 +182,14 @@ run_test() {
 
   cat "${print_file}"
   rm "${print_file}"
+
+  # clean up stderr file if it was created
+  if [ "$clean_stderr" -eq 1 ]; then
+    # substitute ANSI escape sequences with newlines
+    perl -i -pe 's/\e\[[0-9;]*[A-Za-z]/\n/g;' "$stderr_file"
+    # remove empty lines
+    perl -i -ne 'print if /\S/' "$stderr_file"
+  fi
 
 }
 
