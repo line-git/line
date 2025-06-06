@@ -18,7 +18,7 @@ using namespace std;
 #include "utils.h"
 #include "setup.h"
 #include "tensor_utils.h"
-// #include "conversions.h"
+#include "conversions.h"
 #include "system_analyzer.h"
 #include "eq_solver.h"
 // #include "normalize.h"
@@ -116,6 +116,8 @@ int main(int argc, char *argv[])
   double opt_incr_wp = 1;
   double opt_incr_eta_ord = 1;
   int opt_check_conv = 0;
+  int opt_check_resid = 1;
+  int opt_check_prec = 1;
   int opt_prune_eps_abs = -20, opt_prune_eps_abs_from_terminal = 0;
   int opt_prune_eps_mode = 1, opt_prune_eps_mode_from_terminal = 0;
   int opt_eps_log = 0;
@@ -141,7 +143,9 @@ int main(int argc, char *argv[])
 		{"incr-prec", required_argument, NULL, 0},
 		{"incr-wp", required_argument, NULL, 0},
 		{"incr-eta-ord", required_argument, NULL, 0},
-		{"check-conv", no_argument, NULL, 0},
+		{"check-conv", required_argument, NULL, 0},
+		{"check-resid", required_argument, NULL, 0},
+		{"check-prec", required_argument, NULL, 0},
 		{"prune-eps-abs", required_argument, NULL, 0},
 		{"prune-eps-mode", required_argument, NULL, 0},
 		{"eps-log", required_argument, NULL, 0},
@@ -260,8 +264,32 @@ int main(int argc, char *argv[])
 					}
 					printf("Option --incr-eta-ord has arg: %f\n", opt_incr_eta_ord);
 				} else if (strcmp("check-conv", long_options[long_index].name) == 0) {
-					printf("Option --check-conv activated.\n");
-					opt_check_conv = 1;
+					char *endptr;
+					long value = strtol(optarg, &endptr, 10);
+					if (*endptr != '\0' || !(value == 0 ||  value == 1)) {
+						fprintf(stderr, "Invalid value for --check-conv: %s. Must be 0 or 1.\n", optarg);
+						return 1;
+					}
+					printf("Option --check-conv has arg: %ld\n", value);
+					opt_check_conv = (int)value;
+				} else if (strcmp("check-resid", long_options[long_index].name) == 0) {
+					char *endptr;
+					long value = strtol(optarg, &endptr, 10);
+					if (*endptr != '\0' || !(value == 0 ||  value == 1)) {
+						fprintf(stderr, "Invalid value for --check-resid: %s. Must be 0 or 1.\n", optarg);
+						return 1;
+					}
+					printf("Option --check-resid has arg: %ld\n", value);
+					opt_check_resid = (int)value;
+				} else if (strcmp("check-prec", long_options[long_index].name) == 0) {
+					char *endptr;
+					long value = strtol(optarg, &endptr, 10);
+					if (*endptr != '\0' || !(value == 0 ||  value == 1)) {
+						fprintf(stderr, "Invalid value for --check-prec: %s. Must be 0 or 1.\n", optarg);
+						return 1;
+					}
+					printf("Option --check-prec has arg: %ld\n", value);
+					opt_check_prec = (int)value;
 				} else if (strcmp("prune-eps-abs", long_options[long_index].name) == 0) {
 					char *endptr;
 					long value = strtol(optarg, &endptr, 10);
@@ -1663,7 +1691,7 @@ int main(int argc, char *argv[])
       // filepath_matrix, filepath_roots, // filepath_branch_sing_lab,
       filepath_path, filepath_path_tags, filepath_sol, dir_partial,
       file_ext, logfptr, opt_write, opt_checkpoint,
-      opt_check_conv,
+      opt_check_conv, opt_check_resid,
       terminal
     );
     fprintf(terminal, "\033[11D\033[K"); fflush(terminal); usleep(sleep_time);
@@ -1906,6 +1934,7 @@ int main(int argc, char *argv[])
   init_rk2_mpc(sol_eps_ord, dim, eps_num);
   mpc_t **sol_eps_ord_wrt_cmp;
   LI *MI_wrt_cmp;
+  int est_prec; est_prec = 0;
   if (opt_eps_less) {
     for (int i=0; i<dim; i++) {
       mpc_set(sol_eps_ord[i][0], sol_at_eps[i][0], MPFR_RNDN);
@@ -1914,11 +1943,13 @@ int main(int argc, char *argv[])
   } else {
     cout << endl; cout << "INTERPOLATE EPSILON ORDERS..." << endl;
     interpolate_epsilon_orders(
+      &est_prec,
       sol_eps_ord,
       sol_at_eps, eps_str,
       dim, eps_num, nloops,
-      precision,
-      NULL
+      precision, order,
+      NULL,
+      opt_check_prec
     );
   }
 
@@ -1937,11 +1968,13 @@ int main(int argc, char *argv[])
   init_rk2_mpc(target_eps_ord, dim_target, eps_num);
   if (exit_sing == -1) {
     interpolate_epsilon_orders(
+      &est_prec,
       target_eps_ord,
       target_at_eps, eps_str,
       dim_target, eps_num, nloops,
-      precision,
-      NULL
+      precision, order,
+      NULL,
+      opt_check_prec
     );
 
     fprintf(logfptr, "\nEPSILON ORDERS (target):\n");
@@ -1956,9 +1989,16 @@ int main(int argc, char *argv[])
   
   }
 
+  int prune_eps_green_flag; prune_eps_green_flag = 1;
+  if (opt_check_prec) {
+    if (est_prec < precision) {
+      prune_eps_green_flag = 0;
+    }
+  }
+
   mpc_t **sol_eps_ord_pruned;
   mpc_t **target_eps_ord_pruned;
-  if (opt_prune_eps_mode) {
+  if (opt_prune_eps_mode && prune_eps_green_flag) {
     malloc_rk2_tens(sol_eps_ord_pruned, dim, eps_num);
     init_rk2_mpc(sol_eps_ord_pruned, dim, eps_num);
     malloc_rk2_tens(target_eps_ord_pruned, dim_target, eps_num);
@@ -1967,11 +2007,13 @@ int main(int argc, char *argv[])
       // RELATIVE PRUNE
       cout << endl; cout << "RELATIVE EPSILON PRUNE" << endl;
       interpolate_epsilon_orders_prune(
+        &est_prec,
         sol_eps_ord_pruned,
         sol_at_eps, eps_str,
         dim, eps_num, nloops,
         precision, order,
-        starting_ord
+        starting_ord,
+        opt_check_prec
       );
 
       for (int m=0; m<dim; m++) {
@@ -1991,11 +2033,13 @@ int main(int argc, char *argv[])
         // RELATIVE PRUNE
         cout << endl; cout << "RELATIVE EPSILON PRUNE" << endl;
         interpolate_epsilon_orders_prune(
+          &est_prec,
           target_eps_ord_pruned,
           target_at_eps, eps_str,
           dim_target, eps_num, nloops,
           precision, order,
-          target_starting_ord
+          target_starting_ord,
+          opt_check_prec
         );
   
         for (int m=0; m<dim_target; m++) {
@@ -2055,6 +2099,19 @@ int main(int argc, char *argv[])
   } else {
     // NO PRUNE
     sol_eps_ord_pruned = sol_eps_ord;
+  }
+  if (opt_check_prec) {
+    //////
+    // CHECK PRECISION
+    //////
+    cout << endl; cout << "CHECK PRECISION:" << endl;
+    fprintf(logfptr, "estimated precision (top epsilon order): %d\n", est_prec);
+    if (est_prec < precision) {
+      fprintf(logfptr, "\nWARNING: estimated precision (%d) is lower than the requested one (%d).\n", est_prec, precision);
+      fprintf(logfptr, "Run again increasing precision with the --incr-prec option.\n");
+      fprintf(stderr, "\nWARNING: estimated precision (%d) is lower than the requested one (%d).\n", est_prec, precision);
+      fprintf(stderr, "Run again increasing precision with the --incr-prec option.\n");
+    }
   }
 
   // get minimum exponent

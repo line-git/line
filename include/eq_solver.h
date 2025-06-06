@@ -37,7 +37,7 @@ void propagate_regular(
   int dim, struct poly_frac **mat_ep,
   int npoles, mpc_t *poles,
   int nblocks, int **prof, int **sb_grid, int eta_ord,
-  int opt_check_conv,
+  int opt_check_conv, int opt_check_resid,
   FILE *logfptr,
   int neta_values_offset, int neta_values_global, FILE *terminal
 );
@@ -124,7 +124,7 @@ void solve_zero(
   int *is_mass, int *skip_inv, int ninvs, mpc_t *PS_ini, mpc_t *PS_fin, char *eps_str,
   int try_analytic,
   int **bound_behav, int **mi_eig, int *mi_eig_num,
-  int opt_check_conv,
+  int opt_check_conv, int opt_check_resid,
   FILE *logfptr, FILE *terminal
 );
 
@@ -158,7 +158,7 @@ void propagate_along_path(
   int ninvs, mpc_t *PS_ini, mpc_t *PS_fin, char **symbols,
   int *is_mass, int *skip_inv,
   int **bound_behav, int **mi_eig, int *mi_eig_num,
-  int opt_check_conv,
+  int opt_check_conv, int opt_check_resid,
   FILE *logfptr, FILE *terminal
 );
 
@@ -181,7 +181,7 @@ void propagate_eps(
   // char *filepath_matrix, char *filepath_roots, // char *filepath_branch_sing_lab,
   char *filepath_path, char *filepath_path_tags, char *filepath_sol, char* dir_partial,
   char *file_ext, FILE *logfptr, int opt_write, int opt_checkpoint,
-  int opt_check_conv,
+  int opt_check_conv, int opt_check_resid,
   FILE *terminal
 );
 

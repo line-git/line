@@ -878,12 +878,14 @@ size_t mpfr_get_memory_usage(mpfr_t x) {
 
 void interpolate_epsilon_orders(
   // OUTPUT
+  int *est_prec,
   mpc_t **sol_eps_ord,
   // INPUT
   mpc_t **sol_at_eps, char **eps_str,
   int dim, int eps_num, int loops,
-  int precision,
-  int *starting_ord
+  int precision, int order,
+  int *starting_ord,
+  int opt_check_prec
 ) {
   int wp_bin = (10*precision)/3;
   cout << "precision = " << precision << endl;
@@ -912,7 +914,11 @@ void interpolate_epsilon_orders(
   mpc_t ***inv_eps_mat;
   malloc_rk3_tens(inv_eps_mat, null_pow, eps_num, eps_num);
   init_rk3_mpc(inv_eps_mat, null_pow, eps_num, eps_num);
-  // ex ex_epv;
+  mpc_t ***inv_eps_mat_red;
+  if (opt_check_prec) {
+    malloc_rk3_tens(inv_eps_mat_red, null_pow, eps_num-1, eps_num-1);
+    init_rk3_mpc(inv_eps_mat_red, null_pow, eps_num-1, eps_num-1);
+  }
   for (int ep=0; ep<eps_num; ep++) {
     // ex_epv = (ex) (numeric) eps_list[ep];
     // gnc_to_mpc(&mpc_eps_list[ep], ex_epv*1.);
@@ -926,6 +932,8 @@ void interpolate_epsilon_orders(
   }
   // mp_inverse(inv_eps_mat, eps_mat, eps_num);
   
+  mpc_t top_ord_red; mpc_init3(top_ord_red, wp2, wp2);
+  mpfr_t tmpfr; mpfr_init2(tmpfr, wp2);
   for (int m=0; m<dim; m++) {
     // cout << "m = " << m << endl;
     // cout << "starting order = " << starting_ord[m] << endl;
@@ -939,6 +947,10 @@ void interpolate_epsilon_orders(
       mp_inverse(inv_eps_mat[starting_ord[m]], eps_mat_copy, eps_num);
       // cout << "inv_eps_mat:" << endl;
       // print_rk2_mpc(inv_eps_mat[starting_ord[m]], eps_num, eps_num);
+      if (opt_check_prec) {
+        copy_rk2_mpc(eps_mat_copy, eps_mat, eps_num-1, eps_num-1);
+        mp_inverse(inv_eps_mat_red[starting_ord[m]], eps_mat_copy, eps_num-1);
+      }
       for (int ep=0; ep<eps_num; ep++) {
         eps_mat[ep] -= starting_ord[m];
       }
@@ -957,6 +969,36 @@ void interpolate_epsilon_orders(
     // );
     // cout << "orders:" << endl;
     // print_poly(sol_eps_ord[m], eps_num-1);
+
+    // #pair
+    if (opt_check_prec && !mpc_zero_p(sol_eps_ord[m][order])) {
+      //////
+      // CHECK PRECISION
+      //////
+      // cout << "CHECK PRECISION:" << endl;
+      // compute top order with fewer epsilons
+      mpc_set_ui(top_ord_red, 0, MPFR_RNDN);
+      for (int k=0; k<eps_num-1; k++) {
+        mpc_fma(top_ord_red, inv_eps_mat_red[starting_ord[m]][order][k], sol_at_eps[m][k], top_ord_red, MPFR_RNDN);
+      }
+      // cout << "top order (original): "; print_mpc(&sol_eps_ord[m][order]); cout << endl;
+      // cout << "top order (reduced) : "; print_mpc(&top_ord_red); cout << endl;
+      mpc_sub(top_ord_red, top_ord_red, sol_eps_ord[m][order], MPFR_RNDN);
+      mpc_div(top_ord_red, top_ord_red, sol_eps_ord[m][order], MPFR_RNDN);
+      mpc_abs(tmpfr, top_ord_red, MPFR_RNDN);
+      // cout << "relative difference : "; print_mpfr(&tmpfr); cout << endl;
+      mpfr_log10(tmpfr, tmpfr, MPFR_RNDN);
+      // cout << "log                 : "; print_mpfr(&tmpfr); cout << endl;
+      mpfr_neg(tmpfr, tmpfr, MPFR_RNDN);
+      if (m == 0) {
+        *est_prec = mpfr_get_si(tmpfr, MPFR_RNDN);
+      } else {
+        if (*est_prec > mpfr_get_si(tmpfr, MPFR_RNDN)) {
+          *est_prec = mpfr_get_si(tmpfr, MPFR_RNDN);
+        }
+      }
+      // cout << "estimated precision : " << *est_prec << endl;
+    }
   }
 
   // check
@@ -990,6 +1032,12 @@ void interpolate_epsilon_orders(
     }
   }
 
+  if (opt_check_prec) {
+    mpfr_log10(tmpfr, mpc_realref(mpc_eps_list[eps_num-1]), MPFR_RNDN);
+    mpfr_neg(tmpfr, tmpfr, MPFR_RNDN);
+    *est_prec += mpfr_get_si(tmpfr, MPFR_RNDN) - 1;
+  }
+
   // FREE
   mpc_rk1_clear(mpc_eps_list, eps_num);
   delete[] mpc_eps_list;
@@ -999,18 +1047,25 @@ void interpolate_epsilon_orders(
   del_rk2_tens(eps_mat_copy, eps_num);
   mpc_rk3_clear(inv_eps_mat, null_pow, eps_num, eps_num);
   del_rk3_tens(inv_eps_mat, null_pow, eps_num);
+  mpfr_clear(tmpfr);
+  if (opt_check_prec) {
+    mpc_rk3_clear(inv_eps_mat_red, null_pow, eps_num-1, eps_num-1);
+    del_rk3_tens(inv_eps_mat_red, null_pow, eps_num-1);
+  }
 
 }
 
 
 void interpolate_epsilon_orders_prune(
   // OUTPUT
+  int *est_prec,
   mpc_t **sol_eps_ord,
   // INPUT
   mpc_t **sol_at_eps, char **eps_str,
   int dim, int eps_num, int loops,
   int precision, int order,
-  int *starting_ord
+  int *starting_ord,
+  int opt_check_prec
 ) {
   // cout << "precision = " << precision << endl;
   // cout << "wp_bin = " << wp_bin << endl;
@@ -1089,6 +1144,8 @@ void interpolate_epsilon_orders_prune(
   mpc_t lo; mpc_init3(lo, wp2, wp2);
   mpc_t *sol_eps_ord_red = new mpc_t[eps_num];
   init_rk1_mpc(sol_eps_ord_red, eps_num);
+  mpc_t top_ord_red; mpc_init3(top_ord_red, wp2, wp2);
+  mpfr_t tmpfr; mpfr_init2(tmpfr, wp2);
   for (int m=0; m<dim; m++) {
     // cout << "m = " << m << endl;
     // INTERPOLATE AND FIND LEADING ORDER
@@ -1112,6 +1169,7 @@ void interpolate_epsilon_orders_prune(
       // cout << "lo red  = "; print_mpc(&lo); cout << endl;
       mpc_neg(lo, lo, MPFR_RNDN);
       exp_rel_err_mpc_add(lo, sol_eps_ord[m][0], lo, MPFR_RNDN, wp_bin - eps_exp*s);
+      // cout << "comparing within " << (wp_bin - eps_exp*s)*log10(2) << " digits" << endl;
       // cout << "lo diff = "; print_mpc(&lo); cout << endl;
       
       if (
@@ -1140,9 +1198,14 @@ void interpolate_epsilon_orders_prune(
 
     // prune real and imaginary parts separately
     for (int k=0; k<eps_num-1; k++) {
+      // cout << "k = " << k << endl;
       // check for cancellation
+      // cout << "original: "; print_mpc(&sol_eps_ord[m][order-starting_ord[m]]); cout << endl;
+      // cout << "reduced : "; print_mpc(&sol_eps_ord_red[order-starting_ord[m]]); cout << endl;
       mpc_neg(sol_eps_ord_red[k], sol_eps_ord_red[k], MPFR_RNDN);
       exp_rel_err_mpc_add(lo, sol_eps_ord[m][k], sol_eps_ord_red[k], MPFR_RNDN, wp_bin - eps_exp*(starting_ord[m]+k));
+      mpc_neg(sol_eps_ord_red[k], sol_eps_ord_red[k], MPFR_RNDN);
+      // cout << "diff     :"; print_mpc(&lo); cout << endl;
       if (!mpfr_zero_p(mpc_realref(lo))) {
         // prune real part
         mpfr_set_ui(mpc_realref(sol_eps_ord[m][k]), 0, MPFR_RNDN);
@@ -1153,6 +1216,30 @@ void interpolate_epsilon_orders_prune(
       }
     }
 
+    // #pair
+    if (opt_check_prec && !mpc_zero_p(sol_eps_ord[m][order-starting_ord[m]])) {
+      //////
+      // CHECK PRECISION
+      //////
+      // compute top order with fewer epsilons
+      // cout << "top order (original): "; print_mpc(&sol_eps_ord[m][order-starting_ord[m]]); cout << endl;
+      // cout << "top order (reduced) : "; print_mpc(&sol_eps_ord_red[order-starting_ord[m]]); cout << endl;
+      mpc_sub(top_ord_red, sol_eps_ord_red[order-starting_ord[m]], sol_eps_ord[m][order-starting_ord[m]], MPFR_RNDN);
+      mpc_div(top_ord_red, top_ord_red, sol_eps_ord[m][order-starting_ord[m]], MPFR_RNDN);
+      mpc_abs(tmpfr, top_ord_red, MPFR_RNDN);
+      // cout << "relative difference : "; print_mpfr(&tmpfr); cout << endl;
+      mpfr_log10(tmpfr, tmpfr, MPFR_RNDN);
+      // cout << "log                 : "; print_mpfr(&tmpfr); cout << endl;
+      mpfr_neg(tmpfr, tmpfr, MPFR_RNDN);
+      if (m == 0) {
+        *est_prec = mpfr_get_si(tmpfr, MPFR_RNDN);
+      } else {
+        if (*est_prec > mpfr_get_si(tmpfr, MPFR_RNDN)) {
+          *est_prec = mpfr_get_si(tmpfr, MPFR_RNDN);
+        }
+      }
+      // cout << "estimated precision : " << *est_prec << endl;
+    }
   }
 
   // relative prune of real and imaginary part
@@ -1191,6 +1278,12 @@ void interpolate_epsilon_orders_prune(
     }
   }
 
+  if (opt_check_prec) {
+    mpfr_log10(tmpfr, mpc_realref(mpc_eps_list[eps_num-1]), MPFR_RNDN);
+    mpfr_neg(tmpfr, tmpfr, MPFR_RNDN);
+    *est_prec += mpfr_get_si(tmpfr, MPFR_RNDN) - 1;
+  }
+
   // FREE
   mpc_rk1_clear(mpc_eps_list, eps_num);
   delete[] mpc_eps_list;
@@ -1202,6 +1295,5 @@ void interpolate_epsilon_orders_prune(
   del_rk3_tens(inv_eps_mat, null_pow, eps_num);
   mpc_rk3_clear(inv_eps_mat_red, null_pow, eps_num-1, eps_num-1);
   del_rk3_tens(inv_eps_mat_red, null_pow, eps_num-1);
-  
 }
 

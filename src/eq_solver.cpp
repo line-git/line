@@ -1039,7 +1039,7 @@ void propagate_regular(
   int dim, struct poly_frac **mat_ep,
   int npoles, mpc_t *poles,
   int nblocks, int **prof, int **sb_grid, int eta_ord,
-  int opt_check_conv,
+  int opt_check_conv, int opt_check_resid,
   FILE *logfptr,
   int neta_values_offset, int neta_values_global, FILE *terminal
 ) {
@@ -4615,7 +4615,7 @@ void solve_zero(
   int *is_mass, int *skip_inv, int ninvs, mpc_t *PS_ini, mpc_t *PS_fin, char *eps_str,
   int try_analytic,
   int **bound_behav, int **mi_eig, int *mi_eig_num,
-  int opt_check_conv,
+  int opt_check_conv, int opt_check_resid,
   FILE *logfptr, FILE *terminal
 ) {
   /*
@@ -5694,91 +5694,110 @@ void solve_zero(
     }
   }
 
+  if (opt_check_resid) {
+    //////
+    // CHECK PRECISION
+    //////
+    // fprintf(stdout, "CHECK PRECISION\n");
+    mpc_t *residual_mpc;
+    residual_mpc = new mpc_t[dim];
+    init_rk1_mpc(residual_mpc, dim);
+    mpfr_t *residual;
+    residual = new mpfr_t[dim];
+    init_rk1_mpfr(residual, dim);
+    
+    // RESIDUAL IN FUCHSIAN BASIS
+    poly_frac_rk2_eval_value(mat_ep_eval, mat_ep, roots, eta_check, dim, dim);
+    mpc_rk2_mul_mpc_rk2_slice(
+      DE_times_sol_eval, mat_ep_eval, sol_at_target,
+      dim, dim, 0
+    );
+    // cout << "sol_at_target (fuchs):" << endl;
+    // for (int i=0; i<dim; i++) {
+    //   print_mpc(&sol_at_target[i][0]); cout << endl;
+    // }
+    // cout << "der_at_target (fuchs):" << endl;
+    // for (int i=0; i<dim; i++) {
+    //   print_mpc(&der_at_target[i][0]); cout << endl;
+    // }
 
-  //////
-  // CHECK PRECISION
-  //////
-  // fprintf(stdout, "CHECK PRECISION\n");
-  mpc_t *residual_mpc;
-  residual_mpc = new mpc_t[dim];
-  init_rk1_mpc(residual_mpc, dim);
-  mpfr_t *residual;
-  residual = new mpfr_t[dim];
-  init_rk1_mpfr(residual, dim);
-  
-  // RESIDUAL IN FUCHSIAN BASIS
-  poly_frac_rk2_eval_value(mat_ep_eval, mat_ep, roots, eta_check, dim, dim);
-  mpc_rk2_mul_mpc_rk2_slice(
-    DE_times_sol_eval, mat_ep_eval, sol_at_target,
-    dim, dim, 0
-  );
-  // cout << "sol_at_target (fuchs):" << endl;
-  // for (int i=0; i<dim; i++) {
-  //   print_mpc(&sol_at_target[i][0]); cout << endl;
-  // }
-  // cout << "der_at_target (fuchs):" << endl;
-  // for (int i=0; i<dim; i++) {
-  //   print_mpc(&der_at_target[i][0]); cout << endl;
-  // }
-
-  // cout << "residual in Fuchsian basis:" << endl;
-  for (int i=0; i<dim; i++) {
-    mpc_sub(residual_mpc[i], der_at_target[i][0], DE_times_sol_eval[i], MPFR_RNDN);
-    if (!mpc_zero_p(DE_times_sol_eval[i])) {
-      mpc_div(residual_mpc[i], residual_mpc[i], DE_times_sol_eval[i], MPFR_RNDN);
+    // fprintf(logfptr, "residual in Fuchsian basis:\n");
+    double residual_max;
+    for (int i=0; i<dim; i++) {
+      mpc_sub(residual_mpc[i], der_at_target[i][0], DE_times_sol_eval[i], MPFR_RNDN);
+      if (!mpc_zero_p(DE_times_sol_eval[i])) {
+        mpc_div(residual_mpc[i], residual_mpc[i], DE_times_sol_eval[i], MPFR_RNDN);
+      }
+      mpc_abs(residual[i], residual_mpc[i], MPFR_RNDN);
+      // print_mpfr(&residual[i]); cout << endl;
+      if (i == 0) residual_max = mpfr_get_d(residual[i], MPFR_RNDN);
+      if (mpfr_get_d(residual[i], MPFR_RNDN) > residual_max) {
+        residual_max = mpfr_get_d(residual[i], MPFR_RNDN);
+      }
     }
-    mpc_abs(residual[i], residual_mpc[i], MPFR_RNDN);
-    // print_mpfr(&residual[i]); cout << endl;
-  }
+    fprintf(logfptr, "max residual in Fuchsian basis: %e\n", residual_max);
 
-  // RESIDUAL IN ORIGINAL BASIS
-  // transform derivative at target
-  mpc_rk2_mul_mpc_rk2_slice(
-    der_eval, tmat_eval, der_at_target,
-    dim, dim, 0
-  );
-  // cout << "derivative of tmat:" << endl;
-  for (int i=0; i<dim; i++) {
-    for (int j=0; j<dim; j++) {
-      poly_frac_derivative(&tmp_pf, &tmat[i][j], roots);
-      // poly_frac_print_to_math(&tmp_pf, roots); cout << endl;
-      poly_frac_eval_value(&tmp_mat[i][j], &tmp_pf, roots, eta_check);
+    // RESIDUAL IN ORIGINAL BASIS
+    // transform derivative at target
+    mpc_rk2_mul_mpc_rk2_slice(
+      der_eval, tmat_eval, der_at_target,
+      dim, dim, 0
+    );
+    // cout << "derivative of tmat:" << endl;
+    for (int i=0; i<dim; i++) {
+      for (int j=0; j<dim; j++) {
+        poly_frac_derivative(&tmp_pf, &tmat[i][j], roots);
+        // poly_frac_print_to_math(&tmp_pf, roots); cout << endl;
+        poly_frac_eval_value(&tmp_mat[i][j], &tmp_pf, roots, eta_check);
+      }
     }
-  }
-  mpc_rk2_mul_mpc_rk2_slice(
-    tmp_vec1, tmp_mat, sol_at_target,
-    dim, dim, 0
-  );
-  for (int i=0; i<dim; i++) {
-    mpc_add(der_eval[i], der_eval[i], tmp_vec1[i], MPFR_RNDN);
-  }
+    mpc_rk2_mul_mpc_rk2_slice(
+      tmp_vec1, tmp_mat, sol_at_target,
+      dim, dim, 0
+    );
+    for (int i=0; i<dim; i++) {
+      mpc_add(der_eval[i], der_eval[i], tmp_vec1[i], MPFR_RNDN);
+    }
 
-  // apply DE matrix to solution at target
-  poly_frac_rk2_eval_value(mat_ep_eval, mat_ep_orig, roots, eta_check, dim, dim);
-  mpc_rk2_mul_mpc_rk1(
-    DE_times_sol_eval, mat_ep_eval, tmp_vec,
-    dim, dim
-  );
-  // cout << "mat (orig):" << endl;
-  // poly_frac_rk2_print_to_math(mat_ep_orig, dim, dim, roots);
-  // cout << "matEval (orig):" << endl;
-  // print_rk2_mpc(mat_ep_eval, dim, dim);
-  
-  // int wp_bin = - mpfr_log2_int(mpfr_tol);
-  mpc_rk1_prune_re_im(der_eval, wp_bin, dim);
-  mpc_rk1_prune_re_im(DE_times_sol_eval, wp_bin, dim);
-  // cout << "derivative:" << endl;
-  // print_rk1_mpc(der_eval, dim);
-  // cout << "DE times solution:" << endl;
-  // print_rk1_mpc(DE_times_sol_eval, dim);
-  // cout << "residual:" << endl;
-  for (int i=0; i<dim; i++) {
-    mpc_sub(residual_mpc[i], der_eval[i], DE_times_sol_eval[i], MPFR_RNDN);
-    if (!mpc_zero_p(DE_times_sol_eval[i])) {
-      mpc_div(residual_mpc[i], residual_mpc[i], DE_times_sol_eval[i], MPFR_RNDN);
+    // apply DE matrix to solution at target
+    poly_frac_rk2_eval_value(mat_ep_eval, mat_ep_orig, roots, eta_check, dim, dim);
+    mpc_rk2_mul_mpc_rk1(
+      DE_times_sol_eval, mat_ep_eval, tmp_vec,
+      dim, dim
+    );
+    // cout << "mat (orig):" << endl;
+    // poly_frac_rk2_print_to_math(mat_ep_orig, dim, dim, roots);
+    // cout << "matEval (orig):" << endl;
+    // print_rk2_mpc(mat_ep_eval, dim, dim);
+    
+    // int wp_bin = - mpfr_log2_int(mpfr_tol);
+    mpc_rk1_prune_re_im(der_eval, wp_bin, dim);
+    mpc_rk1_prune_re_im(DE_times_sol_eval, wp_bin, dim);
+    // cout << "derivative:" << endl;
+    // print_rk1_mpc(der_eval, dim);
+    // cout << "DE times solution:" << endl;
+    // print_rk1_mpc(DE_times_sol_eval, dim);
+    // fprintf(logfptr, "residual:\n");
+    for (int i=0; i<dim; i++) {
+      mpc_sub(residual_mpc[i], der_eval[i], DE_times_sol_eval[i], MPFR_RNDN);
+      if (!mpc_zero_p(DE_times_sol_eval[i])) {
+        mpc_div(residual_mpc[i], residual_mpc[i], DE_times_sol_eval[i], MPFR_RNDN);
+      }
+      mpc_abs(residual[i], residual_mpc[i], MPFR_RNDN);
+      // print_mpfr(&residual[i]); cout << endl;
+      if (i == 0) residual_max = mpfr_get_d(residual[i], MPFR_RNDN);
+      if (mpfr_get_d(residual[i], MPFR_RNDN) > residual_max) {
+        residual_max = mpfr_get_d(residual[i], MPFR_RNDN);
+      }
     }
-    mpc_abs(residual[i], residual_mpc[i], MPFR_RNDN);
-    // print_mpfr(&residual[i]); cout << endl;
+    fprintf(logfptr, "max residual: %e\n", residual_max);
+
+    double tol_double; tol_double = mpfr_get_d(mpfr_tol, MPFR_RNDN);
+    if (residual_max > pow(tol_double, RESIDUAL_THRESHOLD)) {
+      fprintf(logfptr, "\nWARNING: residual is too large: %e. Run again with --incr-prec > 1\n", residual_max);
+      fprintf(terminal, "\nWARNING: residual is too large: %e. Run again with --incr-prec > 1\n", residual_max);
+      exit(0);
+    }
   }
 
   // copy solution to output
@@ -5982,7 +6001,7 @@ void propagate_infty(
   int nroots, mpc_t *roots,
   int **bound_behav, int **mi_eig, int *mi_eig_num,
   int nloops, int eta_ord,
-  int opt_check_conv,
+  int opt_check_conv, int opt_check_resid,
   FILE *logfptr, FILE *terminal
 ) {
   int print = 0;
@@ -6190,6 +6209,14 @@ void propagate_infty(
   }
 
   // NORMALIZE
+  // copy original matrix
+  struct poly_frac **pfmat_infty_norm;
+  malloc_rk2_tens(pfmat_infty_norm, dim, dim);
+  poly_frac_rk2_build(pfmat_infty_norm, dim, dim);
+  poly_frac_rk2_set_pf_rk2(
+    pfmat_infty_norm, pfmat_infty,
+    dim, dim
+  );
   struct poly_frac **tmat, **inv_tmat;
   malloc_rk2_tens(tmat, dim, dim);
   poly_frac_rk2_build(tmat, dim, dim);
@@ -6209,7 +6236,7 @@ void propagate_infty(
   pf_NormalizeMat(
     tmat, inv_tmat,
     &num_classes, eq_class, &eig_list, eig_grid,
-    pfmat_infty,
+    pfmat_infty_norm,
     dim, nblocks, prof, sb_grid,
     roots_infty, nroots,
     terminal
@@ -6231,7 +6258,7 @@ void propagate_infty(
   // cout << "inv tmat:" << endl;
   // poly_frac_rk2_print(inv_tmat, dim, dim);
   cout << "mat=";
-  poly_frac_rk2_print_to_math(pfmat_infty, dim, dim, roots_infty);
+  poly_frac_rk2_print_to_math(pfmat_infty_norm, dim, dim, roots_infty);
 
   cout << endl << "EIGENVALUES:" << endl;
   print_eigenvalues(
@@ -6267,7 +6294,7 @@ void propagate_infty(
   int **sb_grid_norm;
   generate_sub_diag_grid(
     &sb_grid_norm,
-    prof, nblocks, pfmat_infty
+    prof, nblocks, pfmat_infty_norm
   );
 
   if (print) {
@@ -6313,7 +6340,7 @@ void propagate_infty(
       &eta_ord_mul,
       sol,
       bound,
-      dim, pfmat_infty, pfmat_infty,
+      dim, pfmat_infty_norm, pfmat_infty,
       tmat, inv_tmat,
       nroots, roots_infty,
       &bound_pt,
@@ -6324,7 +6351,7 @@ void propagate_infty(
       is_mass, skip_inv, ninvs, PS_ini, PS_fin, eps_str,
       0,
       bound_behav_reg, mi_eig, mi_eig_num,
-      opt_check_conv,
+      opt_check_conv, opt_check_resid,
       logfptr, terminal
     );
     clock_gettime(CLOCK_MONOTONIC, &end_el_singular);
@@ -6390,7 +6417,7 @@ void propagate_along_path(
   int ninvs, mpc_t *PS_ini, mpc_t *PS_fin, char **symbols,
   int *is_mass, int *skip_inv,
   int **bound_behav, int **mi_eig, int *mi_eig_num,
-  int opt_check_conv,
+  int opt_check_conv, int opt_check_resid,
   FILE *logfptr, FILE *terminal
 ) {
   int print = 0;
@@ -6553,7 +6580,7 @@ void propagate_along_path(
           dim, pfmat,
           nroots, roots,
           nblocks, prof, sb_grid, eta_ord,
-          opt_check_conv,
+          opt_check_conv, opt_check_resid,
           logfptr,
           et-nreg_steps, neta_values, terminal
         );
@@ -6820,7 +6847,7 @@ void propagate_along_path(
           is_mass, skip_inv, ninvs, PS_ini, PS_fin, eps_str,
           try_analytic,
           bound_behav, mi_eig, mi_eig_num,
-          opt_check_conv,
+          opt_check_conv, opt_check_resid,
           logfptr, terminal
         );
         clock_gettime(CLOCK_MONOTONIC, &end_el_singular);
@@ -6904,7 +6931,7 @@ void propagate_eps(
   // char *filepath_matrix, char *filepath_roots, // char *filepath_branch_sing_lab,
   char *filepath_path, char *filepath_path_tags, char *filepath_sol, char* dir_partial,
   char *file_ext, FILE *logfptr, int opt_write, int opt_checkpoint,
-  int opt_check_conv,
+  int opt_check_conv, int opt_check_resid,
   FILE *terminal
 ) {
   int print = 0;
@@ -7003,7 +7030,7 @@ void propagate_eps(
       nroots[ep], roots[ep],
       bound_behav, mi_eig, mi_eig_num,
       nloops, eta_ord,
-      opt_check_conv,
+      opt_check_conv, opt_check_resid,
       logfptr, terminal
     );
 
@@ -7064,7 +7091,7 @@ void propagate_eps(
     ninvs, PS_ini, PS_fin, symbols,
     is_mass, skip_inv,
     bound_behav, mi_eig, mi_eig_num,
-    opt_check_conv,
+    opt_check_conv, opt_check_resid,
     logfptr, terminal
   );
   fprintf(logfptr, "\nresult of ep = %d\n", ep);

@@ -125,22 +125,26 @@ size_t mpfr_get_memory_usage(mpfr_t x);
 
 void interpolate_epsilon_orders(
   // OUTPUT
-  mpc_t **sol_eps_ord,
-  // INPUT
-  mpc_t **sol_at_eps, char **eps_str,
-  int dim, int eps_num, int loops,
-  int precision,
-  int *starting_ord
-);
-
-void interpolate_epsilon_orders_prune(
-  // OUTPUT
+  int *est_prec,
   mpc_t **sol_eps_ord,
   // INPUT
   mpc_t **sol_at_eps, char **eps_str,
   int dim, int eps_num, int loops,
   int precision, int order,
-  int *starting_ord
+  int *starting_ord,
+  int opt_check_prec
+);
+
+void interpolate_epsilon_orders_prune(
+  // OUTPUT
+  int *est_prec,
+  mpc_t **sol_eps_ord,
+  // INPUT
+  mpc_t **sol_at_eps, char **eps_str,
+  int dim, int eps_num, int loops,
+  int precision, int order,
+  int *starting_ord,
+  int opt_check_prec
 );
 
 #endif
