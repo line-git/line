@@ -3378,9 +3378,10 @@ void get_path_PS_infty(
   // SET PATH TAGS
   *path_tags = new int[*neta_vals];
   (*path_tags)[0] = 1;
-  for (int k=1; k<*neta_vals-1; k++) {
-    (*path_tags)[k] = 1;
+  for (int k=1; k<*neta_vals-2; k++) {
+    (*path_tags)[k] = 2;
   }
+  (*path_tags)[*neta_vals-2] = 1;
   (*path_tags)[*neta_vals-1] = 0;
 
 }
@@ -3427,9 +3428,10 @@ void get_path_PS_infty_mp(
   // SET PATH TAGS
   *path_tags = new int[*neta_vals];
   (*path_tags)[0] = 1;
-  for (int k=1; k<*neta_vals-1; k++) {
-    (*path_tags)[k] = 1;
+  for (int k=1; k<*neta_vals-2; k++) {
+    (*path_tags)[k] = 2;
   }
+  (*path_tags)[*neta_vals-2] = 1;
   (*path_tags)[*neta_vals-1] = 0;
 
 }
