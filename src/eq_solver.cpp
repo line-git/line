@@ -263,19 +263,12 @@ void solution_derivative(
     // DERIVATIVE OF LOG POWER
     for (int lam, n=0; n<num_eig; n++) {
       lam = eig_labels[n];
-      k_start = (lam == lam0) ? 1 : 0;
       for (int l=0; l<log_prof[lam]-2; l++) {
-        for (int k=k_start; k<=eta_ord; k++) {
-          mpc_mul_ui(
-            tmpc,
-            sol[lam][l+1][i][k],
-            l+1,
-            MPFR_RNDN
-          );
+        for (int k=0; k<=eta_ord; k++) {
           mpc_add(
             der[lam][l][i][k],
             der[lam][l][i][k],
-            tmpc,
+            sol[lam][l+1][i][k],
             MPFR_RNDN
           );
         }
@@ -5721,8 +5714,12 @@ void solve_zero(
     // for (int i=0; i<dim; i++) {
     //   print_mpc(&der_at_target[i][0]); cout << endl;
     // }
+    // cout << "DE_times_sol_eval (fuchs):" << endl;
+    // for (int i=0; i<dim; i++) {
+    //   print_mpc(&DE_times_sol_eval[i]); cout << endl;
+    // }
 
-    fprintf(logfptr, "residual in Fuchsian basis:\n");
+    // fprintf(logfptr, "residual in Fuchsian basis:\n");
     double residual_max;
     for (int i=0; i<dim; i++) {
       mpc_sub(residual_mpc[i], der_at_target[i][0], DE_times_sol_eval[i], MPFR_RNDN);
@@ -5730,7 +5727,7 @@ void solve_zero(
         mpc_div(residual_mpc[i], residual_mpc[i], DE_times_sol_eval[i], MPFR_RNDN);
       }
       mpc_abs(residual[i], residual_mpc[i], MPFR_RNDN);
-      print_mpfr(&residual[i]); cout << endl;
+      // print_mpfr(&residual[i]); cout << endl;
       if (i == 0) residual_max = mpfr_get_d(residual[i], MPFR_RNDN);
       if (mpfr_get_d(residual[i], MPFR_RNDN) > residual_max) {
         residual_max = mpfr_get_d(residual[i], MPFR_RNDN);
@@ -5778,14 +5775,14 @@ void solve_zero(
     // print_rk1_mpc(der_eval, dim);
     // cout << "DE times solution:" << endl;
     // print_rk1_mpc(DE_times_sol_eval, dim);
-    fprintf(logfptr, "residual:\n");
+    // fprintf(logfptr, "residual:\n");
     for (int i=0; i<dim; i++) {
       mpc_sub(residual_mpc[i], der_eval[i], DE_times_sol_eval[i], MPFR_RNDN);
       if (!mpc_zero_p(DE_times_sol_eval[i])) {
         mpc_div(residual_mpc[i], residual_mpc[i], DE_times_sol_eval[i], MPFR_RNDN);
       }
       mpc_abs(residual[i], residual_mpc[i], MPFR_RNDN);
-      print_mpfr(&residual[i]); cout << endl;
+      // print_mpfr(&residual[i]); cout << endl;
       if (i == 0) residual_max = mpfr_get_d(residual[i], MPFR_RNDN);
       if (mpfr_get_d(residual[i], MPFR_RNDN) > residual_max) {
         residual_max = mpfr_get_d(residual[i], MPFR_RNDN);
@@ -5797,7 +5794,7 @@ void solve_zero(
     if (residual_max > pow(tol_double, RESIDUAL_THRESHOLD)) {
       fprintf(logfptr,  "\nWARNING: residual is too large: %e. Run again increasing precision with the --incr-prec option.\n", residual_max);
       fprintf(terminal, "\nWARNING: residual is too large: %e. Run again increasing precision with the --incr-prec option.\n", residual_max);
-      // exit(1);
+      exit(1);
     }
   }
 
@@ -6713,6 +6710,9 @@ void propagate_along_path(
       }
       if (crossr == 1) {
         mpc_sub(target_pt, path[et+1], roots[sing_lab[count_sings]], MPFR_RNDN);
+      }
+      if (print) {
+      cout << "bound_pt = "; print_mpc(&bound_pt); cout << endl;
       }
 
       // prune
