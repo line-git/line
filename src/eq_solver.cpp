@@ -1038,7 +1038,7 @@ void propagate_regular(
   int neta_values_offset, int neta_values_global, FILE *terminal
 ) {
   int print = 0;
-  int prt_ord = 10;
+  int prt_ord = 5;
 
   mpc_t eta_shift;
   mpc_init3(eta_shift, wp2, wp2);
@@ -3501,6 +3501,29 @@ void match_sol_around_zero(
           }
         }
 
+        int constr_found_non_zero = 0;
+        for (int lam, n=0; n<num_cum_eig; n++) {
+          lam = cum_eig[n];
+          if (block_log_len[lam] == 0) {
+            continue;
+          }
+          if (lam != lam0) {  // #suspicous: might not hold when more than one lambda is present in the boundary!
+            continue;
+          }
+          for (int jc, j=0; j<match_constr_dim[lam]; j++) {
+            jc = match_constr_idx[lam][j];
+            if (coeff_is_null[jc] == 1) {continue;}
+            if (!mpc_lessthan_tol(constr[free_constr+count_mi_idx][jc])) {
+              constr_found_non_zero = 1;
+              break;
+            }
+          }
+        }
+        if (!constr_found_non_zero) {
+          if (print) cout << "constraint is zero, skip to next" << endl;
+          continue;
+        }
+
         // update constant term
         mpc_set(csvd_constr_const_term[free_constr+count_mi_idx], ext_constr_const_term[i], MPFR_RNDN);
 
@@ -3589,24 +3612,6 @@ void match_sol_around_zero(
           constr_found_indep = 1;
         }
 
-        // int constr_found_non_zero = 0;
-        // for (int lam, n=0; n<num_cum_eig; n++) {
-        //   lam = cum_eig[n];
-        //   if (block_log_len[lam] == 0) {
-        //     continue;
-        //   }
-        //   if (lam != lam0) {  // #suspicous: might not hold when more than one lambda is present in the boundary!
-        //     continue;
-        //   }
-        //   for (int jc, j=0; j<match_constr_dim[lam]; j++) {
-        //     jc = match_constr_idx[lam][j];
-        //     if (coeff_is_null[jc] == 1) {continue;}
-        //     if (!mpc_lessthan_tol(constr[free_constr+count_mi_idx][jc])) {
-        //       constr_found_non_zero = 1;
-        //       break;
-        //     }
-        //   }
-        // }
         
         if (constr_found_indep) {
           count_mi_idx++;
@@ -4625,7 +4630,7 @@ void solve_zero(
   */
   int print = 0;
   int debug = 0;
-  int prt_ord = 10;
+  int prt_ord = 5;
 
   // check whether matching point is zero
   int match_in_zero;
