@@ -2218,9 +2218,11 @@ void process_Kira_IBP_target(
   int mi_idx, mi_count, c = 0, line_count = 0;
   int topo_len = strlen(topo_name);
 
+  
   //////
   // DEAL WITH TARGETS THAT ARE MIs
   //////
+  // #pair
   int targets_are_MIs = 1;
   for (int m=0; m<dim_target; m++) {
 
@@ -4150,6 +4152,29 @@ void call_kira(
       cout << "Kira output already exists" << endl;
     } else {
       execute = 1;
+    }
+  }
+
+  if (execute) {    
+    // CHECK WHETHER ALL USER TARGETS ARE MIs
+    // #pair
+    int targets_are_MIs = 1, mi_idx;
+    for (int m=0; m<dim_target; m++) {
+      // check whether contribution is a master
+      mi_idx = LI_rk1_get_idx(MI_target[m].pows_str, *MI, *dim);
+      if (mi_idx != -1) {
+        // contribution is a master
+      } else {
+        // contribution is not a master
+        targets_are_MIs = 0;
+        break;
+      }
+    }
+
+    if (targets_are_MIs) {
+      // all user targets are MIs
+      cout << "all targets are MIs, skip call to Kira" << endl;
+      execute = 0;
     }
   }
 
